@@ -1,0 +1,77 @@
+```mermaid
+flowchart TB
+    subgraph Frontend["Frontend (Single HTML File)"]
+        UI[User Interface]
+        URLForm[URL Input Form]
+        ResultsDisplay[Analysis Display Dashboard]
+        LayoutPreviews[3 Layout Preview Cards]
+        AnnotationUI[Pros/Cons Text Boxes]
+        HistoryList[Analysis History List]
+    end
+
+    subgraph Processing["Processing Layer (JavaScript)"]
+        URLValidator[URL Validation]
+        ScreenshotEngine[Screenshot Capture: Puppeteer/Playwright API]
+        HTMLParser[HTML/CSS Parser]
+        AssetExtractor[Asset Extraction Engine]
+        TemplateEngine[Template Selection & Customization]
+        ComparisonEngine[Guidelines Comparison Engine]
+    end
+
+    subgraph ClaudeAPI["Claude API Integration"]
+        VisionAPI[Claude Vision API: Screenshot Analysis]
+        TextAPI[Claude Text API: Industry Detection & Analysis]
+        LayoutGenerator[Claude: Template Selection Logic]
+    end
+
+    subgraph DataLayer["Data Storage (MVP: localStorage)"]
+        AnalysisDB[(Analyses History)]
+        GuidelinesDB[(Industry Guidelines JSON)]
+        TemplatesDB[(Production Templates)]
+        AssetsCache[(Downloaded Assets)]
+    end
+
+    subgraph ExternalServices["External Services"]
+        TargetWebsite[Target Website]
+        ScreenshotService[Screenshot API Service]
+        ImageProxy[Image Proxy/CORS Handler]
+    end
+
+    UI --> URLForm
+    URLForm --> URLValidator
+    URLValidator --> ScreenshotEngine
+    URLValidator --> HTMLParser
+
+    ScreenshotEngine --> TargetWebsite
+    ScreenshotEngine --> ScreenshotService
+    HTMLParser --> TargetWebsite
+    HTMLParser --> AssetExtractor
+
+    AssetExtractor --> ImageProxy
+    AssetExtractor --> VisionAPI
+    ScreenshotEngine --> VisionAPI
+
+    VisionAPI --> TextAPI
+    TextAPI --> GuidelinesDB
+    TextAPI --> ComparisonEngine
+
+    ComparisonEngine --> TemplateEngine
+    TemplateEngine --> TemplatesDB
+    TemplateEngine --> LayoutGenerator
+
+    LayoutGenerator --> LayoutPreviews
+    ComparisonEngine --> ResultsDisplay
+
+    ResultsDisplay --> AnnotationUI
+    AnnotationUI --> AnalysisDB
+    LayoutPreviews --> AnalysisDB
+
+    AnalysisDB --> HistoryList
+    HistoryList --> ResultsDisplay
+
+    AssetExtractor --> AssetsCache
+
+    style ClaudeAPI fill:#6366f1,color:#fff
+    style Frontend fill:#ec4899,color:#fff
+    style DataLayer fill:#9333ea,color:#fff
+```

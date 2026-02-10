@@ -1,0 +1,69 @@
+```mermaid
+flowchart TD
+    Start([User Opens App]) --> URLInput[Enter Website URL]
+    URLInput --> ValidateURL{Valid URL?}
+    ValidateURL -->|No| ErrorMsg[Show Error Message]
+    ErrorMsg --> URLInput
+    ValidateURL -->|Yes| ShowLoading[Show Loading State]
+
+    ShowLoading --> TakeScreenshot[Capture Full-Page Screenshot]
+    TakeScreenshot --> FetchHTML[Fetch Website HTML/CSS]
+    FetchHTML --> ExtractAssets[Extract Assets: Colors, Fonts, Images, Copy]
+    ExtractAssets --> ClaudeVision[Claude Vision API: Analyze Screenshot]
+    ClaudeVision --> ClaudeAnalysis[Claude: Generate Brand Identity Analysis]
+    ClaudeAnalysis --> IndustryDetect[Claude: Detect Industry]
+
+    IndustryDetect --> LoadGuidelines[Load Industry Guidelines from DB/JSON]
+    LoadGuidelines --> CompareGuidelines[Compare Site Against Guidelines]
+    CompareGuidelines --> SelectTemplates[Select 3 Template Combinations]
+    SelectTemplates --> GenerateLayouts[Generate 3 HTML Layouts with Extracted Assets]
+
+    GenerateLayouts --> DisplayResults[Display Analysis Dashboard:<br/>Analysis + 3 Layout Preview Cards]
+    DisplayResults --> UserReview{User Action?}
+
+    UserReview -->|Add Pros/Cons| AnnotationModal[Open Annotation Text Boxes]
+    AnnotationModal --> SaveAnnotations[Save User Annotations to localStorage]
+    SaveAnnotations --> DisplayResults
+
+    UserReview -->|Preview Layout| PreviewModal[Open Layout Preview Modal]
+    PreviewModal --> DisplayResults
+
+    UserReview -->|Download Layout| DownloadHTML[Download HTML/CSS File]
+    DownloadHTML --> DisplayResults
+
+    UserReview -->|Produce Proposed Layout| ProduceLayout[Generate Refined Homepage<br/>+ Platform-Specific Export]
+    ProduceLayout --> ExportPlatform{Export for Platform?}
+    ExportPlatform -->|Squarespace| ExportSquarespace[Export with Squarespace Build Tools]
+    ExportPlatform -->|WordPress| ExportWordPress[Export with WordPress Build Tools]
+    ExportPlatform -->|Webflow| ExportWebflow[Export with Webflow Build Tools]
+    ExportPlatform -->|Wix| ExportWix[Export with Wix Build Tools]
+    ExportPlatform -->|Custom| ExportCustom[Export with Custom Build Tools]
+
+    ExportSquarespace --> DownloadProduction[Download Production-Ready Code]
+    ExportWordPress --> DownloadProduction
+    ExportWebflow --> DownloadProduction
+    ExportWix --> DownloadProduction
+    ExportCustom --> DownloadProduction
+    DownloadProduction --> DisplayResults
+
+    UserReview -->|Next Site| SaveAnalysis[Save Current Analysis to Database/localStorage]
+    SaveAnalysis --> URLInput
+
+    UserReview -->|View History| HistoryView[Display Saved Analyses List]
+    HistoryView --> SelectPrevious{Select Analysis?}
+    SelectPrevious -->|Yes| LoadAnalysis[Load Analysis from Storage]
+    LoadAnalysis --> DisplayResults
+    SelectPrevious -->|No| URLInput
+
+    UserReview -->|Export Report| GenerateReport[Generate PDF/Markdown Report]
+    GenerateReport --> DownloadReport[Download Report]
+    DownloadReport --> DisplayResults
+
+    style Start fill:#9333ea,color:#fff
+    style DisplayResults fill:#ec4899,color:#fff
+    style ClaudeVision fill:#6366f1,color:#fff
+    style ClaudeAnalysis fill:#6366f1,color:#fff
+    style IndustryDetect fill:#6366f1,color:#fff
+    style ProduceLayout fill:#10b981,color:#fff
+    style ExportPlatform fill:#fbbf24,color:#000
+```

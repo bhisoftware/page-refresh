@@ -1,0 +1,43 @@
+```mermaid
+flowchart LR
+    subgraph Phase1["MVP: localStorage Only"]
+        LS1[analyses: Array of Analysis Objects]
+        LS2[guidelines: Industry Guidelines JSON]
+        LS3[templates: Template Library]
+        LS4[userPreferences: Settings]
+    end
+
+    subgraph Phase2["Hybrid: localStorage + JSON Files"]
+        LS5[analyses: Array]
+        JSON1[guidelines.json: Fetch from Server]
+        JSON2[templates.json: Fetch from Server]
+        LS6[userPreferences: Settings]
+    end
+
+    subgraph Phase3["Backend Database"]
+        DB1[(Analyses Table)]
+        DB2[(Guidelines Table)]
+        DB3[(Industries Table)]
+        DB4[(Templates Table)]
+        DB5[(UserAnnotations Table)]
+        DB6[(Assets Table)]
+    end
+
+    Phase1 --> Phase2
+    Phase2 --> Phase3
+
+    LS1 -.Migrate.-> LS5
+    LS2 -.Migrate.-> JSON1
+    LS3 -.Migrate.-> JSON2
+    LS4 -.Migrate.-> LS6
+
+    LS5 -.Migrate.-> DB1
+    JSON1 -.Migrate.-> DB2
+    JSON1 -.Migrate.-> DB3
+    JSON2 -.Migrate.-> DB4
+    LS6 -.Migrate.-> DB5
+
+    style Phase1 fill:#fbbf24,color:#000
+    style Phase2 fill:#f59e0b,color:#000
+    style Phase3 fill:#10b981,color:#fff
+```

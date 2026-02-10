@@ -1,0 +1,51 @@
+```mermaid
+sequenceDiagram
+    participant User
+    participant App as Website Analysis App
+    participant Screenshot as Screenshot Service
+    participant Target as Target Website
+    participant Vision as Claude Vision API
+    participant Text as Claude Text API
+    participant DB as Guidelines DB
+    participant Templates as Template Library
+
+    User->>App: Enter URL
+    App->>Target: Fetch HTML/CSS
+    Target-->>App: Return HTML/CSS
+    App->>Screenshot: Capture Full Page
+    Screenshot->>Target: Load & Screenshot
+    Screenshot-->>App: Return Screenshot
+
+    App->>App: Extract Assets (colors, fonts, images, copy)
+
+    par Parallel Analysis
+        App->>Vision: Analyze Screenshot + "Describe brand identity, layout, hierarchy"
+        Vision-->>App: Brand Analysis + Visual Insights
+    and
+        App->>Text: Analyze HTML + "Detect industry from content"
+        Text-->>App: Industry Classification
+    end
+
+    App->>DB: Load Guidelines for Industry
+    DB-->>App: Pros/Cons Checklist
+
+    App->>Text: "Compare site against guidelines: {pros}, {cons}"
+    Text-->>App: Guideline Comparison Results
+
+    App->>Text: "Select 3 template combinations for {industry} using {assets}"
+    Text-->>App: Template Recommendations
+
+    App->>Templates: Load Recommended Templates
+    Templates-->>App: Template HTML/CSS
+
+    App->>App: Inject Extracted Assets into Templates
+    App->>Screenshot: Generate Previews of 3 Layouts
+    Screenshot-->>App: Layout Screenshots
+
+    App->>User: Display Analysis + 3 Layout Options
+    User->>App: Add Annotations (Pros/Cons)
+    App->>DB: Save Analysis + Annotations
+
+    User->>App: Click "Next Site"
+    App->>User: Show URL Input
+```

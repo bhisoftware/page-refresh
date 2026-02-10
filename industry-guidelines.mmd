@@ -1,0 +1,43 @@
+```mermaid
+flowchart TD
+    Start([Website Analysis Triggered]) --> ExtractContent[Extract: Title, Meta, H1s, Nav, Body Content]
+    ExtractContent --> ClaudeDetect[Claude: Analyze Content for Industry Keywords]
+
+    ClaudeDetect --> IndustryResult{Industry Detected?}
+    IndustryResult -->|Yes, High Confidence| LoadGuidelines[Load Industry-Specific Guidelines]
+    IndustryResult -->|Yes, Low Confidence| ShowOptions[Show Top 3 Industry Options to User]
+    IndustryResult -->|No| DefaultGuidelines[Load Generic Web Design Guidelines]
+
+    ShowOptions --> UserSelect{User Selects Industry?}
+    UserSelect -->|Yes| LoadGuidelines
+    UserSelect -->|No| DefaultGuidelines
+
+    LoadGuidelines --> CheckSource{Guidelines Source?}
+    CheckSource -->|Hardcoded| LoadHardcoded[Load from industries.js]
+    CheckSource -->|Database| FetchDB[Fetch from Backend API]
+    CheckSource -->|Hybrid| MergeData[Merge Hardcoded + Database]
+
+    LoadHardcoded --> ApplyGuidelines[Apply Guidelines to Analysis]
+    FetchDB --> ApplyGuidelines
+    MergeData --> ApplyGuidelines
+    DefaultGuidelines --> ApplyGuidelines
+
+    ApplyGuidelines --> CompareWebsite[Compare Website Against Each Guideline]
+    CompareWebsite --> ClaudeScore[Claude: Score Each Guideline Item]
+
+    ClaudeScore --> GenerateReport[Generate Pros/Cons Report]
+    GenerateReport --> DisplayToUser[Display in UI]
+
+    DisplayToUser --> UserAnnotates[User Adds Custom Pros/Cons]
+    UserAnnotates --> SaveToStorage[Save to Database/localStorage]
+
+    SaveToStorage --> FeedbackLoop{Contribute to Guidelines?}
+    FeedbackLoop -->|Yes| UpdateDatabase[Add User Annotations to Industry Guidelines DB]
+    FeedbackLoop -->|No| End([Analysis Complete])
+    UpdateDatabase --> End
+
+    style ClaudeDetect fill:#6366f1,color:#fff
+    style ClaudeScore fill:#6366f1,color:#fff
+    style UpdateDatabase fill:#10b981,color:#fff
+    style SaveToStorage fill:#ec4899,color:#fff
+```
