@@ -1,8 +1,7 @@
 /**
- * Main analysis pipeline: URL → Screenshot → Assets → SEO → Vision + Industry (parallel) → Score → Layouts → Copy
+ * Main analysis pipeline: URL → Screenshot → Assets → SEO → Vision + Industry (parallel) → Score → AI Layouts (or template fallback).
  *
- * Performance (Phase 5): Vision+Industry and refreshCopy×3 use Promise.all; scorer runs 8 dimensions in parallel.
- * Industries/templates loaded via in-memory cache (lib/cache/seed-cache.ts). No N+1 queries.
+ * Layout step: Claude generates 3 unique HTML/CSS pages from scraped assets. On failure, falls back to template composition.
  */
 
 import { prisma } from "@/lib/prisma";
@@ -17,10 +16,17 @@ import { compressScreenshotToWebP } from "@/lib/scraping/screenshot-compress";
 import { analyzeScreenshot } from "@/lib/ai/claude-vision";
 import { detectIndustry, analyzeHtmlStructure } from "@/lib/ai/claude-text";
 import { scoreWebsite } from "@/lib/scoring/scorer";
+import { generateLayouts } from "@/lib/ai/generate-layouts";
+import {
+  injectAssets,
+  replacePlaceholders,
+  escapeHtml,
+  stripUnresolvedPlaceholders,
+  stripFallbackPlaceholderText,
+} from "@/lib/templates/injector";
+import { refreshCopy, type RefreshedCopy } from "@/lib/templates/copy-refresher";
 import { selectCompositions } from "@/lib/templates/selector";
 import { composePage } from "@/lib/templates/compose";
-import { injectAssets, replacePlaceholders, escapeHtml, stripUnresolvedPlaceholders, stripFallbackPlaceholderText } from "@/lib/templates/injector";
-import { refreshCopy, type RefreshedCopy } from "@/lib/templates/copy-refresher";
 import {
   getCachedTemplatesByNames,
   getCachedFirstTemplate,
@@ -205,78 +211,108 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   });
   logStepElapsed("score", startTime);
 
-  onProgress?.({ step: "layouts", message: "Generating 3 layout proposals..." });
+  onProgress?.({ step: "layouts", message: "Designing 3 unique page concepts..." });
 
-  const copySummary = JSON.stringify(assets.copy).slice(0, 500);
-  const compositions = await selectCompositions(
-    industryDetected,
-    scoring.details,
-    copySummary,
-    { refreshId, step: "composition_selection", onRetry }
-  );
+  type LayoutResult = { html: string; css: string; label: string };
+  let layoutResults: LayoutResult[] = [];
+  let usedTemplateFallback = false;
 
-  const fallback = await getCachedFirstTemplate();
-  if (!fallback) {
-    throw new Error("No templates available. Run db:seed to load templates.");
-  }
-
-  // Phase 2: build 3 full pages from compositions (each composition = 3–5 section names)
-  const builtLayouts: Array<{ html: string; css: string; templateLabel: string; layoutContext: string }> = [];
-  for (let i = 0; i < 3; i++) {
-    const sectionNames = compositions[i] ?? compositions[0]!;
-    const sectionTemplates = await getCachedTemplatesByNames(sectionNames);
-    const templatesInOrder = sectionNames
-      .map((name) => sectionTemplates.find((t) => t.name === name))
-      .filter(Boolean) as Awaited<ReturnType<typeof getCachedTemplatesByNames>>;
-    const sections = templatesInOrder.length >= 3 ? templatesInOrder : [fallback, fallback, fallback];
-    const { html: composedHtml, css: composedCss } = composePage(sections);
-    const inj = injectAssets(composedHtml, composedCss, assets);
-    const layoutContext = sections.map((s) => s.description).join(" | ");
-    const templateLabel = sectionNames.slice(0, 3).join(" + ") + (sectionNames.length > 3 ? ` + ${sectionNames.length - 3} more` : "");
-    builtLayouts.push({ html: inj.html, css: inj.css, templateLabel, layoutContext });
-  }
-  logStepElapsed("layouts", startTime);
-
-  onProgress?.({ step: "copy", message: "Refreshing copy..." });
-
-  const [refreshed1, refreshed2, refreshed3] = await Promise.all([
-    refreshCopy(industryDetected, assets.copy, builtLayouts[0]!.layoutContext, {
-      refreshId,
-      step: "copy_refresh_layout1",
-      onRetry,
-    }),
-    refreshCopy(industryDetected, assets.copy, builtLayouts[1]!.layoutContext, {
-      refreshId,
-      step: "copy_refresh_layout2",
-      onRetry,
-    }),
-    refreshCopy(industryDetected, assets.copy, builtLayouts[2]!.layoutContext, {
-      refreshId,
-      step: "copy_refresh_layout3",
-      onRetry,
-    }),
-  ]);
-  logStepElapsed("copy", startTime);
-
-  const htmlWithRefreshed1 = applyRefreshedCopy(builtLayouts[0]!.html, refreshedCopyToMap(refreshed1));
-  const htmlWithRefreshed2 = applyRefreshedCopy(builtLayouts[1]!.html, refreshedCopyToMap(refreshed2));
-  const htmlWithRefreshed3 = applyRefreshedCopy(builtLayouts[2]!.html, refreshedCopyToMap(refreshed3));
-
-  // Phase 2 watch-out: validate no raw {{...}} in final composed output; strip any before persisting. Also strip fallback placeholder text (e.g. "Customer Name, Title, Company", "info@example.com").
-  const cleaned = [0, 1, 2].map((i) => {
-    const inj = { html: builtLayouts[i]!.html, css: builtLayouts[i]!.css };
-    const refreshed = [htmlWithRefreshed1, htmlWithRefreshed2, htmlWithRefreshed3][i]!;
-    const design = stripUnresolvedPlaceholders(inj.html);
-    const copy = stripUnresolvedPlaceholders(refreshed);
-    if (design.stripped || copy.stripped) {
-      console.warn(`[pipeline] Layout ${i + 1}: stripped unresolved {{placeholders}} before save`);
+  try {
+    const result = await generateLayouts({
+      url: normalizedUrl,
+      industry: industryDetected,
+      brandAnalysis,
+      scores: scoring.details,
+      assets: {
+        colors: assets.colors,
+        fonts: assets.fonts,
+        images: assets.images,
+        logo: assets.logo ?? null,
+        copy: assets.copy,
+      },
+      screenshotUrl: null,
+      promptLog: { refreshId, step: "layout_generation", onRetry },
+    });
+    layoutResults = result.layouts.map((l) => ({
+      html: l.html,
+      css: l.css,
+      label: l.label,
+    }));
+  } catch (layoutErr) {
+    const layoutErrMessage = layoutErr instanceof Error ? layoutErr.message : String(layoutErr);
+    console.warn("[pipeline] AI layout generation failed, falling back to template composition:", layoutErrMessage);
+    usedTemplateFallback = true;
+    if (onProgress) onProgress({ step: "layouts", message: "Using template fallback..." });
+    try {
+      const copySummary = JSON.stringify(assets.copy).slice(0, 500);
+      const compositions = await selectCompositions(
+        industryDetected,
+        scoring.details,
+        copySummary,
+        { refreshId, step: "composition_selection", onRetry }
+      );
+      const fallback = await getCachedFirstTemplate();
+      if (!fallback) throw new Error("No templates available. Run db:seed to load templates.");
+      const builtLayouts: Array<{ html: string; css: string; templateLabel: string; layoutContext: string }> = [];
+      for (let i = 0; i < 3; i++) {
+        const sectionNames = compositions[i] ?? compositions[0]!;
+        const sectionTemplates = await getCachedTemplatesByNames(sectionNames);
+        const templatesInOrder = sectionNames
+          .map((name) => sectionTemplates.find((t) => t.name === name))
+          .filter(Boolean) as Awaited<ReturnType<typeof getCachedTemplatesByNames>>;
+        const sections = templatesInOrder.length >= 3 ? templatesInOrder : [fallback, fallback, fallback];
+        const { html: composedHtml, css: composedCss } = composePage(sections);
+        const inj = injectAssets(composedHtml, composedCss, assets);
+        builtLayouts.push({
+          html: inj.html,
+          css: inj.css,
+          templateLabel: sectionNames.slice(0, 3).join(" + ") + (sectionNames.length > 3 ? ` + ${sectionNames.length - 3} more` : ""),
+          layoutContext: sections.map((s) => s.description).join(" | "),
+        });
+      }
+      onProgress?.({ step: "copy", message: "Refreshing copy..." });
+      const [refreshed1, refreshed2, refreshed3] = await Promise.all([
+        refreshCopy(industryDetected, assets.copy, builtLayouts[0]!.layoutContext, { refreshId, step: "copy_refresh_layout1", onRetry }),
+        refreshCopy(industryDetected, assets.copy, builtLayouts[1]!.layoutContext, { refreshId, step: "copy_refresh_layout2", onRetry }),
+        refreshCopy(industryDetected, assets.copy, builtLayouts[2]!.layoutContext, { refreshId, step: "copy_refresh_layout3", onRetry }),
+      ]);
+      const htmlWithRefreshed1 = applyRefreshedCopy(builtLayouts[0]!.html, refreshedCopyToMap(refreshed1));
+      const htmlWithRefreshed2 = applyRefreshedCopy(builtLayouts[1]!.html, refreshedCopyToMap(refreshed2));
+      const htmlWithRefreshed3 = applyRefreshedCopy(builtLayouts[2]!.html, refreshedCopyToMap(refreshed3));
+      layoutResults = [
+        { html: htmlWithRefreshed1, css: builtLayouts[0]!.css, label: builtLayouts[0]!.templateLabel },
+        { html: htmlWithRefreshed2, css: builtLayouts[1]!.css, label: builtLayouts[1]!.templateLabel },
+        { html: htmlWithRefreshed3, css: builtLayouts[2]!.css, label: builtLayouts[2]!.templateLabel },
+      ];
+    } catch (fallbackErr) {
+      const fallbackMessage = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+      console.error("[pipeline] Template fallback also failed:", fallbackMessage);
+      throw new Error(
+        `Layout generation failed (${layoutErrMessage}). Template fallback failed: ${fallbackMessage}`
+      );
     }
-    return {
-      html: stripFallbackPlaceholderText(design.html),
-      css: inj.css,
-      copyRefreshed: stripFallbackPlaceholderText(copy.html),
-    };
-  });
+  }
+
+  logStepElapsed("layouts", startTime);
+  if (usedTemplateFallback) {
+    console.log("[pipeline] Layouts were generated via template fallback (AI generation failed).");
+  }
+
+  // Safety net: strip any {{...}} or fallback placeholder text before persisting. Pad to 3 so partial AI success (1–2 layouts) still writes safely.
+  const emptyLayout = { html: "", css: "", copyRefreshed: "", label: "" };
+  const cleaned = layoutResults
+    .slice(0, 3)
+    .map((l, i) => {
+      const design = stripUnresolvedPlaceholders(l.html);
+      if (design.stripped) console.warn(`[pipeline] Layout ${i + 1}: stripped unresolved {{placeholders}} before save`);
+      const html = stripFallbackPlaceholderText(design.html);
+      return { html, css: l.css, copyRefreshed: html, label: l.label };
+    });
+  const padded = [
+    cleaned[0] ?? emptyLayout,
+    cleaned[1] ?? emptyLayout,
+    cleaned[2] ?? emptyLayout,
+  ];
 
   let screenshotUrl: string | null = null;
   if (screenshotBuffer) {
@@ -308,18 +344,18 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
       mobileScore: scoring.dimensionScores.mobile,
       performanceScore: scoring.dimensionScores.performance,
       scoringDetails: scoring.details as unknown as object,
-      layout1Html: cleaned[0].html,
-      layout1Css: cleaned[0].css,
-      layout1Template: builtLayouts[0]!.templateLabel,
-      layout1CopyRefreshed: cleaned[0].copyRefreshed,
-      layout2Html: cleaned[1].html,
-      layout2Css: cleaned[1].css,
-      layout2Template: builtLayouts[1]!.templateLabel,
-      layout2CopyRefreshed: cleaned[1].copyRefreshed,
-      layout3Html: cleaned[2].html,
-      layout3Css: cleaned[2].css,
-      layout3Template: builtLayouts[2]!.templateLabel,
-      layout3CopyRefreshed: cleaned[2].copyRefreshed,
+      layout1Html: padded[0].html,
+      layout1Css: padded[0].css,
+      layout1Template: padded[0].label,
+      layout1CopyRefreshed: padded[0].copyRefreshed,
+      layout2Html: padded[1].html,
+      layout2Css: padded[1].css,
+      layout2Template: padded[1].label,
+      layout2CopyRefreshed: padded[1].copyRefreshed,
+      layout3Html: padded[2].html,
+      layout3Css: padded[2].css,
+      layout3Template: padded[2].label,
+      layout3CopyRefreshed: padded[2].copyRefreshed,
       layout4Html: "",
       layout4Css: "",
       layout4Template: "",

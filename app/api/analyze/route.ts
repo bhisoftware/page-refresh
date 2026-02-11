@@ -86,10 +86,10 @@ export async function POST(request: NextRequest) {
             const viewToken = row?.viewToken ?? "";
             send({ type: "done", refreshId, viewToken });
           } catch (err) {
-            send({
-              type: "error",
-              message: err instanceof Error ? err.message : "Refresh failed",
-            });
+            const message = err instanceof Error ? err.message : "Refresh failed";
+            console.error("[analyze] pipeline error (SSE):", message);
+            if (err instanceof Error && err.stack) console.error(err.stack);
+            send({ type: "error", message });
           } finally {
             controller.close();
           }
@@ -117,6 +117,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Refresh failed";
+    console.error("[analyze] 500 error:", message);
+    if (err instanceof Error && err.stack) console.error(err.stack);
     return Response.json({ error: message }, { status: 500 });
   }
 }

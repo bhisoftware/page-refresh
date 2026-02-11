@@ -3,7 +3,6 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { DesignCopyToggle, type DesignCopyMode } from "@/components/DesignCopyToggle";
 import { RequestQuoteForm } from "@/components/RequestQuoteForm";
 import { Download } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -42,33 +41,30 @@ export function LayoutCard({
   viewToken,
   className,
 }: LayoutCardProps) {
-  const [mode, setMode] = useState<DesignCopyMode>("design");
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [exportPlatform, setExportPlatform] = useState<string>("html");
   const [exportLoading, setExportLoading] = useState(false);
 
-  const docDesign = useMemo(
+  // AI-generated pages: copy is already integrated; Design/Copy toggle hidden (Option A)
+  const srcdoc = useMemo(
     () => wrapInDocument(layoutHtml, layoutCss),
     [layoutHtml, layoutCss]
   );
-  const docDesignCopy = useMemo(
-    () => wrapInDocument(layoutCopyRefreshed, layoutCss),
-    [layoutCopyRefreshed, layoutCss]
-  );
-  const srcdoc = mode === "design" ? docDesign : docDesignCopy;
 
   return (
     <>
       <Card className={cn("flex flex-col overflow-hidden", className)}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-lg">Layout {layoutIndex}</CardTitle>
-          <DesignCopyToggle value={mode} onChange={setMode} />
+          <CardTitle className="text-lg">
+            Layout {layoutIndex}
+            {templateName ? ` — ${templateName}` : ""}
+          </CardTitle>
         </CardHeader>
         <CardContent className="flex-1 p-0">
           <div className="relative w-full bg-muted/30" style={{ height: "80vh" }}>
             {/* Phase 2 iframe sandbox: allow-same-origin only. Current templates are static HTML/CSS; no allow-scripts. If we add interactive templates (e.g. accordion/carousel JS), we must enable allow-scripts and accept the security tradeoff (our HTML only). */}
             <iframe
-              title={`Layout ${layoutIndex} preview (${mode})`}
+              title={`Layout ${layoutIndex}${templateName ? ` — ${templateName}` : ""} preview`}
               srcDoc={srcdoc}
               className="absolute inset-0 h-full w-full border-0"
               sandbox="allow-same-origin"
