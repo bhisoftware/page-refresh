@@ -6,7 +6,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "pagerefresh.ai - Website Analysis & Redesign",
   description:
-    "Paste your website and get a $50,000 quality refresh in 5 minutes. Pay only if you love it.",
+    "Paste your website and get a $50,000 quality refresh in 5 minutes.",
 };
 
 export default function RootLayout({

@@ -66,7 +66,14 @@ export async function fetchHtml(url: string): Promise<FetchHtmlResult> {
       ) {
         throw new Error("This website blocks automated access.");
       }
-      if (msg.includes("enotfound") || msg.includes("getaddrinfo") || msg.includes("dns")) {
+      if (
+        msg.includes("enotfound") ||
+        msg.includes("getaddrinfo") ||
+        msg.includes("dns") ||
+        msg.includes("fetch failed") ||
+        msg.includes("econnrefused") ||
+        msg.includes("econnreset")
+      ) {
         throw new Error("Could not reach website. Check the URL and try again.");
       }
       throw err;

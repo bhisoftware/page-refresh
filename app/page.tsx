@@ -1,11 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AnalysisProgress, type PipelineStep } from "@/components/AnalysisProgress";
 import { cn, normalizeWebsiteUrl } from "@/lib/utils";
+
+function isUnreachableWebsiteError(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes("fetch failed") ||
+    m.includes("could not reach") ||
+    m.includes("couldn't reach") ||
+    m.includes("request timed out") ||
+    m.includes("took too long") ||
+    m.includes("enotfound") ||
+    m.includes("econnrefused") ||
+    m.includes("econnreset")
+  );
+}
 
 const PIPELINE_STEP_MAP: Record<string, PipelineStep> = {
   screenshot: "screenshot",
@@ -25,9 +39,17 @@ function parseProgressStep(step: string): PipelineStep {
 
 export default function Home() {
   const router = useRouter();
+  const urlInputRef = useRef<HTMLInputElement>(null);
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
+  const [urlFieldHint, setUrlFieldHint] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  useEffect(() => {
+    if (urlFieldHint && urlInputRef.current) {
+      urlInputRef.current.focus();
+    }
+  }, [urlFieldHint]);
   const [currentStep, setCurrentStep] = useState<PipelineStep>("screenshot");
   const [progressMessage, setProgressMessage] = useState("");
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -48,6 +70,7 @@ export default function Home() {
     }
 
     setError("");
+    setUrlFieldHint(false);
     setIsAnalyzing(true);
     setCurrentStep("screenshot");
     setProgressMessage("Starting analysis...");
@@ -127,7 +150,14 @@ export default function Home() {
     } catch (err) {
       clearInterval(countdownInterval);
       setCountdown(null);
-      setError(err instanceof Error ? err.message : "Refresh failed");
+      const message = err instanceof Error ? err.message : "Refresh failed";
+      if (isUnreachableWebsiteError(message)) {
+        setUrlFieldHint(true);
+        setError("");
+      } else {
+        setUrlFieldHint(false);
+        setError(message);
+      }
     } finally {
       setIsAnalyzing(false);
     }
@@ -142,29 +172,55 @@ export default function Home() {
               PageRefresh
             </h1>
             <p className="text-lg text-muted-foreground max-w-md mx-auto">
-              $50,000 quality refresh in 5 minutes. Pay only if you love it.
+              $50,000 quality refresh in 5 minutes.
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Input
-                type="text"
-                inputMode="url"
-                placeholder="https://www.website.com/"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                onBlur={() => {
-                  const trimmed = url.trim();
-                  if (trimmed) {
-                    const normalized = normalizeWebsiteUrl(trimmed);
-                    if (normalized !== trimmed) setUrl(normalized);
-                  }
-                }}
-                className="flex-1 h-11 text-base"
-                disabled={isAnalyzing}
-                aria-label="Website URL"
-              />
+            <div className="flex flex-col sm:flex-row gap-2 relative">
+              <div className="relative flex-1">
+                <Input
+                  ref={urlInputRef}
+                  type="text"
+                  inputMode="url"
+                  placeholder="https://www.website.com/"
+                  value={url}
+                  onChange={(e) => {
+                    setUrl(e.target.value);
+                    if (urlFieldHint) setUrlFieldHint(false);
+                  }}
+                  onBlur={() => {
+                    const trimmed = url.trim();
+                    if (trimmed) {
+                      const normalized = normalizeWebsiteUrl(trimmed);
+                      if (normalized !== trimmed) setUrl(normalized);
+                    }
+                  }}
+                  className={cn(
+                    "flex-1 w-full h-11 text-base",
+                    urlFieldHint && "ring-2 ring-amber-500 ring-offset-2 animate-pulse"
+                  )}
+                  disabled={isAnalyzing}
+                  aria-label="Website URL"
+                  aria-invalid={urlFieldHint}
+                />
+                {urlFieldHint && (
+                  <div
+                    role="alert"
+                    className="absolute left-0 right-0 top-full mt-2 z-10 animate-in fade-in slide-in-from-top-2 duration-300"
+                  >
+                    <div className="relative flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 shadow-lg dark:border-amber-800 dark:bg-amber-950/90">
+                      <span
+                        className="absolute -top-2 left-4 h-0 w-0 border-l-[6px] border-r-[6px] border-b-[8px] border-l-transparent border-r-transparent border-b-amber-50 dark:border-b-amber-950/90"
+                        aria-hidden
+                      />
+                      <span className="text-sm text-amber-900 dark:text-amber-100">
+                        We couldn&apos;t reach this website. Check for typos in your URL and try again.
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
               <Button
                 type="submit"
                 size="lg"
