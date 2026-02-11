@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AnalysisProgress, type PipelineStep } from "@/components/AnalysisProgress";
+import { Loader2 } from "lucide-react";
 import { cn, normalizeWebsiteUrl } from "@/lib/utils";
 
 function isUnreachableWebsiteError(message: string): boolean {
@@ -43,6 +44,7 @@ export default function Home() {
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
   const [urlFieldHint, setUrlFieldHint] = useState(false);
+  const [isPreflightInProgress, setIsPreflightInProgress] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   useEffect(() => {
@@ -71,6 +73,27 @@ export default function Home() {
 
     setError("");
     setUrlFieldHint(false);
+    setIsPreflightInProgress(true);
+
+    // Pre-flight: server checks URL is reachable and not bot-blocked. No progress UI until this succeeds.
+    try {
+      const preflightRes = await fetch("/api/analyze/preflight", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: normalized }),
+      });
+      const preflightData = (await preflightRes.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!preflightData.ok) {
+        setError(preflightData.error ?? "We couldn't reach this website. Check the URL and try again.");
+        return;
+      }
+    } catch {
+      setError("Pre-flight check failed. Please try again.");
+      return;
+    } finally {
+      setIsPreflightInProgress(false);
+    }
+
     setIsAnalyzing(true);
     setCurrentStep("screenshot");
     setProgressMessage("Starting analysis...");
@@ -200,7 +223,7 @@ export default function Home() {
                     "flex-1 w-full h-11 text-base",
                     urlFieldHint && "ring-2 ring-amber-500 ring-offset-2 animate-pulse"
                   )}
-                  disabled={isAnalyzing}
+                  disabled={isPreflightInProgress || isAnalyzing}
                   aria-label="Website URL"
                   aria-invalid={urlFieldHint}
                 />
@@ -226,11 +249,21 @@ export default function Home() {
                 size="lg"
                 className={cn(
                   "h-11 px-6 shrink-0",
-                  isAnalyzing &&
+                  (isPreflightInProgress || isAnalyzing) &&
                     "bg-[#2d5016] text-white hover:bg-[#2d5016]/90 hover:text-white"
                 )}
+                disabled={isPreflightInProgress || isAnalyzing}
               >
-                {isAnalyzing ? "Pay Only If You Love It" : "Analyze My Website"}
+                {isPreflightInProgress ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                    Checking…
+                  </>
+                ) : isAnalyzing ? (
+                  "Pay Only If You Love It"
+                ) : (
+                  "Analyze My Website"
+                )}
               </Button>
             </div>
             {error && (
@@ -240,12 +273,9 @@ export default function Home() {
             )}
           </form>
 
-          {isAnalyzing && (
+          {isAnalyzing && !isPreflightInProgress && (
             <div className={cn("flex flex-col items-center w-full")}>
-              <h2 className="text-xl font-semibold mb-2">Analyzing {url || "your website"}</h2>
-              <p className="text-muted-foreground text-sm mb-6">
-                this can take up to 50 seconds
-              </p>
+              <h2 className="text-xl font-semibold mb-6">Analyzing {url || "your website"}</h2>
               <AnalysisProgress
                 currentStep={currentStep}
                 message={progressMessage}
