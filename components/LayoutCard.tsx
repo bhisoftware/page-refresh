@@ -65,17 +65,14 @@ export function LayoutCard({
           <DesignCopyToggle value={mode} onChange={setMode} />
         </CardHeader>
         <CardContent className="flex-1 p-0">
-          <div className="relative w-full bg-muted/30" style={{ paddingBottom: "75%" }}>
+          <div className="relative w-full bg-muted/30" style={{ height: "80vh" }}>
             <iframe
               title={`Layout ${layoutIndex} preview (${mode})`}
               srcDoc={srcdoc}
-              className="absolute inset-0 h-full w-full border-0 rounded-b-lg"
+              className="absolute inset-0 h-full w-full border-0"
               sandbox="allow-same-origin"
             />
           </div>
-          <p className="p-3 text-sm text-muted-foreground border-t">
-            {templateName}
-          </p>
         </CardContent>
         <CardFooter className="flex flex-col gap-3">
           <div className="flex flex-col sm:flex-row gap-2 w-full">

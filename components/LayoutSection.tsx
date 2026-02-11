@@ -28,9 +28,9 @@ export function LayoutSection({ refreshId, viewToken, layouts }: LayoutSectionPr
   if (!firstThree.length) return null;
 
   return (
-    <section className="mb-10">
-      <h2 className="text-xl font-semibold mb-4">Choose a layout</h2>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+    <section className="mb-10 -mx-4 sm:-mx-6 lg:-mx-8">
+      <h2 className="text-xl font-semibold mb-4 px-4 sm:px-6 lg:px-8">Choose a layout</h2>
+      <div className="grid gap-4 px-4 sm:px-6 lg:px-8 md:grid-cols-2 lg:grid-cols-3">
         {firstThree.map((layout) => (
           <LayoutCard
             key={layout.layoutIndex}
@@ -47,7 +47,7 @@ export function LayoutSection({ refreshId, viewToken, layouts }: LayoutSectionPr
       {hasMore && (
         <>
           {showMore ? (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mt-6">
+            <div className="grid gap-4 px-4 sm:px-6 lg:px-8 md:grid-cols-2 lg:grid-cols-3 mt-6">
               {moreLayouts.map((layout) => (
                 <LayoutCard
                   key={layout.layoutIndex}
