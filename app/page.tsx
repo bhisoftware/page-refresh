@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AnalysisProgress, type PipelineStep } from "@/components/AnalysisProgress";
-import { cn } from "@/lib/utils";
+import { cn, normalizeWebsiteUrl } from "@/lib/utils";
 
 const PIPELINE_STEP_MAP: Record<string, PipelineStep> = {
   screenshot: "screenshot",
@@ -39,10 +39,7 @@ export default function Home() {
       setError("Please enter your website URL.");
       return;
     }
-    const normalized =
-      raw.startsWith("http://") || raw.startsWith("https://")
-        ? raw
-        : `https://${raw}`;
+    const normalized = normalizeWebsiteUrl(raw);
     try {
       new URL(normalized);
     } catch {
@@ -55,7 +52,7 @@ export default function Home() {
     setCurrentStep("screenshot");
     setProgressMessage("Starting analysis...");
     const startTime = Date.now();
-    const targetDuration = 75;
+    const targetDuration = 40;
     const countdownInterval = window.setInterval(() => {
       const elapsed = (Date.now() - startTime) / 1000;
       const remaining = Math.max(0, Math.round(targetDuration - elapsed));
@@ -124,7 +121,9 @@ export default function Home() {
           }
         }
       }
-      throw new Error("Analysis ended without result");
+      throw new Error(
+        "Analysis ended without result. This often happens when the analysis times out on the server (common with larger sites). Try again or use a simpler URL. If it persists, check Netlify function logs."
+      );
     } catch (err) {
       clearInterval(countdownInterval);
       setCountdown(null);
@@ -175,7 +174,7 @@ export default function Home() {
           <div className={cn("flex flex-col items-center")}>
             <h2 className="text-xl font-semibold mb-2">Analyzing your website</h2>
             <p className="text-muted-foreground text-sm mb-6">
-              This usually takes 60–90 seconds.
+              This usually takes 30–45 seconds.
             </p>
             <AnalysisProgress
               currentStep={currentStep}

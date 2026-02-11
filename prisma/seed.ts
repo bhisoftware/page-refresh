@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { getRubricEntries } from "../lib/seed-data/scoring-rubric";
-import { INDUSTRIES } from "../lib/seed-data/industries";
+import { INDUSTRIES, getIndustryDimensionWeights } from "../lib/seed-data/industries";
 import { TEMPLATES } from "../lib/seed-data/templates";
 
 const prisma = new PrismaClient();
@@ -45,22 +45,26 @@ async function main() {
   }
   console.log(`  Created/updated ${TEMPLATES.length} templates.`);
 
-  // 3. Industries (20) - resolve preferredTemplates to template IDs
+  // 3. Industries (20) - resolve preferredTemplates to template IDs; merge dimensionWeights into scoringCriteria
   for (const ind of INDUSTRIES) {
     const preferredIds = ind.preferredTemplates
       .map((name) => templateIdsByName[name])
       .filter(Boolean);
+    const scoringCriteriaWithWeights = {
+      ...ind.scoringCriteria,
+      dimensionWeights: getIndustryDimensionWeights(ind),
+    };
     await prisma.industry.upsert({
       where: { name: ind.name },
       create: {
         name: ind.name,
         description: ind.description,
-        scoringCriteria: ind.scoringCriteria as object,
+        scoringCriteria: scoringCriteriaWithWeights as object,
         preferredTemplates: preferredIds.length ? preferredIds : [],
       },
       update: {
         description: ind.description,
-        scoringCriteria: ind.scoringCriteria as object,
+        scoringCriteria: scoringCriteriaWithWeights as object,
         preferredTemplates: preferredIds.length ? preferredIds : [],
       },
     });

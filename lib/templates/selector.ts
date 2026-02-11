@@ -46,10 +46,10 @@ export async function selectTemplates(
     const names = parsed.templateNames ?? [];
 
     const valid = names.filter((n) => templateNames.includes(n));
-    if (valid.length >= 3) return valid.slice(0, 3);
+    if (valid.length >= 6) return valid.slice(0, 6);
     if (valid.length > 0) {
       const remaining = templateNames.filter((n) => !valid.includes(n));
-      return [...valid, ...remaining].slice(0, 3);
+      return [...valid, ...remaining].slice(0, 6);
     }
   } catch {
     // Fallback: rule-based selection by industry
@@ -69,14 +69,14 @@ async function selectTemplatesRuleBased(
     const ids = Array.isArray(ind?.preferredTemplates)
       ? (ind.preferredTemplates as string[])
       : [];
-    if (!ids.length) return templateNames.slice(0, 3);
+    if (!ids.length) return templateNames.slice(0, 6);
     const recs = await getCachedTemplatesByIds(ids);
     const names = recs.map((r) => r.name).filter((n) => templateNames.includes(n));
-    if (names.length >= 3) return names.slice(0, 3);
+    if (names.length >= 6) return names.slice(0, 6);
     const remaining = templateNames.filter((n) => !names.includes(n));
-    return [...names, ...remaining].slice(0, 3);
+    return [...names, ...remaining].slice(0, 6);
   } catch {
-    return templateNames.slice(0, 3);
+    return templateNames.slice(0, 6);
   }
 }
 

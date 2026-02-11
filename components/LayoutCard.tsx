@@ -5,6 +5,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Button } from "@/components/ui/button";
 import { DesignCopyToggle, type DesignCopyMode } from "@/components/DesignCopyToggle";
 import { RequestQuoteForm } from "@/components/RequestQuoteForm";
+import { Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function wrapInDocument(html: string, css: string): string {
@@ -13,13 +14,21 @@ function wrapInDocument(html: string, css: string): string {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${css}</style></head><body>${html}</body></html>`;
 }
 
+const EXPORT_PLATFORMS = [
+  { value: "html", label: "HTML/CSS" },
+  { value: "wordpress", label: "WordPress" },
+  { value: "squarespace", label: "Squarespace" },
+  { value: "wix", label: "Wix" },
+] as const;
+
 interface LayoutCardProps {
-  layoutIndex: 1 | 2 | 3;
+  layoutIndex: 1 | 2 | 3 | 4 | 5 | 6;
   templateName: string;
   layoutHtml: string;
   layoutCss: string;
   layoutCopyRefreshed: string;
   analysisId: string;
+  viewToken: string;
   className?: string;
 }
 
@@ -30,10 +39,13 @@ export function LayoutCard({
   layoutCss,
   layoutCopyRefreshed,
   analysisId,
+  viewToken,
   className,
 }: LayoutCardProps) {
   const [mode, setMode] = useState<DesignCopyMode>("design");
   const [quoteOpen, setQuoteOpen] = useState(false);
+  const [exportPlatform, setExportPlatform] = useState<string>("html");
+  const [exportLoading, setExportLoading] = useState(false);
 
   const docDesign = useMemo(
     () => wrapInDocument(layoutHtml, layoutCss),
@@ -65,7 +77,54 @@ export function LayoutCard({
             {templateName}
           </p>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="flex flex-col gap-3">
+          <div className="flex flex-col sm:flex-row gap-2 w-full">
+            <select
+              value={exportPlatform}
+              onChange={(e) => setExportPlatform(e.target.value)}
+              disabled={exportLoading}
+              className="flex h-10 w-full sm:w-[140px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {EXPORT_PLATFORMS.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+            <Button
+              variant="outline"
+              className="flex-1 gap-2"
+              disabled={exportLoading}
+              onClick={async () => {
+                setExportLoading(true);
+                try {
+                  const res = await fetch("/api/export", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      analysisId,
+                      layoutIndex,
+                      platform: exportPlatform,
+                      token: viewToken,
+                    }),
+                  });
+                  if (!res.ok) throw new Error("Export failed");
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = res.headers.get("Content-Disposition")?.match(/filename="?([^";]+)"?/)?.[1] ?? `layout-${layoutIndex}-${exportPlatform}.zip`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                } finally {
+                  setExportLoading(false);
+                }
+              }}
+            >
+              <Download className="h-4 w-4" />
+              {exportLoading ? "Generating…" : "Download"}
+            </Button>
+          </div>
           <Button
             className="w-full"
             onClick={() => setQuoteOpen(true)}

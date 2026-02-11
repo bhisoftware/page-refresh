@@ -4,11 +4,13 @@
  */
 
 import { NextRequest } from "next/server";
+import { normalizeWebsiteUrl } from "@/lib/utils";
 import { runAnalysis } from "@/lib/pipeline/analyze";
 
 export const maxDuration = 120;
 
 export async function POST(request: NextRequest) {
+  console.log("[analyze] POST received");
   const body = await request.json().catch(() => ({}));
   const url = typeof body.url === "string" ? body.url.trim() : "";
 
@@ -18,6 +20,9 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
+
+  const normalizedUrl = normalizeWebsiteUrl(url);
+  console.log("[analyze] received URL:", normalizedUrl);
 
   try {
     const accept = request.headers.get("accept") ?? "";
@@ -31,7 +36,7 @@ export async function POST(request: NextRequest) {
 
           try {
             const analysisId = await runAnalysis({
-              url,
+              url: normalizedUrl,
               onProgress: (p) => send({ type: "progress", ...p }),
             });
             const { prisma } = await import("@/lib/prisma");
@@ -61,7 +66,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const analysisId = await runAnalysis({ url });
+    const analysisId = await runAnalysis({ url: normalizedUrl });
     const { prisma } = await import("@/lib/prisma");
     const row = await prisma.analysis.findUnique({
       where: { id: analysisId },

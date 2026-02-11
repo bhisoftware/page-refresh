@@ -1,6 +1,7 @@
 /**
  * 0-100 scoring engine across 8 dimensions.
  * Uses Claude Text API with rubric + industry criteria.
+ * Overall score is weighted by industry dimensionWeights when present.
  */
 
 import {
@@ -11,6 +12,18 @@ import {
 import { completeText } from "@/lib/ai/claude-text";
 import { buildDimensionScoringPrompt } from "@/lib/ai/prompt-templates";
 import type { ExtractedCopy } from "@/lib/scraping/asset-extractor";
+import { getCachedIndustryByName } from "@/lib/cache/seed-cache";
+
+const DEFAULT_WEIGHTS: Record<DimensionKey, number> = {
+  clarity: 1.0,
+  visual: 1.0,
+  hierarchy: 1.0,
+  trust: 1.0,
+  conversion: 1.0,
+  content: 1.0,
+  mobile: 1.0,
+  performance: 1.0,
+};
 
 const DIMENSION_LABELS: Record<DimensionKey, string> = {
   clarity: "Clarity",
@@ -28,6 +41,8 @@ export interface DimensionScore {
   score: number;
   issues: string[];
   recommendations: string[];
+  /** Weight for this dimension in overall score (e.g. 2.0 = "weighted 2x for your industry") */
+  weight?: number;
 }
 
 export interface ScoringResult {
@@ -106,15 +121,24 @@ export async function scoreWebsite(input: ScoringInput): Promise<ScoringResult> 
     })
   );
 
+  const industry = await getCachedIndustryByName(input.industry);
+  const criteria = industry?.scoringCriteria as { dimensionWeights?: Partial<Record<DimensionKey, number>> } | undefined;
+  const weights: Record<DimensionKey, number> = { ...DEFAULT_WEIGHTS, ...criteria?.dimensionWeights };
+
   for (const { dim, score, issues, recommendations } of results) {
     dimensionScores[dim] = score;
-    details.push({ dimension: dim, score, issues, recommendations });
+    details.push({
+      dimension: dim,
+      score,
+      issues,
+      recommendations,
+      weight: weights[dim] !== 1 ? weights[dim] : undefined,
+    });
   }
 
-  const values = Object.values(dimensionScores) as number[];
-  const overallScore = Math.round(
-    values.reduce((a, b) => a + b, 0) / values.length
-  );
+  const weightedSum = DIMENSIONS.reduce((sum, dim) => sum + (dimensionScores[dim] ?? 0) * weights[dim], 0);
+  const weightSum = DIMENSIONS.reduce((sum, dim) => sum + weights[dim], 0);
+  const overallScore = Math.round(weightSum > 0 ? weightedSum / weightSum : 0);
 
   return {
     overallScore,

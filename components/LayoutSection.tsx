@@ -1,0 +1,80 @@
+"use client";
+
+import { useState } from "react";
+import { LayoutCard } from "@/components/LayoutCard";
+import { Button } from "@/components/ui/button";
+import { ChevronDown } from "lucide-react";
+
+export interface LayoutItem {
+  layoutIndex: 1 | 2 | 3 | 4 | 5 | 6;
+  templateName: string;
+  layoutHtml: string;
+  layoutCss: string;
+  layoutCopyRefreshed: string;
+}
+
+interface LayoutSectionProps {
+  analysisId: string;
+  viewToken: string;
+  layouts: LayoutItem[];
+}
+
+export function LayoutSection({ analysisId, viewToken, layouts }: LayoutSectionProps) {
+  const [showMore, setShowMore] = useState(false);
+  const firstThree = layouts.slice(0, 3);
+  const moreLayouts = layouts.slice(3, 6);
+  const hasMore = moreLayouts.length > 0;
+
+  if (!firstThree.length) return null;
+
+  return (
+    <section className="mb-10">
+      <h2 className="text-xl font-semibold mb-4">Choose a layout</h2>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {firstThree.map((layout) => (
+          <LayoutCard
+            key={layout.layoutIndex}
+            layoutIndex={layout.layoutIndex}
+            templateName={layout.templateName}
+            layoutHtml={layout.layoutHtml}
+            layoutCss={layout.layoutCss}
+            layoutCopyRefreshed={layout.layoutCopyRefreshed}
+            analysisId={analysisId}
+            viewToken={viewToken}
+          />
+        ))}
+      </div>
+      {hasMore && (
+        <>
+          {showMore ? (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mt-6">
+              {moreLayouts.map((layout) => (
+                <LayoutCard
+                  key={layout.layoutIndex}
+                  layoutIndex={layout.layoutIndex}
+                  templateName={layout.templateName}
+                  layoutHtml={layout.layoutHtml}
+                  layoutCss={layout.layoutCss}
+                  layoutCopyRefreshed={layout.layoutCopyRefreshed}
+                  analysisId={analysisId}
+                  viewToken={viewToken}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex justify-center mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setShowMore(true)}
+                className="gap-2"
+              >
+                <ChevronDown className="h-4 w-4" />
+                Show 3 More Layouts
+              </Button>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}

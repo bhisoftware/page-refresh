@@ -43,6 +43,18 @@ export type PublicAnalysis = Pick<
   | "layout3Css"
   | "layout3Template"
   | "layout3CopyRefreshed"
+  | "layout4Html"
+  | "layout4Css"
+  | "layout4Template"
+  | "layout4CopyRefreshed"
+  | "layout5Html"
+  | "layout5Css"
+  | "layout5Template"
+  | "layout5CopyRefreshed"
+  | "layout6Html"
+  | "layout6Css"
+  | "layout6Template"
+  | "layout6CopyRefreshed"
   | "selectedLayout"
   | "quoteRequested"
   | "installRequested"
@@ -92,6 +104,18 @@ export function serializeAnalysisForPublic(analysis: Analysis): PublicAnalysis {
     layout3Css: analysis.layout3Css,
     layout3Template: analysis.layout3Template,
     layout3CopyRefreshed: analysis.layout3CopyRefreshed,
+    layout4Html: analysis.layout4Html,
+    layout4Css: analysis.layout4Css,
+    layout4Template: analysis.layout4Template,
+    layout4CopyRefreshed: analysis.layout4CopyRefreshed,
+    layout5Html: analysis.layout5Html,
+    layout5Css: analysis.layout5Css,
+    layout5Template: analysis.layout5Template,
+    layout5CopyRefreshed: analysis.layout5CopyRefreshed,
+    layout6Html: analysis.layout6Html,
+    layout6Css: analysis.layout6Css,
+    layout6Template: analysis.layout6Template,
+    layout6CopyRefreshed: analysis.layout6CopyRefreshed,
     selectedLayout: analysis.selectedLayout,
     quoteRequested: analysis.quoteRequested,
     installRequested: analysis.installRequested,
@@ -102,4 +126,30 @@ export function serializeAnalysisForPublic(analysis: Analysis): PublicAnalysis {
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+/**
+ * Normalize a pasted website URL by stripping duplicate schemes and redundant "www."
+ * e.g. "https://www.https://bubblesmiamishop.com/" -> "https://bubblesmiamishop.com/"
+ */
+export function normalizeWebsiteUrl(input: string): string {
+  let s = input.trim();
+  if (!s) return s;
+  while (true) {
+    const lower = s.toLowerCase();
+    if (lower.startsWith("https://")) {
+      s = s.slice(8).trim();
+      continue;
+    }
+    if (lower.startsWith("http://")) {
+      s = s.slice(7).trim();
+      continue;
+    }
+    if (lower.startsWith("www.")) {
+      s = s.slice(4).trim();
+      continue;
+    }
+    break;
+  }
+  return s ? `https://${s}` : input.trim();
 }

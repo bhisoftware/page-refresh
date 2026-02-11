@@ -1,8 +1,9 @@
 import { notFound, forbidden } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LayoutCard } from "@/components/LayoutCard";
+import { LayoutSection } from "@/components/LayoutSection";
 import { ScoreBreakdown, type DimensionDetail } from "@/components/ScoreBreakdown";
+import { SeoAuditSection, type SeoCheckItem, type SeoRecommendation } from "@/components/SeoAuditSection";
 import { InstallCtaCard } from "@/components/InstallCtaCard";
 import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -48,6 +49,18 @@ async function getAnalysis(id: string) {
       layout3Css: true,
       layout3Template: true,
       layout3CopyRefreshed: true,
+      layout4Html: true,
+      layout4Css: true,
+      layout4Template: true,
+      layout4CopyRefreshed: true,
+      layout5Html: true,
+      layout5Css: true,
+      layout5Template: true,
+      layout5CopyRefreshed: true,
+      layout6Html: true,
+      layout6Css: true,
+      layout6Template: true,
+      layout6CopyRefreshed: true,
       selectedLayout: true,
       quoteRequested: true,
       installRequested: true,
@@ -91,10 +104,52 @@ export default async function ResultsPage({
 
   const overallScore = Number(analysis.overallScore) || 0;
   const scoringDetails = (analysis.scoringDetails ?? []) as unknown as DimensionDetail[];
-  const hasLayouts =
-    analysis.layout1Html &&
-    analysis.layout2Html &&
-    analysis.layout3Html;
+  const layoutRows = [
+    {
+      layoutIndex: 1 as const,
+      templateName: analysis.layout1Template ?? "Layout 1",
+      layoutHtml: analysis.layout1Html,
+      layoutCss: analysis.layout1Css ?? "",
+      layoutCopyRefreshed: analysis.layout1CopyRefreshed ?? analysis.layout1Html,
+    },
+    {
+      layoutIndex: 2 as const,
+      templateName: analysis.layout2Template ?? "Layout 2",
+      layoutHtml: analysis.layout2Html,
+      layoutCss: analysis.layout2Css ?? "",
+      layoutCopyRefreshed: analysis.layout2CopyRefreshed ?? analysis.layout2Html,
+    },
+    {
+      layoutIndex: 3 as const,
+      templateName: analysis.layout3Template ?? "Layout 3",
+      layoutHtml: analysis.layout3Html,
+      layoutCss: analysis.layout3Css ?? "",
+      layoutCopyRefreshed: analysis.layout3CopyRefreshed ?? analysis.layout3Html,
+    },
+    {
+      layoutIndex: 4 as const,
+      templateName: analysis.layout4Template ?? "Layout 4",
+      layoutHtml: analysis.layout4Html,
+      layoutCss: analysis.layout4Css ?? "",
+      layoutCopyRefreshed: analysis.layout4CopyRefreshed ?? analysis.layout4Html,
+    },
+    {
+      layoutIndex: 5 as const,
+      templateName: analysis.layout5Template ?? "Layout 5",
+      layoutHtml: analysis.layout5Html,
+      layoutCss: analysis.layout5Css ?? "",
+      layoutCopyRefreshed: analysis.layout5CopyRefreshed ?? analysis.layout5Html,
+    },
+    {
+      layoutIndex: 6 as const,
+      templateName: analysis.layout6Template ?? "Layout 6",
+      layoutHtml: analysis.layout6Html,
+      layoutCss: analysis.layout6Css ?? "",
+      layoutCopyRefreshed: analysis.layout6CopyRefreshed ?? analysis.layout6Html,
+    },
+  ];
+  const layoutsWithContent = layoutRows.filter((r) => r.layoutHtml?.trim());
+  const hasLayouts = layoutsWithContent.length > 0;
 
   return (
     <main className="min-h-screen bg-background">
@@ -134,8 +189,8 @@ export default async function ResultsPage({
           <CardContent className="pt-6">
             <p className="text-foreground leading-relaxed">
               Your homepage design scores {overallScore}/100. Compared to web
-              standards, here are 3 homepage refresh directions that address the
-              gaps we found:
+              standards, here are up to 6 homepage refresh directions that
+              address the gaps we found:
             </p>
           </CardContent>
         </Card>
@@ -146,42 +201,23 @@ export default async function ResultsPage({
           <ScoreBreakdown details={scoringDetails} />
         </section>
 
+        {/* SEO Audit */}
+        <SeoAuditSection
+          checks={((analysis.seoAudit as { checks?: SeoCheckItem[] })?.checks ?? []) as SeoCheckItem[]}
+          recommendations={((analysis.seoAudit as { recommendations?: SeoRecommendation[] })?.recommendations ?? []) as SeoRecommendation[]}
+        />
+
         {/* Layout cards */}
-        <section className="mb-10">
-          <h2 className="text-xl font-semibold mb-4">Choose a layout</h2>
-          {hasLayouts ? (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              <LayoutCard
-                layoutIndex={1}
-                templateName={analysis.layout1Template ?? "Layout 1"}
-                layoutHtml={analysis.layout1Html}
-                layoutCss={analysis.layout1Css ?? ""}
-                layoutCopyRefreshed={analysis.layout1CopyRefreshed ?? analysis.layout1Html}
-                analysisId={id}
-              />
-              <LayoutCard
-                layoutIndex={2}
-                templateName={analysis.layout2Template ?? "Layout 2"}
-                layoutHtml={analysis.layout2Html}
-                layoutCss={analysis.layout2Css ?? ""}
-                layoutCopyRefreshed={analysis.layout2CopyRefreshed ?? analysis.layout2Html}
-                analysisId={id}
-              />
-              <LayoutCard
-                layoutIndex={3}
-                templateName={analysis.layout3Template ?? "Layout 3"}
-                layoutHtml={analysis.layout3Html}
-                layoutCss={analysis.layout3Css ?? ""}
-                layoutCopyRefreshed={analysis.layout3CopyRefreshed ?? analysis.layout3Html}
-                analysisId={id}
-              />
-            </div>
-          ) : (
+        {hasLayouts ? (
+          <LayoutSection analysisId={id} viewToken={token!} layouts={layoutsWithContent} />
+        ) : (
+          <section className="mb-10">
+            <h2 className="text-xl font-semibold mb-4">Choose a layout</h2>
             <p className="text-muted-foreground">
               Layout proposals are not available for this analysis.
             </p>
-          )}
-        </section>
+          </section>
+        )}
 
         {/* Install CTA */}
         <InstallCtaCard analysisId={id} />

@@ -3,6 +3,19 @@
  * Used to seed the Industry table and for industry-aware scoring.
  */
 
+const DEFAULT_DIMENSION_WEIGHTS = {
+  clarity: 1.0,
+  visual: 1.0,
+  hierarchy: 1.0,
+  trust: 1.0,
+  conversion: 1.0,
+  content: 1.0,
+  mobile: 1.0,
+  performance: 1.0,
+} as const;
+
+export type DimensionWeights = Record<keyof typeof DEFAULT_DIMENSION_WEIGHTS, number>;
+
 export interface IndustrySeed {
   name: string;
   description: string;
@@ -10,7 +23,14 @@ export interface IndustrySeed {
     string,
     { weight: number; indicators: string[]; antipatterns: string[] }
   >;
+  /** Optional: weights for overall score (default all 1.0). Stored in scoringCriteria.dimensionWeights. */
+  dimensionWeights?: Partial<DimensionWeights>;
   preferredTemplates: string[]; // Template names; resolved to IDs in seed
+}
+
+/** Full dimensionWeights for an industry (merged with defaults). */
+export function getIndustryDimensionWeights(ind: IndustrySeed): DimensionWeights {
+  return { ...DEFAULT_DIMENSION_WEIGHTS, ...ind.dimensionWeights };
 }
 
 export const INDUSTRIES: IndustrySeed[] = [
@@ -36,6 +56,7 @@ export const INDUSTRIES: IndustrySeed[] = [
   {
     name: "Lawyers",
     description: "Law firms, solo practitioners, and legal practices",
+    dimensionWeights: { trust: 2.0, hierarchy: 1.5, clarity: 1.2 },
     scoringCriteria: {
       clarity: { weight: 1.0, indicators: ["Practice areas clear", "Who you help (e.g., injured, businesses)"], antipatterns: ["Generic 'we fight for you'"] },
       visual: { weight: 1.0, indicators: ["Professional, authoritative"], antipatterns: [] },
@@ -231,6 +252,7 @@ export const INDUSTRIES: IndustrySeed[] = [
   {
     name: "Dentists",
     description: "Dental practices and orthodontists",
+    dimensionWeights: { trust: 2.0, clarity: 1.5, content: 1.3 },
     scoringCriteria: {
       clarity: { weight: 1.0, indicators: ["Services", "New patients", "Hours"], antipatterns: [] },
       visual: { weight: 1.0, indicators: ["Clean, professional", "Office/team"], antipatterns: [] },
@@ -246,6 +268,7 @@ export const INDUSTRIES: IndustrySeed[] = [
   {
     name: "Real Estate Agents",
     description: "Realtors and real estate professionals",
+    dimensionWeights: { visual: 1.5, mobile: 1.5, conversion: 1.3 },
     scoringCriteria: {
       clarity: { weight: 1.0, indicators: ["Service area", "Buy/sell/rent", "Listings"], antipatterns: [] },
       visual: { weight: 1.0, indicators: ["High-quality listing photos", "Professional"], antipatterns: [] },
@@ -261,6 +284,7 @@ export const INDUSTRIES: IndustrySeed[] = [
   {
     name: "Restaurants",
     description: "Restaurants, cafes, and food service",
+    dimensionWeights: { visual: 2.0, mobile: 1.5, conversion: 1.3 },
     scoringCriteria: {
       clarity: { weight: 1.0, indicators: ["Cuisine", "Menu", "Hours and location"], antipatterns: [] },
       visual: { weight: 1.0, indicators: ["Food imagery", "Ambiance", "Modern design"], antipatterns: [] },

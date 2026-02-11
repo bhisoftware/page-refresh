@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 const DIMENSION_LABELS: Record<string, string> = {
@@ -20,6 +21,8 @@ export interface DimensionDetail {
   score: number;
   issues: string[];
   recommendations: string[];
+  /** Weight for overall score (e.g. 2 = "weighted 2x for your industry") */
+  weight?: number;
 }
 
 interface ScoreBreakdownProps {
@@ -56,16 +59,23 @@ export function ScoreBreakdown({ details, className }: ScoreBreakdownProps) {
                 <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
               )}
               <span className="font-medium flex-1">{label}</span>
-              <span
-                className={cn(
-                  "font-semibold tabular-nums",
-                  d.score <= 40 && "text-destructive",
-                  d.score >= 41 && d.score <= 60 && "text-amber-600 dark:text-amber-400",
-                  d.score >= 61 && d.score <= 80 && "text-green-600 dark:text-green-400",
-                  d.score >= 81 && "text-blue-600 dark:text-blue-400"
+              <span className="flex items-center gap-2">
+                {d.weight != null && d.weight > 1 && (
+                  <Badge variant="secondary" className="text-xs font-normal">
+                    {d.weight === 2 ? "2× weight" : `${d.weight}× weight`}
+                  </Badge>
                 )}
-              >
-                {d.score}/100
+                <span
+                  className={cn(
+                    "font-semibold tabular-nums",
+                    d.score <= 40 && "text-destructive",
+                    d.score >= 41 && d.score <= 60 && "text-amber-600 dark:text-amber-400",
+                    d.score >= 61 && d.score <= 80 && "text-green-600 dark:text-green-400",
+                    d.score >= 81 && "text-blue-600 dark:text-blue-400"
+                  )}
+                >
+                  {d.score}/100
+                </span>
               </span>
             </button>
             {isOpen && (

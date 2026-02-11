@@ -59,7 +59,7 @@ export function buildTemplateSelectionPrompt(
     .map((d) => `- ${d.dimension}: ${d.score}/100. Issues: ${d.issues.slice(0, 2).join("; ")}`)
     .join("\n");
 
-  return `Given this website analysis, recommend 3 templates from our library that would address the main issues and elevate the site.
+  return `Given this website analysis, recommend 6 templates from our library that would address the main issues and elevate the site.
 
 Industry: ${industry}
 
@@ -72,7 +72,7 @@ Available templates: ${templateNames.join(", ")}
 
 Return valid JSON only:
 {
-  "templateNames": ["template1", "template2", "template3"],
+  "templateNames": ["template1", "template2", "template3", "template4", "template5", "template6"],
   "reasoning": "Brief explanation"
 }`;
 }
