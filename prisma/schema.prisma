@@ -1,0 +1,190 @@
+// pagerefresh.ai MVP - Database Schema
+// See MVP-PLAN.md for full specification
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Analysis {
+  id                String   @id @default(cuid())
+  url               String
+  targetWebsite     String
+  screenshotUrl     String?
+  htmlSnapshot      String   @db.Text
+  cssSnapshot       String   @db.Text
+
+  // Extracted Assets
+  extractedColors   Json     // Array of hex codes with names
+  extractedFonts    Json     // Array of font families
+  extractedImages   Json     // Array of image URLs + descriptions
+  extractedCopy     Json     // Hero text, headlines, body samples
+  extractedLogo     String?
+
+  // AI Analysis Results
+  brandAnalysis     String   @db.Text // Claude Vision output
+  industryDetected  String   // Detected industry name
+  industryConfidence Float   // 0-1 confidence score
+
+  // 0-100 Scoring System (8 Dimensions)
+  overallScore      Int      // Weighted average 0-100
+  clarityScore      Int      // Dimension 1
+  visualScore       Int      // Dimension 2
+  hierarchyScore    Int      // Dimension 3
+  trustScore        Int      // Dimension 4
+  conversionScore   Int      // Dimension 5
+  contentScore      Int      // Dimension 6
+  mobileScore       Int      // Dimension 7
+  performanceScore  Int      // Dimension 8
+
+  // Dimension Details (JSON with issues/recommendations per dimension)
+  scoringDetails    Json     // Array of {dimension, score, issues[], recommendations[]}
+
+  // Basic SEO Audit
+  seoAudit          Json     // {title, metaDescription, headings, issues[]}
+
+  // Generated Layouts
+  layout1Html       String   @db.Text
+  layout1Css        String   @db.Text
+  layout1Template   String   // Template name used
+  layout1CopyRefreshed String @db.Text // AI-refreshed copy version
+
+  layout2Html       String   @db.Text
+  layout2Css        String   @db.Text
+  layout2Template   String
+  layout2CopyRefreshed String @db.Text
+
+  layout3Html       String   @db.Text
+  layout3Css        String   @db.Text
+  layout3Template   String
+  layout3CopyRefreshed String @db.Text
+
+  // Lead Capture
+  selectedLayout    Int?     // 1, 2, or 3 (if user selected one)
+  quoteRequested    Boolean  @default(false)
+  installRequested  Boolean  @default(false)
+  contactEmail      String?
+  contactPhone      String?
+  hostingPlatform   String?  // For install request
+  notes             String?  @db.Text
+
+  // Metadata
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  processingTime    Int?     // Total time in seconds
+
+  // Access: token required to view results (link-level, not guessable)
+  viewToken         String   @unique @default(cuid())
+
+  // Relationships
+  promptHistory     PromptLog[]
+  internalNotes     InternalNote[]
+
+  @@index([url])
+  @@index([industryDetected])
+  @@index([createdAt])
+  @@index([quoteRequested])
+  @@index([installRequested])
+}
+
+model Industry {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  description       String   @db.Text
+
+  // Universal dimensions scoring criteria (JSON)
+  scoringCriteria   Json     // Array of criteria per dimension
+
+  // Template preferences
+  preferredTemplates Json    // Array of template IDs suitable for this industry
+
+  exampleWebsites   Json?    // Reference sites
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([name])
+}
+
+model Template {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  description       String   @db.Text
+  htmlTemplate      String   @db.Text
+  cssTemplate       String   @db.Text
+  previewImageUrl   String?
+
+  // Template metadata
+  category          String   // 'hero', 'features', 'testimonials', etc.
+  suitableIndustries Json    // Array of industry names
+
+  // Performance tracking
+  usageCount        Int      @default(0)
+  conversionRate    Float?   // Future: track if users select this template
+
+  // Platform compatibility
+  supportsSquarespace Boolean @default(true)
+  supportsWordPress   Boolean @default(true)
+  supportsWix         Boolean @default(true)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([category])
+}
+
+model PromptLog {
+  id                String   @id @default(cuid())
+  analysisId        String
+  analysis          Analysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  step              String   // 'screenshot_analysis' | 'industry_detection' | 'dimension_scoring' | etc.
+  provider          String   // 'claude' | 'openai'
+  model             String   // 'claude-3-5-sonnet-20241022' | 'gpt-4' | etc.
+
+  promptText        String   @db.Text
+  responseText      String   @db.Text
+
+  tokensUsed        Int?
+  responseTime      Int?     // milliseconds
+
+  createdAt         DateTime @default(now())
+
+  @@index([analysisId])
+  @@index([step])
+}
+
+model InternalNote {
+  id          String   @id @default(cuid())
+  analysisId  String
+  analysis    Analysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  authorName  String   // Team member name
+  content     String   @db.Text
+  category    String?  // e.g., 'review', 'sales', 'quality', 'follow-up'
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([analysisId])
+}
+
+model ScoringRubric {
+  id                String   @id @default(cuid())
+  dimension         String   // 'clarity' | 'visual' | 'hierarchy' | etc.
+  scoreRange        String   // '0-20' | '21-40' | '41-60' | '61-80' | '81-100'
+
+  // Scoring criteria for this range
+  criteria          Json     // {indicators: [], antipatterns: []}
+
+  exampleSites      Json?    // Reference examples
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([dimension])
+  @@index([scoreRange])
+}

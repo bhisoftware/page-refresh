@@ -84,11 +84,39 @@ AI-powered website analysis and redesign tool for SMB businesses.
 
 ## 🚀 Development Phases
 
-1. **Phase 1**: Setup & Foundation (project, database, templates, rubric)
-2. **Phase 2**: Core Analysis Pipeline (screenshot → scoring → layouts)
+1. **Phase 1**: Setup & Foundation (project, database, templates, rubric) — **Done**
+2. **Phase 2**: Core Analysis Pipeline (screenshot → scoring → layouts) — **Done**
 3. **Phase 3**: Frontend UI (landing, results, toggle, forms)
-4. **Phase 4**: Error Handling & Fallbacks
+4. **Phase 4**: Error Handling & Fallbacks — [Checklist: `docs/PHASE-4-ERROR-HANDLING-CHECKLIST.md`](docs/PHASE-4-ERROR-HANDLING-CHECKLIST.md)
 5. **Phase 5**: Performance Optimization
+
+### Phase 1 Complete
+
+- Next.js 15 (App Router), TypeScript, Tailwind, ESLint
+- Prisma schema (Analysis, Industry, Template, PromptLog, ScoringRubric)
+- `lib/prisma.ts` singleton
+- shadcn/ui base (CSS variables, Button), `lib/utils.ts`
+- **Scoring rubric**: 8 dimensions × 5 score ranges in `lib/seed-data/scoring-rubric.ts`
+- **20 industries**: `lib/seed-data/industries.ts` with scoring criteria per dimension
+- **20 templates**: `lib/seed-data/templates.ts` (placeholder HTML/CSS; replace via `TEMPLATES_MD_DIR` or seed)
+- **Scripts**: `scripts/create-scoring-rubric.ts`, `scripts/create-industries.ts`, `scripts/import-templates.ts`
+- **Seed**: `prisma/seed.ts` seeds rubric, templates, and industries
+- **Env**: `.env.example` for `DATABASE_URL`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `NETLIFY_BLOBS_TOKEN`, `NEXT_PUBLIC_APP_URL`
+
+**To finish setup**: Copy `.env.example` to `.env.local`, set `DATABASE_URL`, then run `npm run db:migrate` and `npm run db:seed`.
+
+### Phase 2 Complete
+
+- **Screenshot**: `lib/scraping/puppeteer.ts` — Puppeteer + @sparticuz/chromium (Netlify-compatible)
+- **Asset extraction**: `lib/scraping/asset-extractor.ts` — Colors, fonts, images, copy from HTML/CSS
+- **SEO audit**: `lib/seo/auditor.ts` — Title, meta, headings, image alt
+- **AI**: `lib/ai/claude-vision.ts`, `lib/ai/claude-text.ts`, `lib/ai/openai.ts` — Claude Vision, industry detection, GPT-4
+- **Scoring**: `lib/scoring/scorer.ts` — 0-100 across 8 dimensions with rubric
+- **Templates**: `lib/templates/injector.ts`, `selector.ts`, `copy-refresher.ts`
+- **Pipeline**: `lib/pipeline/analyze.ts` — Full orchestration
+- **API**: `POST /api/analyze` (accepts `{ url }`), `GET /api/analyze/[id]`
+
+**Local dev**: Set `CHROME_PATH` if Chrome is not at the default location, or run `npx @puppeteer/browsers install chromium@latest --path ./chromium`.
 
 ## 📊 8 Universal Quality Dimensions
 

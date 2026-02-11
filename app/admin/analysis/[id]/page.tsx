@@ -1,0 +1,143 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScoreBreakdown, type DimensionDetail } from "@/components/ScoreBreakdown";
+import { AdminNotesSection } from "./AdminNotesSection";
+import { AdminPromptLogs } from "./AdminPromptLogs";
+import { ArrowLeft } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+function scoreColorClass(score: number): string {
+  if (score <= 40) return "text-destructive";
+  if (score <= 60) return "text-amber-600 dark:text-amber-400";
+  if (score <= 80) return "text-green-600 dark:text-green-400";
+  return "text-blue-600 dark:text-blue-400";
+}
+
+export default async function AdminAnalysisPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+
+  const analysis = await prisma.analysis.findUnique({
+    where: { id },
+    include: {
+      internalNotes: { orderBy: { createdAt: "asc" } },
+      promptHistory: { orderBy: { createdAt: "asc" } },
+    },
+  });
+
+  if (!analysis) notFound();
+
+  const overallScore = Number(analysis.overallScore) || 0;
+  const scoringDetails = (analysis.scoringDetails ?? []) as unknown as DimensionDetail[];
+  const resultsUrl = `/results/${id}?token=${encodeURIComponent(analysis.viewToken)}`;
+
+  return (
+    <main className="min-h-screen bg-background">
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <Link
+          href="/admin"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to analyses
+        </Link>
+
+        <div className="mb-6 flex items-center gap-4 flex-wrap">
+          <h1 className="text-2xl font-semibold truncate max-w-xl">
+            {analysis.targetWebsite || analysis.url}
+          </h1>
+          <Link
+            href={resultsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-primary hover:underline"
+          >
+            Open results page →
+          </Link>
+        </div>
+
+        {/* Contact info (internal only) */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-base">Contact (internal)</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm">
+            {(analysis.contactEmail || analysis.contactPhone) ? (
+              <ul className="space-y-1">
+                {analysis.contactEmail && (
+                  <li>
+                    <span className="text-muted-foreground">Email:</span>{" "}
+                    {analysis.contactEmail}
+                  </li>
+                )}
+                {analysis.contactPhone && (
+                  <li>
+                    <span className="text-muted-foreground">Phone:</span>{" "}
+                    {analysis.contactPhone}
+                  </li>
+                )}
+                {analysis.quoteRequested && (
+                  <li className="text-muted-foreground">Quote requested</li>
+                )}
+                {analysis.installRequested && (
+                  <li className="text-muted-foreground">Install requested</li>
+                )}
+                {analysis.hostingPlatform && (
+                  <li>
+                    <span className="text-muted-foreground">Platform:</span>{" "}
+                    {analysis.hostingPlatform}
+                  </li>
+                )}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground">No contact info submitted.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Overall score */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-lg text-muted-foreground">
+              Overall score
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p
+              className={cn(
+                "text-4xl font-bold tabular-nums",
+                scoreColorClass(overallScore)
+              )}
+            >
+              {overallScore}/100
+            </p>
+            <p className="mt-1 text-muted-foreground text-sm">
+              {analysis.industryDetected} ·{" "}
+              {analysis.createdAt.toLocaleString()}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Score breakdown */}
+        <section className="mb-8">
+          <h2 className="text-xl font-semibold mb-4">Score by dimension</h2>
+          <ScoreBreakdown details={scoringDetails} />
+        </section>
+
+        {/* Internal notes */}
+        <AdminNotesSection
+          analysisId={id}
+          initialNotes={analysis.internalNotes}
+        />
+
+        {/* Prompt logs */}
+        <AdminPromptLogs logs={analysis.promptHistory} />
+      </div>
+    </main>
+  );
+}
