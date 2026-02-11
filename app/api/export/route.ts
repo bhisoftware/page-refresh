@@ -8,43 +8,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { exportLayout, type Platform } from "@/lib/exports/platform-exporter";
-
-const PLATFORMS: Platform[] = ["html", "wordpress", "squarespace", "wix"];
+import { exportSchema } from "@/lib/validations";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const {
-      refreshId,
-      layoutIndex,
-      platform,
-      token,
-    }: {
-      refreshId?: string;
-      layoutIndex?: number;
-      platform?: string;
-      token?: string;
-    } = body;
-
-    if (
-      !refreshId ||
-      typeof refreshId !== "string" ||
-      !token ||
-      typeof token !== "string" ||
-      token.length === 0
-    ) {
+    const body = await request.json().catch(() => ({}));
+    const parsed = exportSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Missing or invalid refreshId or token" },
+        { error: "Validation failed", fields: parsed.error.flatten().fieldErrors },
         { status: 400 }
       );
     }
-
-    if (!platform || !PLATFORMS.includes(platform as Platform)) {
-      return NextResponse.json(
-        { error: `platform must be one of: ${PLATFORMS.join(", ")}` },
-        { status: 400 }
-      );
-    }
+    const { refreshId, platform, token } = parsed.data;
 
     const refresh = await prisma.refresh.findUnique({
       where: { id: refreshId },

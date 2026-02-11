@@ -194,7 +194,7 @@ export default async function ResultsPage({
           <CardContent className="pt-6">
             <p className="text-foreground leading-relaxed">
               Your homepage design scores {overallScore}/100. Compared to web
-              standards, here are up to 6 homepage refresh directions that
+              standards, here are 3 homepage refresh directions that
               address the gaps we found:
             </p>
           </CardContent>

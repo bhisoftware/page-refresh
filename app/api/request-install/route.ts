@@ -4,32 +4,36 @@
 
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requestInstallSchema } from "@/lib/validations";
 
 const VALID_LAYOUT_INDEXES = [1, 2, 3] as const;
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
-  const refreshId = typeof body.refreshId === "string" ? body.refreshId.trim() : "";
-  const rawLayoutIndex = typeof body.layoutIndex === "number" ? body.layoutIndex : null;
-  const layoutIndex =
-    rawLayoutIndex !== null && VALID_LAYOUT_INDEXES.includes(rawLayoutIndex as 1 | 2 | 3)
-      ? (rawLayoutIndex as 1 | 2 | 3)
-      : null;
-  const email = typeof body.email === "string" ? body.email.trim() : "";
-  const phone = typeof body.phone === "string" ? body.phone.trim() : "";
-  const hostingPlatform = typeof body.hostingPlatform === "string" ? body.hostingPlatform.trim() : null;
-  const hasCredentialsReady = Boolean(body.hasCredentialsReady);
-  const preferredTime = typeof body.preferredTime === "string" ? body.preferredTime.trim() : null;
-  const notes = typeof body.notes === "string" ? body.notes.trim() : null;
-
-  if (!refreshId || !email || !phone) {
+  const parsed = requestInstallSchema.safeParse(body);
+  if (!parsed.success) {
     return Response.json(
-      { error: "Missing required fields: refreshId, email, phone" },
+      { error: "Validation failed", fields: parsed.error.flatten().fieldErrors },
       { status: 400 }
     );
   }
+  const {
+    refreshId,
+    layoutIndex: rawLayoutIndex,
+    email,
+    phone,
+    hostingPlatform,
+    hasCredentialsReady,
+    preferredTime,
+    notes,
+  } = parsed.data;
+  const layoutIndex =
+    rawLayoutIndex !== undefined &&
+    VALID_LAYOUT_INDEXES.includes(rawLayoutIndex as 1 | 2 | 3)
+      ? (rawLayoutIndex as 1 | 2 | 3)
+      : null;
 
-  if (rawLayoutIndex !== null && layoutIndex === null) {
+  if (rawLayoutIndex !== undefined && layoutIndex === null) {
     return Response.json(
       { error: "layoutIndex must be 1, 2, or 3" },
       { status: 400 }

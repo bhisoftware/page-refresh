@@ -77,6 +77,41 @@ Return valid JSON only:
 }`;
 }
 
+/** Phase 2: Recommend 3 full-page layouts; each layout = ordered list of 3–5 section names from the library. */
+export function buildCompositionSelectionPrompt(
+  industry: string,
+  scoringDetails: Array<{ dimension: string; score: number; issues: string[] }>,
+  templateNames: string[],
+  extractedCopySummary: string
+): string {
+  const details = scoringDetails
+    .map((d) => `- ${d.dimension}: ${d.score}/100. Issues: ${d.issues.slice(0, 2).join("; ")}`)
+    .join("\n");
+
+  return `Given this website analysis, recommend 3 full-page homepage layouts. Each layout is a single page composed of 3–5 sections in order (hero → social proof → features → CTA, etc.). Pick section names only from the list below.
+
+Industry: ${industry}
+
+Scoring breakdown:
+${details}
+
+Extracted copy summary: ${extractedCopySummary}
+
+Available sections (use these exact names): ${templateNames.join(", ")}
+
+Return valid JSON only:
+{
+  "compositions": [
+    ["section-name-1", "section-name-2", "section-name-3"],
+    ["section-name-a", "section-name-b", "section-name-c", "section-name-d"],
+    ["section-name-x", "section-name-y", "section-name-z"]
+  ],
+  "reasoning": "Brief explanation"
+}
+
+Each inner array must have 3–5 section names. All names must be from the available sections list.`;
+}
+
 export function buildCopyRefreshPrompt(
   industry: string,
   originalCopy: Record<string, unknown>,

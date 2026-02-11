@@ -66,6 +66,7 @@ export function LayoutCard({
         </CardHeader>
         <CardContent className="flex-1 p-0">
           <div className="relative w-full bg-muted/30" style={{ height: "80vh" }}>
+            {/* Phase 2 iframe sandbox: allow-same-origin only. Current templates are static HTML/CSS; no allow-scripts. If we add interactive templates (e.g. accordion/carousel JS), we must enable allow-scripts and accept the security tradeoff (our HTML only). */}
             <iframe
               title={`Layout ${layoutIndex} preview (${mode})`}
               srcDoc={srcdoc}

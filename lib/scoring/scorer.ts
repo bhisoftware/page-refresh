@@ -10,6 +10,7 @@ import {
   getRubricEntries,
 } from "@/lib/seed-data/scoring-rubric";
 import { completeText } from "@/lib/ai/claude-text";
+import { safeParseJSON } from "@/lib/ai/json-repair";
 import { buildDimensionScoringPrompt } from "@/lib/ai/prompt-templates";
 import type { ExtractedCopy } from "@/lib/scraping/asset-extractor";
 import { getCachedIndustryByName } from "@/lib/cache/seed-cache";
@@ -103,8 +104,12 @@ export async function scoreWebsite(input: ScoringInput): Promise<ScoringResult> 
       let recommendations: string[] = [];
 
       try {
-        const json = extractJson(text);
-        const parsed = JSON.parse(json) as {
+        const parseResult = safeParseJSON(text);
+        if (!parseResult.success || parseResult.data == null) throw new Error("Parse failed");
+        if (parseResult.method && parseResult.method !== "direct") {
+          console.warn(`[scorer] dimension_scoring_${dim} JSON parse used method: ${parseResult.method}`);
+        }
+        const parsed = parseResult.data as {
           score?: number;
           issues?: string[];
           recommendations?: string[];
@@ -147,9 +152,3 @@ export async function scoreWebsite(input: ScoringInput): Promise<ScoringResult> 
   };
 }
 
-function extractJson(text: string): string {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}") + 1;
-  if (start >= 0 && end > start) return text.slice(start, end);
-  return text;
-}

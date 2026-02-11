@@ -3,6 +3,7 @@
  */
 
 import { completeChat } from "@/lib/ai/openai";
+import { safeParseJSON } from "@/lib/ai/json-repair";
 import { buildCopyRefreshPrompt } from "@/lib/ai/prompt-templates";
 import type { ExtractedCopy } from "@/lib/scraping/asset-extractor";
 
@@ -47,8 +48,12 @@ export async function refreshCopy(
       { promptLog }
     );
 
-    const json = extractJson(text);
-    const parsed = JSON.parse(json) as RefreshedCopy;
+    const result = safeParseJSON(text);
+    if (!result.success || result.data == null) throw new Error("Parse failed");
+    if (result.method && result.method !== "direct") {
+      console.warn(`[copy-refresher] JSON parse used method: ${result.method}`);
+    }
+    const parsed = result.data as RefreshedCopy;
     return {
       headline: parsed.headline ?? originalCopy.h1 ?? "Your Headline",
       subheadline: parsed.subheadline ?? originalCopy.heroText ?? "Supporting text.",
@@ -61,9 +66,3 @@ export async function refreshCopy(
   }
 }
 
-function extractJson(text: string): string {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}") + 1;
-  if (start >= 0 && end > start) return text.slice(start, end);
-  return text;
-}

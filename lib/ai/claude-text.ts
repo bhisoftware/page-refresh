@@ -5,6 +5,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createPromptLog } from "@/lib/ai/prompt-log";
 import { withRetry } from "@/lib/ai/retry";
+import { safeParseJSON } from "@/lib/ai/json-repair";
 import type { TechStack } from "@/lib/scraping/tech-detector";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -98,8 +99,12 @@ ${truncated.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()}`;
   }
 
   try {
-    const json = extractJson(text);
-    const parsed = JSON.parse(json) as IndustryDetectionResult;
+    const result = safeParseJSON(text);
+    if (!result.success || result.data == null) throw new Error("Parse failed");
+    if (result.method && result.method !== "direct") {
+      console.warn(`[claude-text] industry_detection JSON parse used method: ${result.method}`);
+    }
+    const parsed = result.data as IndustryDetectionResult;
     if (!INDUSTRY_LIST.includes(parsed.industry)) {
       parsed.industry = "General Business";
       parsed.confidence = Math.min(parsed.confidence ?? 0.5, 0.5);
@@ -262,9 +267,3 @@ function buildHtmlStructureSummary(html: string): string {
   ].join("\n\n");
 }
 
-function extractJson(text: string): string {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}") + 1;
-  if (start >= 0 && end > start) return text.slice(start, end);
-  return text;
-}

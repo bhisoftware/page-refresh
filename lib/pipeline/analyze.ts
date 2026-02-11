@@ -17,14 +17,20 @@ import { compressScreenshotToWebP } from "@/lib/scraping/screenshot-compress";
 import { analyzeScreenshot } from "@/lib/ai/claude-vision";
 import { detectIndustry, analyzeHtmlStructure } from "@/lib/ai/claude-text";
 import { scoreWebsite } from "@/lib/scoring/scorer";
-import { selectTemplates } from "@/lib/templates/selector";
-import { injectAssets } from "@/lib/templates/injector";
-import { refreshCopy } from "@/lib/templates/copy-refresher";
+import { selectCompositions } from "@/lib/templates/selector";
+import { composePage } from "@/lib/templates/compose";
+import { injectAssets, replacePlaceholders, escapeHtml, stripUnresolvedPlaceholders, stripFallbackPlaceholderText } from "@/lib/templates/injector";
+import { refreshCopy, type RefreshedCopy } from "@/lib/templates/copy-refresher";
 import {
   getCachedTemplatesByNames,
   getCachedFirstTemplate,
 } from "@/lib/cache/seed-cache";
 import { normalizeWebsiteUrl } from "@/lib/utils";
+import {
+  estimateTokens,
+  checkBudget,
+  truncateToTokenBudget,
+} from "@/lib/ai/token-estimator";
 
 export type PipelineProgress =
   | { step: "screenshot"; message: string }
@@ -139,6 +145,17 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   onProgress?.({ step: "vision", message: "Analyzing design..." });
   onProgress?.({ step: "industry", message: "Detecting industry..." });
 
+  const INDUSTRY_HTML_TOKEN_BUDGET = 40_000;
+  const htmlForIndustry =
+    estimateTokens(html) > INDUSTRY_HTML_TOKEN_BUDGET
+      ? truncateToTokenBudget(html, INDUSTRY_HTML_TOKEN_BUDGET)
+      : html;
+  if (htmlForIndustry !== html) {
+    console.warn(
+      `[pipeline] HTML truncated for industry step (${estimateTokens(html)} -> ${estimateTokens(htmlForIndustry)} tokens)`
+    );
+  }
+
   const visionPromise = screenshotBuffer
     ? analyzeScreenshot(screenshotBuffer.toString("base64"), {
         ...promptLog,
@@ -151,7 +168,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
 
   const [visionResult, industryResult] = await Promise.all([
     visionPromise,
-    detectIndustry(html, { ...promptLog, step: "industry_detection" }),
+    detectIndustry(htmlForIndustry, { ...promptLog, step: "industry_detection" }),
   ]);
   logStepElapsed("vision+industry", startTime);
 
@@ -161,88 +178,105 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
 
   onProgress?.({ step: "score", message: "Scoring across 8 dimensions..." });
 
+  const SCORING_CONTEXT_TOKEN_BUDGET = 25_000;
+  const scoringBrandAnalysis =
+    estimateTokens(brandAnalysis) > SCORING_CONTEXT_TOKEN_BUDGET
+      ? truncateToTokenBudget(brandAnalysis, SCORING_CONTEXT_TOKEN_BUDGET)
+      : brandAnalysis;
+  if (scoringBrandAnalysis !== brandAnalysis) {
+    console.warn(
+      `[pipeline] brandAnalysis truncated for scoring (${estimateTokens(brandAnalysis)} -> ${estimateTokens(scoringBrandAnalysis)} tokens)`
+    );
+  }
+  const scoringContext = `${scoringBrandAnalysis}\n${JSON.stringify(assets.copy)}\n${JSON.stringify(seoAudit)}`;
+  const budgetCheck = checkBudget(scoringContext, 1024);
+  if (!budgetCheck.fits) {
+    console.warn(
+      `[pipeline] Scoring context large (${budgetCheck.promptTokens} tokens); using truncated brand analysis`
+    );
+  }
+
   const scoring = await scoreWebsite({
     industry: industryDetected,
-    brandAnalysis,
+    brandAnalysis: scoringBrandAnalysis,
     extractedCopy: assets.copy,
     seoAudit: seoAudit as unknown as Record<string, unknown>,
     promptLog: { refreshId, step: "dimension_scoring", onRetry },
   });
   logStepElapsed("score", startTime);
 
-  onProgress?.({ step: "layouts", message: "Generating 6 layout proposals..." });
+  onProgress?.({ step: "layouts", message: "Generating 3 layout proposals..." });
 
   const copySummary = JSON.stringify(assets.copy).slice(0, 500);
-  const templateNames = await selectTemplates(
+  const compositions = await selectCompositions(
     industryDetected,
     scoring.details,
     copySummary,
-    { refreshId, step: "template_selection", onRetry }
+    { refreshId, step: "composition_selection", onRetry }
   );
 
-  const templates = await getCachedTemplatesByNames(templateNames);
   const fallback = await getCachedFirstTemplate();
-  const layout1 = templates[0] ?? fallback ?? null;
-  if (!layout1) {
+  if (!fallback) {
     throw new Error("No templates available. Run db:seed to load templates.");
   }
-  const layout2 = templates[1] ?? layout1;
-  const layout3 = templates[2] ?? layout1;
-  const layout4 = templates[3] ?? layout1;
-  const layout5 = templates[4] ?? layout1;
-  const layout6 = templates[5] ?? layout1;
 
-  const inj1 = injectAssets(layout1.htmlTemplate, layout1.cssTemplate, assets);
-  const inj2 = injectAssets(layout2.htmlTemplate, layout2.cssTemplate, assets);
-  const inj3 = injectAssets(layout3.htmlTemplate, layout3.cssTemplate, assets);
-  const inj4 = injectAssets(layout4.htmlTemplate, layout4.cssTemplate, assets);
-  const inj5 = injectAssets(layout5.htmlTemplate, layout5.cssTemplate, assets);
-  const inj6 = injectAssets(layout6.htmlTemplate, layout6.cssTemplate, assets);
+  // Phase 2: build 3 full pages from compositions (each composition = 3–5 section names)
+  const builtLayouts: Array<{ html: string; css: string; templateLabel: string; layoutContext: string }> = [];
+  for (let i = 0; i < 3; i++) {
+    const sectionNames = compositions[i] ?? compositions[0]!;
+    const sectionTemplates = await getCachedTemplatesByNames(sectionNames);
+    const templatesInOrder = sectionNames
+      .map((name) => sectionTemplates.find((t) => t.name === name))
+      .filter(Boolean) as Awaited<ReturnType<typeof getCachedTemplatesByNames>>;
+    const sections = templatesInOrder.length >= 3 ? templatesInOrder : [fallback, fallback, fallback];
+    const { html: composedHtml, css: composedCss } = composePage(sections);
+    const inj = injectAssets(composedHtml, composedCss, assets);
+    const layoutContext = sections.map((s) => s.description).join(" | ");
+    const templateLabel = sectionNames.slice(0, 3).join(" + ") + (sectionNames.length > 3 ? ` + ${sectionNames.length - 3} more` : "");
+    builtLayouts.push({ html: inj.html, css: inj.css, templateLabel, layoutContext });
+  }
   logStepElapsed("layouts", startTime);
 
   onProgress?.({ step: "copy", message: "Refreshing copy..." });
 
-  const [refreshed1, refreshed2, refreshed3, refreshed4, refreshed5, refreshed6] =
-    await Promise.all([
-      refreshCopy(industryDetected, assets.copy, layout1.description, {
-        refreshId,
-        step: "copy_refresh_layout1",
-        onRetry,
-      }),
-      refreshCopy(industryDetected, assets.copy, layout2.description, {
-        refreshId,
-        step: "copy_refresh_layout2",
-        onRetry,
-      }),
-      refreshCopy(industryDetected, assets.copy, layout3.description, {
-        refreshId,
-        step: "copy_refresh_layout3",
-        onRetry,
-      }),
-      refreshCopy(industryDetected, assets.copy, layout4.description, {
-        refreshId,
-        step: "copy_refresh_layout4",
-        onRetry,
-      }),
-      refreshCopy(industryDetected, assets.copy, layout5.description, {
-        refreshId,
-        step: "copy_refresh_layout5",
-        onRetry,
-      }),
-      refreshCopy(industryDetected, assets.copy, layout6.description, {
-        refreshId,
-        step: "copy_refresh_layout6",
-        onRetry,
-      }),
-    ]);
+  const [refreshed1, refreshed2, refreshed3] = await Promise.all([
+    refreshCopy(industryDetected, assets.copy, builtLayouts[0]!.layoutContext, {
+      refreshId,
+      step: "copy_refresh_layout1",
+      onRetry,
+    }),
+    refreshCopy(industryDetected, assets.copy, builtLayouts[1]!.layoutContext, {
+      refreshId,
+      step: "copy_refresh_layout2",
+      onRetry,
+    }),
+    refreshCopy(industryDetected, assets.copy, builtLayouts[2]!.layoutContext, {
+      refreshId,
+      step: "copy_refresh_layout3",
+      onRetry,
+    }),
+  ]);
   logStepElapsed("copy", startTime);
 
-  const htmlWithRefreshed1 = applyRefreshedCopy(inj1.html, refreshed1);
-  const htmlWithRefreshed2 = applyRefreshedCopy(inj2.html, refreshed2);
-  const htmlWithRefreshed3 = applyRefreshedCopy(inj3.html, refreshed3);
-  const htmlWithRefreshed4 = applyRefreshedCopy(inj4.html, refreshed4);
-  const htmlWithRefreshed5 = applyRefreshedCopy(inj5.html, refreshed5);
-  const htmlWithRefreshed6 = applyRefreshedCopy(inj6.html, refreshed6);
+  const htmlWithRefreshed1 = applyRefreshedCopy(builtLayouts[0]!.html, refreshedCopyToMap(refreshed1));
+  const htmlWithRefreshed2 = applyRefreshedCopy(builtLayouts[1]!.html, refreshedCopyToMap(refreshed2));
+  const htmlWithRefreshed3 = applyRefreshedCopy(builtLayouts[2]!.html, refreshedCopyToMap(refreshed3));
+
+  // Phase 2 watch-out: validate no raw {{...}} in final composed output; strip any before persisting. Also strip fallback placeholder text (e.g. "Customer Name, Title, Company", "info@example.com").
+  const cleaned = [0, 1, 2].map((i) => {
+    const inj = { html: builtLayouts[i]!.html, css: builtLayouts[i]!.css };
+    const refreshed = [htmlWithRefreshed1, htmlWithRefreshed2, htmlWithRefreshed3][i]!;
+    const design = stripUnresolvedPlaceholders(inj.html);
+    const copy = stripUnresolvedPlaceholders(refreshed);
+    if (design.stripped || copy.stripped) {
+      console.warn(`[pipeline] Layout ${i + 1}: stripped unresolved {{placeholders}} before save`);
+    }
+    return {
+      html: stripFallbackPlaceholderText(design.html),
+      css: inj.css,
+      copyRefreshed: stripFallbackPlaceholderText(copy.html),
+    };
+  });
 
   let screenshotUrl: string | null = null;
   if (screenshotBuffer) {
@@ -274,30 +308,30 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
       mobileScore: scoring.dimensionScores.mobile,
       performanceScore: scoring.dimensionScores.performance,
       scoringDetails: scoring.details as unknown as object,
-      layout1Html: inj1.html,
-      layout1Css: inj1.css,
-      layout1Template: layout1.name,
-      layout1CopyRefreshed: htmlWithRefreshed1,
-      layout2Html: inj2.html,
-      layout2Css: inj2.css,
-      layout2Template: layout2.name,
-      layout2CopyRefreshed: htmlWithRefreshed2,
-      layout3Html: inj3.html,
-      layout3Css: inj3.css,
-      layout3Template: layout3.name,
-      layout3CopyRefreshed: htmlWithRefreshed3,
-      layout4Html: inj4.html,
-      layout4Css: inj4.css,
-      layout4Template: layout4.name,
-      layout4CopyRefreshed: htmlWithRefreshed4,
-      layout5Html: inj5.html,
-      layout5Css: inj5.css,
-      layout5Template: layout5.name,
-      layout5CopyRefreshed: htmlWithRefreshed5,
-      layout6Html: inj6.html,
-      layout6Css: inj6.css,
-      layout6Template: layout6.name,
-      layout6CopyRefreshed: htmlWithRefreshed6,
+      layout1Html: cleaned[0].html,
+      layout1Css: cleaned[0].css,
+      layout1Template: builtLayouts[0]!.templateLabel,
+      layout1CopyRefreshed: cleaned[0].copyRefreshed,
+      layout2Html: cleaned[1].html,
+      layout2Css: cleaned[1].css,
+      layout2Template: builtLayouts[1]!.templateLabel,
+      layout2CopyRefreshed: cleaned[1].copyRefreshed,
+      layout3Html: cleaned[2].html,
+      layout3Css: cleaned[2].css,
+      layout3Template: builtLayouts[2]!.templateLabel,
+      layout3CopyRefreshed: cleaned[2].copyRefreshed,
+      layout4Html: "",
+      layout4Css: "",
+      layout4Template: "",
+      layout4CopyRefreshed: "",
+      layout5Html: "",
+      layout5Css: "",
+      layout5Template: "",
+      layout5CopyRefreshed: "",
+      layout6Html: "",
+      layout6Css: "",
+      layout6Template: "",
+      layout6CopyRefreshed: "",
       processingTime,
     },
   });
@@ -316,19 +350,36 @@ function extractInlineCss(html: string): string {
     .join("\n");
 }
 
+function refreshedCopyToMap(refreshed: RefreshedCopy): Record<string, string | undefined> {
+  const map: Record<string, string | undefined> = {
+    headline: refreshed.headline,
+    subheadline: refreshed.subheadline,
+    ctaText: refreshed.ctaText,
+    ctaSecondary: (() => {
+      const r = refreshed as unknown as Record<string, unknown>;
+      return typeof r.ctaSecondary === "string" ? r.ctaSecondary : undefined;
+    })(),
+    heroSection: refreshed.heroSection,
+  };
+  if (refreshed.sections) {
+    refreshed.sections.forEach((s, i) => {
+      map[`section${i + 1}_title`] = s.title;
+      map[`section${i + 1}_body`] = s.body;
+    });
+  }
+  for (const [key, value] of Object.entries(refreshed)) {
+    if (typeof value === "string" && !(key in map)) map[key] = value;
+  }
+  return map;
+}
+
 function applyRefreshedCopy(
   html: string,
-  refreshed: {
-    headline: string;
-    subheadline: string;
-    ctaText: string;
-  }
+  refreshed: Record<string, string | undefined>
 ): string {
-  return html
-    .replace(/\{\{headline\}\}/g, refreshed.headline)
-    .replace(/\{\{subheadline\}\}/g, refreshed.subheadline)
-    .replace(/\{\{ctaText\}\}/g, refreshed.ctaText)
-    .replace(/Your Main Headline Goes Here/g, refreshed.headline)
-    .replace(/Supporting paragraph that explains your value proposition\./g, refreshed.subheadline)
-    .replace(/Call to Action/g, refreshed.ctaText);
+  const map: Record<string, string> = {};
+  for (const [key, value] of Object.entries(refreshed)) {
+    if (typeof value === "string") map[key] = escapeHtml(value);
+  }
+  return replacePlaceholders(html, map);
 }

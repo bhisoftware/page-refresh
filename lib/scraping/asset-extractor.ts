@@ -1,8 +1,110 @@
 /**
  * Extract colors, fonts, images, and copy from HTML and CSS.
+ * Filters out junk UI strings and prioritizes h1 > h2 > meta > og:title for headline.
  */
 
 import * as cheerio from "cheerio";
+
+/**
+ * Junk / UI strings to exclude from extracted copy (lowercased for matching).
+ * Includes: accessibility skip links, cart/UI state text, and template placeholders.
+ */
+const COPY_BLOCKLIST = new Set([
+  // Accessibility
+  "skip to content",
+  "skip to main content",
+  "skip to main",
+  "skip navigation",
+  "skip to navigation",
+  // Cart / UI state
+  "close",
+  "menu",
+  "loading",
+  "item added to your cart",
+  "added to your cart",
+  "added to wishlist",
+  "view cart",
+  "add to cart",
+  "buy now",
+  // Generic UI
+  "submit",
+  "search",
+  "cart",
+  "login",
+  "sign in",
+  "sign out",
+  "logout",
+  "register",
+  "subscribe",
+  "read more",
+  "learn more",
+  "click here",
+  "cookie",
+  "accept",
+  "accept all",
+  "decline",
+  "got it",
+  "dismiss",
+  "notification",
+  "notifications",
+  "share",
+  "tweet",
+  "follow",
+  "next",
+  "previous",
+  "back",
+  "home",
+  "more",
+  "less",
+  "show more",
+  "show less",
+  "expand",
+  "collapse",
+  "open menu",
+  "close menu",
+  "toggle",
+  "search...",
+  "enter your email",
+  "your email",
+  "no thanks",
+  "maybe later",
+  // Template placeholders (so we don't treat them as real copy)
+  "your headline",
+  "your main headline goes here",
+  "supporting text",
+  "customer name",
+  "customer name, title, company",
+  "author name",
+  "title, company name",
+]);
+
+/** Max word count for a string to be considered a short UI label (exclude from body/hero if blocklisted). */
+const SHORT_LABEL_MAX_WORDS = 4;
+
+function isBlocklistedOrShortUi(text: string): boolean {
+  if (!text || typeof text !== "string") return true;
+  const t = text.trim();
+  if (!t) return true;
+  const lower = t.toLowerCase();
+  if (COPY_BLOCKLIST.has(lower)) return true;
+  const words = t.split(/\s+/).filter(Boolean);
+  if (words.length <= SHORT_LABEL_MAX_WORDS && (lower.length < 25 || /^(close|menu|login|cart|search|submit|back|next|prev|ok|cancel|yes|no)$/i.test(lower))) return true;
+  return false;
+}
+
+/** Matches template-placeholder style strings like "Name, Title, Company". */
+const TEMPLATE_PLACEHOLDER_PATTERN = /^(author\s+)?name\s*,\s*title\s*,?\s*company(\s+name)?$/i;
+
+function isJunkCopy(text: string): boolean {
+  if (!text || typeof text !== "string") return true;
+  const t = text.trim();
+  if (t.length < 2) return true;
+  if (isBlocklistedOrShortUi(t)) return true;
+  if (TEMPLATE_PLACEHOLDER_PATTERN.test(t)) return true;
+  if (/^\d+$/.test(t)) return true;
+  if (/^[^\w]{1,3}$/.test(t)) return true;
+  return false;
+}
 
 export interface ExtractedColor {
   hex: string;
@@ -142,14 +244,25 @@ export function extractAssets(html: string, css: string, baseUrl: string): Extra
   });
 
   const copy: ExtractedCopy = {};
-  const h1 = $("h1").first().text().trim();
-  if (h1) copy.h1 = h1;
-
+  const rawH1 = $("h1").first().text().trim();
   const h2s: string[] = [];
   $("h2").each((_, el) => {
     const t = $(el).text().trim();
-    if (t && !h2s.includes(t)) h2s.push(t);
+    if (t && !h2s.includes(t) && !isJunkCopy(t)) h2s.push(t);
   });
+  const metaDesc = $('meta[name="description"]').attr("content")?.trim();
+  const ogTitle = $('meta[property="og:title"]').attr("content")?.trim();
+
+  if (rawH1 && !isJunkCopy(rawH1)) {
+    copy.h1 = rawH1;
+  } else if (h2s.length) {
+    copy.h1 = h2s[0];
+  } else if (metaDesc && !isJunkCopy(metaDesc)) {
+    copy.h1 = metaDesc.slice(0, 120);
+  } else if (ogTitle && !isJunkCopy(ogTitle)) {
+    copy.h1 = ogTitle;
+  }
+
   if (h2s.length) copy.h2 = h2s.slice(0, 5);
 
   const heroSection = $("header").first().length
@@ -158,23 +271,23 @@ export function extractAssets(html: string, css: string, baseUrl: string): Extra
       ? $("main").first()
       : $("body").children().first();
   const heroText = heroSection.find("p").first().text().trim();
-  if (heroText) copy.heroText = heroText;
+  if (heroText && !isJunkCopy(heroText)) copy.heroText = heroText;
 
   const navItems: string[] = [];
   $("nav a").each((_, el) => {
     const t = $(el).text().trim();
-    if (t && t.length < 50) navItems.push(t);
+    if (t && t.length < 50 && !isJunkCopy(t)) navItems.push(t);
   });
   if (navItems.length) copy.navItems = navItems.slice(0, 8);
 
   const ctaCandidates = $('a[href*="contact"], a[href*="quote"], a[href*="book"], a[href*="schedule"], .cta, .button, [class*="cta"], [class*="button"]');
   const ctaText = ctaCandidates.first().text().trim();
-  if (ctaText) copy.ctaText = ctaText;
+  if (ctaText && !isJunkCopy(ctaText)) copy.ctaText = ctaText;
 
   const bodySamples: string[] = [];
   $("p").each((_, el) => {
     const t = $(el).text().trim();
-    if (t && t.length > 20 && t.length < 300) bodySamples.push(t);
+    if (t && t.length > 20 && t.length < 300 && !isJunkCopy(t)) bodySamples.push(t);
   });
   if (bodySamples.length) copy.bodySamples = bodySamples.slice(0, 5);
 

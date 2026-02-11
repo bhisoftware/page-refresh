@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
+import { adminNotesSchema } from "@/lib/validations";
 
 /**
  * POST: add an internal note. Body: { authorName, content, category? }
@@ -23,30 +24,28 @@ export async function POST(
     return Response.json({ error: "Refresh not found" }, { status: 404 });
   }
 
-  let body: { authorName?: string; content?: string; category?: string };
+  let body: unknown;
   try {
     body = await request.json();
   } catch {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const authorName = typeof body.authorName === "string" ? body.authorName.trim() : "";
-  const content = typeof body.content === "string" ? body.content.trim() : "";
-  const category = typeof body.category === "string" ? body.category.trim() || null : null;
-
-  if (!authorName || !content) {
+  const parsed = adminNotesSchema.safeParse(body);
+  if (!parsed.success) {
     return Response.json(
-      { error: "authorName and content are required" },
+      { error: "Validation failed", fields: parsed.error.flatten().fieldErrors },
       { status: 400 }
     );
   }
+  const { authorName, content, category } = parsed.data;
 
   const note = await prisma.internalNote.create({
     data: {
       refreshId,
       authorName,
       content,
-      category,
+      category: category ?? undefined,
     },
   });
 

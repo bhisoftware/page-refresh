@@ -18,9 +18,9 @@ export interface TemplateSeed {
 
 const DUAL_HERO_HTML = `<div class="split-hero">
   <div class="split-hero-text">
-    <h1>Your Main Headline Goes Here</h1>
-    <p>Supporting paragraph that explains your value proposition. Keep it concise but compelling—2-3 sentences that highlight the key benefit for your target audience.</p>
-    <a href="/your-cta-page" class="split-hero-btn">Call to Action</a>
+    <h1>{{headline}}</h1>
+    <p>{{subheadline}}</p>
+    <a href="/your-cta-page" class="split-hero-btn">{{ctaText}}</a>
   </div>
   <div class="split-hero-demo">
     <div class="device-frame">
@@ -193,22 +193,22 @@ const LOGO_MARQUEE_CSS = `.logo-marquee-section {
 
 const IOS_CARD_FAN_HTML = `<div class="use-cases-section">
   <div class="use-cases-header">
-    <h2>Your Section Headline</h2>
-    <p>Supporting text that introduces the use cases or features below</p>
+    <h2>{{sectionHeadline}}</h2>
+    <p>{{sectionSubheadline}}</p>
   </div>
   <div class="use-cases-container">
     <div class="card-stack">
-      <div class="stack-card card-0" data-index="0" data-title="Use Case 1 Title" data-description="Description for use case 1." style="background-image:url('YOUR_SCREENSHOT_1_URL');"></div>
-      <div class="stack-card card-1" data-index="1" data-title="Use Case 2 Title" data-description="Description for use case 2." style="background-image:url('YOUR_SCREENSHOT_2_URL');"></div>
-      <div class="stack-card card-2 active" data-index="2" data-title="Use Case 3 Title" data-description="Description for use case 3. This one is active by default." style="background-image:url('YOUR_SCREENSHOT_3_URL');"></div>
-      <div class="stack-card card-3" data-index="3" data-title="Use Case 4 Title" data-description="Description for use case 4." style="background-image:url('YOUR_SCREENSHOT_4_URL');"></div>
-      <div class="stack-card card-4" data-index="4" data-title="Use Case 5 Title" data-description="Description for use case 5." style="background-image:url('YOUR_SCREENSHOT_5_URL');"></div>
+      <div class="stack-card card-0" data-index="0" data-title="{{feature1_title}}" data-description="{{feature1_body}}" style="background-image:url('YOUR_SCREENSHOT_1_URL');"></div>
+      <div class="stack-card card-1" data-index="1" data-title="{{feature2_title}}" data-description="{{feature2_body}}" style="background-image:url('YOUR_SCREENSHOT_2_URL');"></div>
+      <div class="stack-card card-2 active" data-index="2" data-title="{{feature3_title}}" data-description="{{feature3_body}}" style="background-image:url('YOUR_SCREENSHOT_3_URL');"></div>
+      <div class="stack-card card-3" data-index="3" data-title="{{feature4_title}}" data-description="{{feature4_body}}" style="background-image:url('YOUR_SCREENSHOT_4_URL');"></div>
+      <div class="stack-card card-4" data-index="4" data-title="{{feature5_title}}" data-description="{{feature5_body}}" style="background-image:url('YOUR_SCREENSHOT_5_URL');"></div>
     </div>
     <div class="info-panel-wrapper">
       <div class="info-panel visible">
-        <h3 id="panelTitle">Use Case 3 Title</h3>
-        <p id="panelDescription">Description for use case 3. This one is active by default.</p>
-        <a href="/your-cta-link" class="info-panel-cta">Learn More →</a>
+        <h3 id="panelTitle">{{feature3_title}}</h3>
+        <p id="panelDescription">{{feature3_body}}</p>
+        <a href="/your-cta-link" class="info-panel-cta">{{ctaText}}</a>
       </div>
       <div class="card-dots">
         <button class="card-dot" data-index="0" aria-label="View Use Case 1"></button>
@@ -348,8 +348,8 @@ const IOS_CARD_FAN_CSS = `.use-cases-section {
 
 const DUAL_DEMO_HTML = `<div class="demo-section">
   <div class="demo-header">
-    <h2>Your Demo Section Headline</h2>
-    <p>Supporting text encouraging visitors to schedule a call</p>
+    <h2>{{sectionHeadline}}</h2>
+    <p>{{sectionSubheadline}}</p>
   </div>
   <div class="demo-container">
     <div class="demo-phone-showcase">
@@ -365,7 +365,7 @@ const DUAL_DEMO_HTML = `<div class="demo-section">
       </div>
     </div>
     <div class="demo-scheduling-wrapper">
-      <div class="demo-placeholder">Schedule a call</div>
+      <div class="demo-placeholder">{{ctaText}}</div>
     </div>
   </div>
 </div>
@@ -465,20 +465,20 @@ const DUAL_DEMO_CSS = `.demo-section {
 
 const SWITCH_PROVIDER_HTML = `<div class="switch-cta-section">
   <div class="switch-cta-content">
-    <div class="switch-cta-badge">Making a Change?</div>
-    <h2 class="switch-cta-headline">Switching is <span>Easier Than You Think</span></h2>
+    <div class="switch-cta-badge">{{sectionHeadline}}</div>
+    <h2 class="switch-cta-headline">{{headline}}</h2>
     <div class="switch-benefits">
       <div class="switch-benefit">
         <span class="benefit-icon">🎯</span>
-        <span class="benefit-text">Benefit statement one</span>
+        <span class="benefit-text">{{benefit1}}</span>
       </div>
       <div class="switch-benefit">
         <span class="benefit-icon">📋</span>
-        <span class="benefit-text">Benefit statement two</span>
+        <span class="benefit-text">{{benefit2}}</span>
       </div>
       <div class="switch-benefit">
         <span class="benefit-icon">📱</span>
-        <span class="benefit-text">Benefit statement three</span>
+        <span class="benefit-text">{{benefit3}}</span>
       </div>
     </div>
   </div>
@@ -504,8 +504,8 @@ const SWITCH_PROVIDER_HTML = `<div class="switch-cta-section">
       </div>
     </div>
     <div class="switch-cta-buttons">
-      <a href="/compare" class="switch-cta-button primary">See How We Compare <span class="button-arrow">→</span></a>
-      <a href="/get-started" class="switch-cta-button secondary">I'm Ready To Switch <span class="button-arrow">→</span></a>
+      <a href="/compare" class="switch-cta-button primary">{{ctaText}} <span class="button-arrow">→</span></a>
+      <a href="/get-started" class="switch-cta-button secondary">{{ctaSecondary}} <span class="button-arrow">→</span></a>
     </div>
   </div>
 </div>`;
@@ -617,16 +617,16 @@ const SWITCH_PROVIDER_CSS = `.switch-cta-section {
 
 const TESTIMONIALS_HTML = `<div class="testimonials-static-section">
   <div class="testimonials-header">
-    <h2>What Our Customers Say</h2>
+    <h2>{{sectionHeadline}}</h2>
   </div>
   <div class="testimonials-carousel">
     <div class="testimonials-track">
       <div class="testimonial-static-card active">
-        <p class="testimonial-quote">"Your first testimonial quote goes here. Keep it authentic and specific—mention concrete results or experiences."</p>
+        <p class="testimonial-quote">"{{testimonial1_quote}}"</p>
         <div class="testimonial-footer">
           <div class="testimonial-author-info">
-            <strong>Author Name</strong>
-            <span>Title, Company Name</span>
+            <strong>{{testimonial1_author}}</strong>
+            <span>{{testimonial1_role}}</span>
           </div>
           <div class="testimonial-logo">
             <img src="YOUR_COMPANY_LOGO_1_URL" alt="Company Name">
@@ -634,11 +634,11 @@ const TESTIMONIALS_HTML = `<div class="testimonials-static-section">
         </div>
       </div>
       <div class="testimonial-static-card dark">
-        <p class="testimonial-quote">"Second testimonial quote. Dark cards add visual variety and can highlight particularly impactful quotes."</p>
+        <p class="testimonial-quote">"{{testimonial2_quote}}"</p>
         <div class="testimonial-footer">
           <div class="testimonial-author-info">
-            <strong>Author Name</strong>
-            <span>Title, Company Name</span>
+            <strong>{{testimonial2_author}}</strong>
+            <span>{{testimonial2_role}}</span>
           </div>
           <div class="testimonial-logo">
             <img src="YOUR_COMPANY_LOGO_2_URL" alt="Company Name">
@@ -749,57 +749,57 @@ const TESTIMONIALS_CSS = `.testimonials-static-section {
 
 const SAAS_ABOUT_HTML = `<div class="about-hero">
   <div class="about-hero-content">
-    <span class="about-badge">About [Product Name]</span>
-    <h1>Built for [Target Audience].<br><span>By People Who Understand Them.</span></h1>
-    <p>[Product Name] isn't another generic [product category]. We built this from the ground up for the unique needs of [specific audience description].</p>
+    <span class="about-badge">{{aboutBadge}}</span>
+    <h1>{{headline}}</h1>
+    <p>{{subheadline}}</p>
   </div>
 </div>
 <div class="about-problem-section">
   <div class="about-problem-content">
-    <h2>The Problem We Saw</h2>
+    <h2>{{sectionHeadline}}</h2>
     <div class="problem-grid">
       <div class="problem-card">
         <div class="problem-icon">📋</div>
-        <h3>[Problem 1 Title]</h3>
-        <p>[Description of pain point your audience experiences.]</p>
+        <h3>{{problem1_title}}</h3>
+        <p>{{problem1_body}}</p>
       </div>
       <div class="problem-card">
         <div class="problem-icon">🔒</div>
-        <h3>[Problem 2 Title]</h3>
-        <p>[Description of second pain point.]</p>
+        <h3>{{problem2_title}}</h3>
+        <p>{{problem2_body}}</p>
       </div>
       <div class="problem-card">
         <div class="problem-icon">⚡</div>
-        <h3>[Problem 3 Title]</h3>
-        <p>[Description of third pain point.]</p>
+        <h3>{{problem3_title}}</h3>
+        <p>{{problem3_body}}</p>
       </div>
     </div>
   </div>
 </div>
 <div class="about-approach-section">
   <div class="about-approach-content">
-    <h2>Our Approach</h2>
-    <p class="approach-intro">Every decision we make comes back to three principles:</p>
+    <h2>{{approachHeadline}}</h2>
+    <p class="approach-intro">{{approachIntro}}</p>
     <div class="approach-pillars">
       <div class="pillar">
         <div class="pillar-number">01</div>
         <div class="pillar-content">
-          <h3>[Principle 1: Trust/Quality]</h3>
-          <p>[Explain how you prioritize the user's interests.]</p>
+          <h3>{{principle1_title}}</h3>
+          <p>{{principle1_body}}</p>
         </div>
       </div>
       <div class="pillar">
         <div class="pillar-number">02</div>
         <div class="pillar-content">
-          <h3>[Principle 2: Simplicity/Ease]</h3>
-          <p>[Explain how you reduce complexity.]</p>
+          <h3>{{principle2_title}}</h3>
+          <p>{{principle2_body}}</p>
         </div>
       </div>
       <div class="pillar">
         <div class="pillar-number">03</div>
         <div class="pillar-content">
-          <h3>[Principle 3: Results/Outcomes]</h3>
-          <p>[Explain how features tie to measurable outcomes.]</p>
+          <h3>{{principle3_title}}</h3>
+          <p>{{principle3_body}}</p>
         </div>
       </div>
     </div>
@@ -807,38 +807,38 @@ const SAAS_ABOUT_HTML = `<div class="about-hero">
 </div>
 <div class="about-stats-section">
   <div class="about-stats-content">
-    <h2>The [Product Name] Difference</h2>
+    <h2>{{statsHeadline}}</h2>
     <div class="stats-grid">
       <div class="stat-item">
-        <div class="stat-number">[STAT 1]</div>
-        <div class="stat-label">[Metric Name]</div>
-        <div class="stat-compare">[comparison or context]</div>
+        <div class="stat-number">{{stat1_value}}</div>
+        <div class="stat-label">{{stat1_label}}</div>
+        <div class="stat-compare">{{stat1_compare}}</div>
       </div>
       <div class="stat-item">
-        <div class="stat-number">[STAT 2]</div>
-        <div class="stat-label">[Metric Name]</div>
-        <div class="stat-compare">[comparison or context]</div>
+        <div class="stat-number">{{stat2_value}}</div>
+        <div class="stat-label">{{stat2_label}}</div>
+        <div class="stat-compare">{{stat2_compare}}</div>
       </div>
       <div class="stat-item">
-        <div class="stat-number">[STAT 3]</div>
-        <div class="stat-label">[Metric Name]</div>
-        <div class="stat-compare">[comparison or context]</div>
+        <div class="stat-number">{{stat3_value}}</div>
+        <div class="stat-label">{{stat3_label}}</div>
+        <div class="stat-compare">{{stat3_compare}}</div>
       </div>
       <div class="stat-item">
-        <div class="stat-number">[STAT 4]</div>
-        <div class="stat-label">[Metric Name]</div>
-        <div class="stat-compare">[comparison or context]</div>
+        <div class="stat-number">{{stat4_value}}</div>
+        <div class="stat-label">{{stat4_label}}</div>
+        <div class="stat-compare">{{stat4_compare}}</div>
       </div>
     </div>
   </div>
 </div>
 <div class="about-cta-section">
   <div class="about-cta-content">
-    <h2>[Action-Oriented Headline]</h2>
-    <p>[1-2 sentences reinforcing value prop and reducing friction.]</p>
+    <h2>{{ctaHeadline}}</h2>
+    <p>{{ctaSubheadline}}</p>
     <div class="about-cta-buttons">
-      <a href="[PRIMARY_URL]" class="about-cta-btn primary">[Primary CTA Text] →</a>
-      <a href="[SECONDARY_URL]" class="about-cta-btn secondary">[Secondary CTA Text]</a>
+      <a href="#" class="about-cta-btn primary">{{ctaText}}</a>
+      <a href="#" class="about-cta-btn secondary">{{ctaSecondary}}</a>
     </div>
   </div>
 </div>`;
@@ -913,40 +913,36 @@ const SAAS_ABOUT_CSS = `:root {
 
 const FEATURES_GRID_HTML = `<div class="features-grid-section">
   <div class="features-grid-header">
-    <h2>Your Section Headline</h2>
-    <p>Supporting description text goes here</p>
+    <h2>{{sectionHeadline}}</h2>
+    <p>{{sectionSubheadline}}</p>
   </div>
   <div class="features-grid">
     <div class="feature-card">
       <div class="feature-icon">🚀</div>
-      <h3>Feature 1</h3>
+      <h3>{{feature1_title}}</h3>
       <ul>
-        <li>Key benefit or solution point</li>
-        <li>Another key benefit or feature</li>
+        <li>{{feature1_body}}</li>
       </ul>
     </div>
     <div class="feature-card">
       <div class="feature-icon">💼</div>
-      <h3>Feature 2</h3>
+      <h3>{{feature2_title}}</h3>
       <ul>
-        <li>Key benefit or solution point</li>
-        <li>Another key benefit or feature</li>
+        <li>{{feature2_body}}</li>
       </ul>
     </div>
     <div class="feature-card">
       <div class="feature-icon">🏠</div>
-      <h3>Feature 3</h3>
+      <h3>{{feature3_title}}</h3>
       <ul>
-        <li>Key benefit or solution point</li>
-        <li>Another key benefit or feature</li>
+        <li>{{feature3_body}}</li>
       </ul>
     </div>
     <div class="feature-card">
       <div class="feature-icon">🏢</div>
-      <h3>Feature 4</h3>
+      <h3>{{feature4_title}}</h3>
       <ul>
-        <li>Key benefit or solution point</li>
-        <li>Another key benefit or feature</li>
+        <li>{{feature4_body}}</li>
       </ul>
     </div>
   </div>
@@ -1024,11 +1020,11 @@ const FEATURES_GRID_CSS = `.features-grid-section {
 
 const SINGLE_HERO_CTA_HTML = `<div class="single-hero">
   <div class="single-hero-inner">
-    <h1>Your Main Headline Goes Here</h1>
-    <p class="single-hero-sub">Supporting paragraph that explains your value proposition. Keep it concise and compelling.</p>
+    <h1>{{headline}}</h1>
+    <p class="single-hero-sub">{{subheadline}}</p>
     <div class="single-hero-actions">
-      <a href="#" class="single-hero-btn primary">Primary CTA</a>
-      <a href="#" class="single-hero-btn secondary">Secondary</a>
+      <a href="#" class="single-hero-btn primary">{{ctaText}}</a>
+      <a href="#" class="single-hero-btn secondary">{{ctaSecondary}}</a>
     </div>
   </div>
 </div>`;
@@ -1091,20 +1087,20 @@ const SINGLE_HERO_CTA_CSS = `.single-hero {
 const STATS_BAR_HTML = `<div class="stats-bar-section">
   <div class="stats-bar-inner">
     <div class="stat-item">
-      <span class="stat-value">500+</span>
-      <span class="stat-label">Happy Clients</span>
+      <span class="stat-value">{{stat1_value}}</span>
+      <span class="stat-label">{{stat1_label}}</span>
     </div>
     <div class="stat-item">
-      <span class="stat-value">15</span>
-      <span class="stat-label">Years Experience</span>
+      <span class="stat-value">{{stat2_value}}</span>
+      <span class="stat-label">{{stat2_label}}</span>
     </div>
     <div class="stat-item">
-      <span class="stat-value">98%</span>
-      <span class="stat-label">Satisfaction</span>
+      <span class="stat-value">{{stat3_value}}</span>
+      <span class="stat-label">{{stat3_label}}</span>
     </div>
     <div class="stat-item">
-      <span class="stat-value">24/7</span>
-      <span class="stat-label">Support</span>
+      <span class="stat-value">{{stat4_value}}</span>
+      <span class="stat-label">{{stat4_label}}</span>
     </div>
   </div>
 </div>`;
@@ -1148,41 +1144,41 @@ const STATS_BAR_CSS = `.stats-bar-section {
 
 const PRICING_CARDS_HTML = `<div class="pricing-section">
   <div class="pricing-header">
-    <h2>Simple, Transparent Pricing</h2>
-    <p>Choose the plan that fits your needs</p>
+    <h2>{{sectionHeadline}}</h2>
+    <p>{{sectionSubheadline}}</p>
   </div>
   <div class="pricing-grid">
     <div class="pricing-card">
-      <h3>Starter</h3>
-      <div class="pricing-amount"><span class="currency">$</span><span class="amount">29</span><span class="period">/mo</span></div>
+      <h3>{{pricing1_title}}</h3>
+      <div class="pricing-amount"><span class="currency">$</span><span class="amount">{{pricing1_amount}}</span><span class="period">/mo</span></div>
       <ul class="pricing-features">
-        <li>Feature one</li>
-        <li>Feature two</li>
-        <li>Feature three</li>
+        <li>{{pricing1_feature1}}</li>
+        <li>{{pricing1_feature2}}</li>
+        <li>{{pricing1_feature3}}</li>
       </ul>
-      <a href="#" class="pricing-cta">Get Started</a>
+      <a href="#" class="pricing-cta">{{ctaText}}</a>
     </div>
     <div class="pricing-card featured">
       <span class="pricing-badge">Popular</span>
-      <h3>Professional</h3>
-      <div class="pricing-amount"><span class="currency">$</span><span class="amount">79</span><span class="period">/mo</span></div>
+      <h3>{{pricing2_title}}</h3>
+      <div class="pricing-amount"><span class="currency">$</span><span class="amount">{{pricing2_amount}}</span><span class="period">/mo</span></div>
       <ul class="pricing-features">
-        <li>Everything in Starter</li>
-        <li>Feature four</li>
-        <li>Feature five</li>
-        <li>Priority support</li>
+        <li>{{pricing2_feature1}}</li>
+        <li>{{pricing2_feature2}}</li>
+        <li>{{pricing2_feature3}}</li>
+        <li>{{pricing2_feature4}}</li>
       </ul>
-      <a href="#" class="pricing-cta primary">Get Started</a>
+      <a href="#" class="pricing-cta primary">{{ctaText}}</a>
     </div>
     <div class="pricing-card">
-      <h3>Enterprise</h3>
-      <div class="pricing-amount"><span class="currency">$</span><span class="amount">199</span><span class="period">/mo</span></div>
+      <h3>{{pricing3_title}}</h3>
+      <div class="pricing-amount"><span class="currency">$</span><span class="amount">{{pricing3_amount}}</span><span class="period">/mo</span></div>
       <ul class="pricing-features">
-        <li>Everything in Professional</li>
-        <li>Custom integrations</li>
-        <li>Dedicated account manager</li>
+        <li>{{pricing3_feature1}}</li>
+        <li>{{pricing3_feature2}}</li>
+        <li>{{pricing3_feature3}}</li>
       </ul>
-      <a href="#" class="pricing-cta">Contact Sales</a>
+      <a href="#" class="pricing-cta">{{ctaSecondary}}</a>
     </div>
   </div>
 </div>`;
@@ -1272,25 +1268,25 @@ const PRICING_CARDS_CSS = `.pricing-section {
 
 const FAQ_ACCORDION_HTML = `<div class="faq-section">
   <div class="faq-header">
-    <h2>Frequently Asked Questions</h2>
-    <p>Find answers to common questions</p>
+    <h2>{{sectionHeadline}}</h2>
+    <p>{{sectionSubheadline}}</p>
   </div>
   <div class="faq-list">
     <div class="faq-item">
-      <button class="faq-question" type="button" aria-expanded="false" aria-controls="faq-1" id="faq-q-1">What is included in your service?</button>
-      <div class="faq-answer" id="faq-1" aria-labelledby="faq-q-1" hidden>We include a full consultation, custom design, and ongoing support. Every project is tailored to your specific needs.</div>
+      <button class="faq-question" type="button" aria-expanded="false" aria-controls="faq-1" id="faq-q-1">{{faq1_question}}</button>
+      <div class="faq-answer" id="faq-1" aria-labelledby="faq-q-1" hidden>{{faq1_answer}}</div>
     </div>
     <div class="faq-item">
-      <button class="faq-question" type="button" aria-expanded="false" aria-controls="faq-2" id="faq-q-2">How long does the process take?</button>
-      <div class="faq-answer" id="faq-2" aria-labelledby="faq-q-2" hidden>Typically 2-4 weeks from kickoff to launch, depending on project scope. We'll provide a detailed timeline at the start.</div>
+      <button class="faq-question" type="button" aria-expanded="false" aria-controls="faq-2" id="faq-q-2">{{faq2_question}}</button>
+      <div class="faq-answer" id="faq-2" aria-labelledby="faq-q-2" hidden>{{faq2_answer}}</div>
     </div>
     <div class="faq-item">
-      <button class="faq-question" type="button" aria-expanded="false" aria-controls="faq-3" id="faq-q-3">Do you offer refunds?</button>
-      <div class="faq-answer" id="faq-3" aria-labelledby="faq-q-3" hidden>Yes, we offer a 30-day satisfaction guarantee. If you're not happy with the results, we'll work with you to make it right.</div>
+      <button class="faq-question" type="button" aria-expanded="false" aria-controls="faq-3" id="faq-q-3">{{faq3_question}}</button>
+      <div class="faq-answer" id="faq-3" aria-labelledby="faq-q-3" hidden>{{faq3_answer}}</div>
     </div>
     <div class="faq-item">
-      <button class="faq-question" type="button" aria-expanded="false" aria-controls="faq-4" id="faq-q-4">How can I get in touch?</button>
-      <div class="faq-answer" id="faq-4" aria-labelledby="faq-q-4" hidden>You can reach us by phone, email, or through the contact form on this site. We typically respond within 24 hours.</div>
+      <button class="faq-question" type="button" aria-expanded="false" aria-controls="faq-4" id="faq-q-4">{{faq4_question}}</button>
+      <div class="faq-answer" id="faq-4" aria-labelledby="faq-q-4" hidden>{{faq4_answer}}</div>
     </div>
   </div>
 </div>
@@ -1365,11 +1361,11 @@ const FAQ_ACCORDION_CSS = `.faq-section {
 const CONTACT_FORM_HERO_HTML = `<div class="contact-hero">
   <div class="contact-hero-grid">
     <div class="contact-hero-content">
-      <h1>Get In Touch</h1>
-      <p>Have a question or ready to get started? Fill out the form and we'll get back to you within 24 hours.</p>
+      <h1>{{headline}}</h1>
+      <p>{{subheadline}}</p>
       <div class="contact-info">
-        <div class="contact-info-item">📧 info@example.com</div>
-        <div class="contact-info-item">📞 (555) 123-4567</div>
+        <div class="contact-info-item">📧 {{contact_email}}</div>
+        <div class="contact-info-item">📞 {{contact_phone}}</div>
       </div>
     </div>
     <div class="contact-hero-form-wrap">
@@ -1378,7 +1374,7 @@ const CONTACT_FORM_HERO_HTML = `<div class="contact-hero">
         <input type="email" name="email" placeholder="Email Address" required>
         <input type="tel" name="phone" placeholder="Phone (optional)">
         <textarea name="message" placeholder="How can we help?" rows="4" required></textarea>
-        <button type="submit" class="contact-submit">Send Message</button>
+        <button type="submit" class="contact-submit">{{ctaText}}</button>
       </form>
     </div>
   </div>
@@ -1456,14 +1452,14 @@ const CONTACT_FORM_HERO_CSS = `.contact-hero {
 
 const SPLIT_IMAGE_CONTENT_HTML = `<div class="split-section">
   <div class="split-content">
-    <h2>Your Headline Here</h2>
-    <p>Supporting text that explains your value proposition. This split layout works great for alternating content and imagery throughout the page.</p>
+    <h2>{{sectionHeadline}}</h2>
+    <p>{{sectionSubheadline}}</p>
     <ul class="split-list">
-      <li>Key benefit or feature one</li>
-      <li>Key benefit or feature two</li>
-      <li>Key benefit or feature three</li>
+      <li>{{benefit1}}</li>
+      <li>{{benefit2}}</li>
+      <li>{{benefit3}}</li>
     </ul>
-    <a href="#" class="split-cta">Learn More →</a>
+    <a href="#" class="split-cta">{{ctaText}}</a>
   </div>
   <div class="split-image">
     <img src="YOUR_IMAGE_URL" alt="Supporting visual">
@@ -1535,20 +1531,20 @@ const SPLIT_IMAGE_CONTENT_CSS = `.split-section {
 
 const NAV_AND_HERO_HTML = `<header class="nav-hero-nav">
   <div class="nav-inner">
-    <a href="/" class="nav-logo">Your Brand</a>
+    <a href="/" class="nav-logo">{{brandName}}</a>
     <nav class="nav-links">
       <a href="#">Services</a>
       <a href="#">About</a>
       <a href="#">Contact</a>
     </nav>
-    <a href="#" class="nav-cta">Get Started</a>
+    <a href="#" class="nav-cta">{{ctaText}}</a>
   </div>
 </header>
 <div class="nav-hero-hero">
   <div class="nav-hero-inner">
-    <h1>Your Main Headline</h1>
-    <p>Supporting subheadline that expands on your value proposition. Keep it concise and compelling.</p>
-    <a href="#" class="nav-hero-btn">Call to Action</a>
+    <h1>{{headline}}</h1>
+    <p>{{subheadline}}</p>
+    <a href="#" class="nav-hero-btn">{{ctaText}}</a>
   </div>
 </div>`;
 
@@ -1633,11 +1629,11 @@ const NAV_AND_HERO_CSS = `.nav-hero-nav {
 
 const FOOTER_CTA_HTML = `<div class="footer-cta-section">
   <div class="footer-cta-inner">
-    <h2>Ready to Get Started?</h2>
-    <p>Join hundreds of satisfied customers. Take the next step today.</p>
+    <h2>{{sectionHeadline}}</h2>
+    <p>{{sectionSubheadline}}</p>
     <div class="footer-cta-buttons">
-      <a href="#" class="footer-cta-btn primary">Start Free Trial</a>
-      <a href="#" class="footer-cta-btn secondary">Talk to Sales</a>
+      <a href="#" class="footer-cta-btn primary">{{ctaText}}</a>
+      <a href="#" class="footer-cta-btn secondary">{{ctaSecondary}}</a>
     </div>
   </div>
 </div>`;
@@ -1694,27 +1690,27 @@ const FOOTER_CTA_CSS = `.footer-cta-section {
 
 const CARD_GRID_HTML = `<div class="card-grid-section">
   <div class="card-grid-header">
-    <h2>Our Services</h2>
-    <p>Explore what we offer</p>
+    <h2>{{sectionHeadline}}</h2>
+    <p>{{sectionSubheadline}}</p>
   </div>
   <div class="card-grid">
     <div class="card-grid-item">
       <div class="card-grid-icon">🏠</div>
-      <h3>Service One</h3>
-      <p>Brief description of this service and its key benefits.</p>
-      <a href="#" class="card-grid-link">Learn more →</a>
+      <h3>{{feature1_title}}</h3>
+      <p>{{feature1_body}}</p>
+      <a href="#" class="card-grid-link">{{ctaText}}</a>
     </div>
     <div class="card-grid-item">
       <div class="card-grid-icon">💼</div>
-      <h3>Service Two</h3>
-      <p>Brief description of this service and its key benefits.</p>
-      <a href="#" class="card-grid-link">Learn more →</a>
+      <h3>{{feature2_title}}</h3>
+      <p>{{feature2_body}}</p>
+      <a href="#" class="card-grid-link">{{ctaText}}</a>
     </div>
     <div class="card-grid-item">
       <div class="card-grid-icon">⚡</div>
-      <h3>Service Three</h3>
-      <p>Brief description of this service and its key benefits.</p>
-      <a href="#" class="card-grid-link">Learn more →</a>
+      <h3>{{feature3_title}}</h3>
+      <p>{{feature3_body}}</p>
+      <a href="#" class="card-grid-link">{{ctaText}}</a>
     </div>
   </div>
 </div>`;
@@ -1781,36 +1777,36 @@ const CARD_GRID_CSS = `.card-grid-section {
 
 const TIMELINE_HTML = `<div class="timeline-section">
   <div class="timeline-header">
-    <h2>Our Process</h2>
-    <p>How we work with you</p>
+    <h2>{{sectionHeadline}}</h2>
+    <p>{{sectionSubheadline}}</p>
   </div>
   <div class="timeline">
     <div class="timeline-item">
       <div class="timeline-marker">1</div>
       <div class="timeline-content">
-        <h3>Consultation</h3>
-        <p>We start with a discovery call to understand your goals and requirements.</p>
+        <h3>{{process1_title}}</h3>
+        <p>{{process1_body}}</p>
       </div>
     </div>
     <div class="timeline-item">
       <div class="timeline-marker">2</div>
       <div class="timeline-content">
-        <h3>Planning</h3>
-        <p>We create a detailed plan and timeline tailored to your needs.</p>
+        <h3>{{process2_title}}</h3>
+        <p>{{process2_body}}</p>
       </div>
     </div>
     <div class="timeline-item">
       <div class="timeline-marker">3</div>
       <div class="timeline-content">
-        <h3>Execution</h3>
-        <p>Our team gets to work, keeping you informed every step of the way.</p>
+        <h3>{{process3_title}}</h3>
+        <p>{{process3_body}}</p>
       </div>
     </div>
     <div class="timeline-item">
       <div class="timeline-marker">4</div>
       <div class="timeline-content">
-        <h3>Delivery</h3>
-        <p>We deliver the final result and provide ongoing support as needed.</p>
+        <h3>{{process4_title}}</h3>
+        <p>{{process4_body}}</p>
       </div>
     </div>
   </div>
@@ -1883,8 +1879,8 @@ const TIMELINE_CSS = `.timeline-section {
 
 const COMPARISON_TABLE_HTML = `<div class="comparison-section">
   <div class="comparison-header">
-    <h2>Compare Plans</h2>
-    <p>Find the right fit for your needs</p>
+    <h2>{{sectionHeadline}}</h2>
+    <p>{{sectionSubheadline}}</p>
   </div>
   <div class="comparison-table-wrap">
     <table class="comparison-table">
@@ -1968,9 +1964,9 @@ const COMPARISON_TABLE_CSS = `.comparison-section {
 }`;
 
 const MINIMAL_HERO_HTML = `<section class="minimal-hero">
-  <h1>Your Headline</h1>
-  <p class="minimal-hero-sub">Supporting subheadline in one line.</p>
-  <a href="#" class="minimal-hero-cta">Call to Action</a>
+  <h1>{{headline}}</h1>
+  <p class="minimal-hero-sub">{{subheadline}}</p>
+  <a href="#" class="minimal-hero-cta">{{ctaText}}</a>
 </section>`;
 
 const MINIMAL_HERO_CSS = `.minimal-hero {
