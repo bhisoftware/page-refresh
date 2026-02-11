@@ -1,0 +1,7 @@
+SIL OPEN FONT LICENSE Version 1.1
+
+All font files in this directory are licensed under the SIL Open Font License, Version 1.1.
+
+This license allows the fonts to be used, studied, modified and redistributed freely as long as they are not sold by themselves.
+
+Full license text: https://scripts.sil.org/OFL
