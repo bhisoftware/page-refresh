@@ -52,7 +52,7 @@ export interface ScoringResult {
 }
 
 export interface PromptLogContext {
-  analysisId: string;
+  refreshId: string;
   step: string;
   onRetry?: (delayMs: number) => void;
 }
@@ -94,7 +94,7 @@ export async function scoreWebsite(input: ScoringInput): Promise<ScoringResult> 
       );
 
       const promptLogCtx = input.promptLog
-        ? { analysisId: input.promptLog.analysisId, step: `dimension_scoring_${dim}`, onRetry: input.promptLog.onRetry }
+        ? { refreshId: input.promptLog.refreshId, step: `dimension_scoring_${dim}`, onRetry: input.promptLog.onRetry }
         : undefined;
       const { text } = await completeText(prompt, undefined, promptLogCtx);
 

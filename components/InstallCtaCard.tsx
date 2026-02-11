@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 import { RequestInstallForm } from "@/components/RequestInstallForm";
 
 interface InstallCtaCardProps {
-  analysisId: string;
+  refreshId: string;
 }
 
-export function InstallCtaCard({ analysisId }: InstallCtaCardProps) {
+export function InstallCtaCard({ refreshId }: InstallCtaCardProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -28,7 +28,7 @@ export function InstallCtaCard({ analysisId }: InstallCtaCardProps) {
       <RequestInstallForm
         open={open}
         onOpenChange={setOpen}
-        analysisId={analysisId}
+        refreshId={refreshId}
       />
     </>
   );

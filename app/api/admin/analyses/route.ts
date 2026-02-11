@@ -6,7 +6,7 @@ const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 100;
 
 /**
- * GET: paginated list of analyses. Requires admin cookie.
+ * GET: paginated list of refreshes. Requires admin cookie.
  */
 export async function GET(request: NextRequest) {
   if (!(await isAdminAuthenticated())) {
@@ -20,8 +20,8 @@ export async function GET(request: NextRequest) {
   );
   const skip = (page - 1) * limit;
 
-  const [analyses, total] = await Promise.all([
-    prisma.analysis.findMany({
+  const [refreshes, total] = await Promise.all([
+    prisma.refresh.findMany({
       skip,
       take: limit,
       orderBy: { createdAt: "desc" },
@@ -37,10 +37,10 @@ export async function GET(request: NextRequest) {
         _count: { select: { internalNotes: true } },
       },
     }),
-    prisma.analysis.count(),
+    prisma.refresh.count(),
   ]);
 
-  const items = analyses.map((a) => ({
+  const items = refreshes.map((a) => ({
     id: a.id,
     url: a.url,
     targetWebsite: a.targetWebsite,

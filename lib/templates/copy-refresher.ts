@@ -7,7 +7,7 @@ import { buildCopyRefreshPrompt } from "@/lib/ai/prompt-templates";
 import type { ExtractedCopy } from "@/lib/scraping/asset-extractor";
 
 export interface PromptLogContext {
-  analysisId: string;
+  refreshId: string;
   step: string;
   onRetry?: (delayMs: number) => void;
 }

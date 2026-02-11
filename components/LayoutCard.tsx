@@ -27,7 +27,7 @@ interface LayoutCardProps {
   layoutHtml: string;
   layoutCss: string;
   layoutCopyRefreshed: string;
-  analysisId: string;
+  refreshId: string;
   viewToken: string;
   className?: string;
 }
@@ -38,7 +38,7 @@ export function LayoutCard({
   layoutHtml,
   layoutCss,
   layoutCopyRefreshed,
-  analysisId,
+  refreshId,
   viewToken,
   className,
 }: LayoutCardProps) {
@@ -102,7 +102,7 @@ export function LayoutCard({
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                      analysisId,
+                      refreshId,
                       layoutIndex,
                       platform: exportPlatform,
                       token: viewToken,
@@ -137,7 +137,7 @@ export function LayoutCard({
       <RequestQuoteForm
         open={quoteOpen}
         onOpenChange={setQuoteOpen}
-        analysisId={analysisId}
+        refreshId={refreshId}
         layoutIndex={layoutIndex}
       />
     </>

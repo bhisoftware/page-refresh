@@ -76,8 +76,8 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
 
   const seoAudit = runSeoAudit(html);
 
-  // Create preliminary Analysis so we have analysisId for PromptLog on all AI calls
-  const analysis = await prisma.analysis.create({
+  // Create preliminary Refresh so we have refreshId for PromptLog on all AI calls
+  const refresh = await prisma.refresh.create({
     data: {
       url: normalizedUrl,
       targetWebsite: normalizedUrl,
@@ -131,10 +131,10 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   });
   logStepElapsed("seo+db_create", startTime);
 
-  const analysisId = analysis.id;
+  const refreshId = refresh.id;
   const onRetry = (delayMs: number) =>
-    onProgress?.({ step: "retry", message: `Analysis paused due to API limits. Retrying in ${Math.round(delayMs / 1000)} seconds...` });
-  const promptLog = { analysisId, step: "", onRetry };
+    onProgress?.({ step: "retry", message: `Refresh paused due to API limits. Retrying in ${Math.round(delayMs / 1000)} seconds...` });
+  const promptLog = { refreshId, step: "", onRetry };
 
   onProgress?.({ step: "vision", message: "Analyzing design..." });
   onProgress?.({ step: "industry", message: "Detecting industry..." });
@@ -166,7 +166,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     brandAnalysis,
     extractedCopy: assets.copy,
     seoAudit: seoAudit as unknown as Record<string, unknown>,
-    promptLog: { analysisId, step: "dimension_scoring", onRetry },
+    promptLog: { refreshId, step: "dimension_scoring", onRetry },
   });
   logStepElapsed("score", startTime);
 
@@ -177,7 +177,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     industryDetected,
     scoring.details,
     copySummary,
-    { analysisId, step: "template_selection", onRetry }
+    { refreshId, step: "template_selection", onRetry }
   );
 
   const templates = await getCachedTemplatesByNames(templateNames);
@@ -205,32 +205,32 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   const [refreshed1, refreshed2, refreshed3, refreshed4, refreshed5, refreshed6] =
     await Promise.all([
       refreshCopy(industryDetected, assets.copy, layout1.description, {
-        analysisId,
+        refreshId,
         step: "copy_refresh_layout1",
         onRetry,
       }),
       refreshCopy(industryDetected, assets.copy, layout2.description, {
-        analysisId,
+        refreshId,
         step: "copy_refresh_layout2",
         onRetry,
       }),
       refreshCopy(industryDetected, assets.copy, layout3.description, {
-        analysisId,
+        refreshId,
         step: "copy_refresh_layout3",
         onRetry,
       }),
       refreshCopy(industryDetected, assets.copy, layout4.description, {
-        analysisId,
+        refreshId,
         step: "copy_refresh_layout4",
         onRetry,
       }),
       refreshCopy(industryDetected, assets.copy, layout5.description, {
-        analysisId,
+        refreshId,
         step: "copy_refresh_layout5",
         onRetry,
       }),
       refreshCopy(industryDetected, assets.copy, layout6.description, {
-        analysisId,
+        refreshId,
         step: "copy_refresh_layout6",
         onRetry,
       }),
@@ -247,18 +247,18 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   let screenshotUrl: string | null = null;
   if (screenshotBuffer) {
     const { buffer: optimized, contentType } = await compressScreenshotToWebP(screenshotBuffer);
-    const blobKey = screenshotKey(analysisId, normalizedUrl);
+    const blobKey = screenshotKey(refreshId, normalizedUrl);
     screenshotUrl = await uploadBlob(blobKey, optimized, contentType);
   }
 
   const processingTime = Math.round((Date.now() - startTime) / 1000);
   logStepElapsed("upload+finalize", startTime);
-  console.log(`[pipeline] analysis ${analysisId} complete in ${processingTime}s`);
+  console.log(`[pipeline] refresh ${refreshId} complete in ${processingTime}s`);
 
   onProgress?.({ step: "done", message: "Finalizing..." });
 
-  await prisma.analysis.update({
-    where: { id: analysisId },
+  await prisma.refresh.update({
+    where: { id: refreshId },
     data: {
       screenshotUrl,
       brandAnalysis,
@@ -302,7 +302,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     },
   });
 
-  return analysisId;
+  return refreshId;
 }
 
 function extractInlineCss(html: string): string {

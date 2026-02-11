@@ -14,7 +14,7 @@ import {
 import type { DimensionScore } from "@/lib/scoring/scorer";
 
 export interface PromptLogContext {
-  analysisId: string;
+  refreshId: string;
   step: string;
   onRetry?: (delayMs: number) => void;
 }

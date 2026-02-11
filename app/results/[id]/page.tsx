@@ -9,8 +9,8 @@ import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
 
-async function getAnalysis(id: string) {
-  return prisma.analysis.findUnique({
+async function getRefresh(id: string) {
+  return prisma.refresh.findUnique({
     where: { id },
     select: {
       id: true,
@@ -93,59 +93,59 @@ export default async function ResultsPage({
 }) {
   const { id } = await params;
   const { token } = await searchParams;
-  const analysis = await getAnalysis(id);
+  const refresh = await getRefresh(id);
 
-  if (!analysis) notFound();
+  if (!refresh) notFound();
   const tokenValid =
     typeof token === "string" &&
     token.length > 0 &&
-    analysis.viewToken === token;
+    refresh.viewToken === token;
   if (!tokenValid) forbidden();
 
-  const overallScore = Number(analysis.overallScore) || 0;
-  const scoringDetails = (analysis.scoringDetails ?? []) as unknown as DimensionDetail[];
+  const overallScore = Number(refresh.overallScore) || 0;
+  const scoringDetails = (refresh.scoringDetails ?? []) as unknown as DimensionDetail[];
   const layoutRows = [
     {
       layoutIndex: 1 as const,
-      templateName: analysis.layout1Template ?? "Layout 1",
-      layoutHtml: analysis.layout1Html,
-      layoutCss: analysis.layout1Css ?? "",
-      layoutCopyRefreshed: analysis.layout1CopyRefreshed ?? analysis.layout1Html,
+      templateName: refresh.layout1Template ?? "Layout 1",
+      layoutHtml: refresh.layout1Html,
+      layoutCss: refresh.layout1Css ?? "",
+      layoutCopyRefreshed: refresh.layout1CopyRefreshed ?? refresh.layout1Html,
     },
     {
       layoutIndex: 2 as const,
-      templateName: analysis.layout2Template ?? "Layout 2",
-      layoutHtml: analysis.layout2Html,
-      layoutCss: analysis.layout2Css ?? "",
-      layoutCopyRefreshed: analysis.layout2CopyRefreshed ?? analysis.layout2Html,
+      templateName: refresh.layout2Template ?? "Layout 2",
+      layoutHtml: refresh.layout2Html,
+      layoutCss: refresh.layout2Css ?? "",
+      layoutCopyRefreshed: refresh.layout2CopyRefreshed ?? refresh.layout2Html,
     },
     {
       layoutIndex: 3 as const,
-      templateName: analysis.layout3Template ?? "Layout 3",
-      layoutHtml: analysis.layout3Html,
-      layoutCss: analysis.layout3Css ?? "",
-      layoutCopyRefreshed: analysis.layout3CopyRefreshed ?? analysis.layout3Html,
+      templateName: refresh.layout3Template ?? "Layout 3",
+      layoutHtml: refresh.layout3Html,
+      layoutCss: refresh.layout3Css ?? "",
+      layoutCopyRefreshed: refresh.layout3CopyRefreshed ?? refresh.layout3Html,
     },
     {
       layoutIndex: 4 as const,
-      templateName: analysis.layout4Template ?? "Layout 4",
-      layoutHtml: analysis.layout4Html,
-      layoutCss: analysis.layout4Css ?? "",
-      layoutCopyRefreshed: analysis.layout4CopyRefreshed ?? analysis.layout4Html,
+      templateName: refresh.layout4Template ?? "Layout 4",
+      layoutHtml: refresh.layout4Html,
+      layoutCss: refresh.layout4Css ?? "",
+      layoutCopyRefreshed: refresh.layout4CopyRefreshed ?? refresh.layout4Html,
     },
     {
       layoutIndex: 5 as const,
-      templateName: analysis.layout5Template ?? "Layout 5",
-      layoutHtml: analysis.layout5Html,
-      layoutCss: analysis.layout5Css ?? "",
-      layoutCopyRefreshed: analysis.layout5CopyRefreshed ?? analysis.layout5Html,
+      templateName: refresh.layout5Template ?? "Layout 5",
+      layoutHtml: refresh.layout5Html,
+      layoutCss: refresh.layout5Css ?? "",
+      layoutCopyRefreshed: refresh.layout5CopyRefreshed ?? refresh.layout5Html,
     },
     {
       layoutIndex: 6 as const,
-      templateName: analysis.layout6Template ?? "Layout 6",
-      layoutHtml: analysis.layout6Html,
-      layoutCss: analysis.layout6Css ?? "",
-      layoutCopyRefreshed: analysis.layout6CopyRefreshed ?? analysis.layout6Html,
+      templateName: refresh.layout6Template ?? "Layout 6",
+      layoutHtml: refresh.layout6Html,
+      layoutCss: refresh.layout6Css ?? "",
+      layoutCopyRefreshed: refresh.layout6CopyRefreshed ?? refresh.layout6Html,
     },
   ];
   const layoutsWithContent = layoutRows.filter((r) => r.layoutHtml?.trim());
@@ -168,6 +168,11 @@ export default async function ResultsPage({
             <CardTitle className="text-lg text-muted-foreground">
               Overall score
             </CardTitle>
+            {(refresh.url ?? refresh.targetWebsite) && (
+              <p className="text-sm text-muted-foreground font-normal mt-1 break-all">
+                {refresh.url ?? refresh.targetWebsite}
+              </p>
+            )}
           </CardHeader>
           <CardContent>
             <p
@@ -203,24 +208,24 @@ export default async function ResultsPage({
 
         {/* SEO Audit */}
         <SeoAuditSection
-          checks={((analysis.seoAudit as { checks?: SeoCheckItem[] })?.checks ?? []) as SeoCheckItem[]}
-          recommendations={((analysis.seoAudit as { recommendations?: SeoRecommendation[] })?.recommendations ?? []) as SeoRecommendation[]}
+          checks={((refresh.seoAudit as { checks?: SeoCheckItem[] })?.checks ?? []) as SeoCheckItem[]}
+          recommendations={((refresh.seoAudit as { recommendations?: SeoRecommendation[] })?.recommendations ?? []) as SeoRecommendation[]}
         />
 
         {/* Layout cards */}
         {hasLayouts ? (
-          <LayoutSection analysisId={id} viewToken={token!} layouts={layoutsWithContent} />
+          <LayoutSection refreshId={id} viewToken={token!} layouts={layoutsWithContent} />
         ) : (
           <section className="mb-10">
             <h2 className="text-xl font-semibold mb-4">Choose a layout</h2>
             <p className="text-muted-foreground">
-              Layout proposals are not available for this analysis.
+              Layout proposals are not available for this refresh.
             </p>
           </section>
         )}
 
         {/* Install CTA */}
-        <InstallCtaCard analysisId={id} />
+        <InstallCtaCard refreshId={id} />
       </div>
     </main>
   );

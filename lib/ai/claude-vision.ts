@@ -9,7 +9,7 @@ import { withRetry } from "@/lib/ai/retry";
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export interface PromptLogContext {
-  analysisId: string;
+  refreshId: string;
   step: string;
   onRetry?: (delayMs: number) => void;
 }
@@ -73,7 +73,7 @@ export async function analyzeScreenshot(
 
   if (promptLog) {
     await createPromptLog({
-      analysisId: promptLog.analysisId,
+      refreshId: promptLog.refreshId,
       step: promptLog.step,
       provider: "claude",
       model: message.model,

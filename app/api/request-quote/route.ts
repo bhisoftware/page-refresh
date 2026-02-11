@@ -1,5 +1,5 @@
 /**
- * POST /api/request-quote - Record quote request for an analysis.
+ * POST /api/request-quote - Record quote request for a refresh.
  */
 
 import { NextRequest } from "next/server";
@@ -9,7 +9,7 @@ const VALID_LAYOUT_INDEXES = [1, 2, 3] as const;
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
-  const analysisId = typeof body.analysisId === "string" ? body.analysisId.trim() : "";
+  const refreshId = typeof body.refreshId === "string" ? body.refreshId.trim() : "";
   const rawLayoutIndex = typeof body.layoutIndex === "number" ? body.layoutIndex : null;
   const layoutIndex =
     rawLayoutIndex !== null && VALID_LAYOUT_INDEXES.includes(rawLayoutIndex as 1 | 2 | 3)
@@ -20,9 +20,9 @@ export async function POST(request: NextRequest) {
   const notes = typeof body.notes === "string" ? body.notes.trim() : null;
   const platform = typeof body.platform === "string" ? body.platform.trim() : null;
 
-  if (!analysisId || !email) {
+  if (!refreshId || !email) {
     return Response.json(
-      { error: "Missing required fields: analysisId, email" },
+      { error: "Missing required fields: refreshId, email" },
       { status: 400 }
     );
   }
@@ -34,16 +34,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const analysis = await prisma.analysis.findUnique({
-    where: { id: analysisId },
+  const refresh = await prisma.refresh.findUnique({
+    where: { id: refreshId },
   });
 
-  if (!analysis) {
-    return Response.json({ error: "Analysis not found" }, { status: 404 });
+  if (!refresh) {
+    return Response.json({ error: "Refresh not found" }, { status: 404 });
   }
 
-  await prisma.analysis.update({
-    where: { id: analysisId },
+  await prisma.refresh.update({
+    where: { id: refreshId },
     data: {
       quoteRequested: true,
       ...(layoutIndex !== null && { selectedLayout: layoutIndex }),

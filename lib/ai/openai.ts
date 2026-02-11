@@ -9,7 +9,7 @@ import { withRetry } from "@/lib/ai/retry";
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export interface PromptLogContext {
-  analysisId: string;
+  refreshId: string;
   step: string;
   onRetry?: (delayMs: number) => void;
 }
@@ -39,7 +39,7 @@ export async function completeChat(
   if (options?.promptLog) {
     const promptText = JSON.stringify(messages, null, 2);
     await createPromptLog({
-      analysisId: options.promptLog.analysisId,
+      refreshId: options.promptLog.refreshId,
       step: options.promptLog.step,
       provider: "openai",
       model: "gpt-4o",

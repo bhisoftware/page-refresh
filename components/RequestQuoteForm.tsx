@@ -44,14 +44,14 @@ type QuoteFormValues = z.infer<typeof quoteFormSchema>;
 interface RequestQuoteFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  analysisId: string;
+  refreshId: string;
   layoutIndex: number;
 }
 
 export function RequestQuoteForm({
   open,
   onOpenChange,
-  analysisId,
+  refreshId,
   layoutIndex,
 }: RequestQuoteFormProps) {
   const form = useForm<QuoteFormValues>({
@@ -65,7 +65,7 @@ export function RequestQuoteForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          analysisId,
+          refreshId,
           layoutIndex,
           email: values.email.trim(),
           phone: values.phone?.trim() || undefined,

@@ -13,7 +13,7 @@ export async function PUT(
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id: analysisId, noteId } = await params;
+  const { id: refreshId, noteId } = await params;
 
   let body: { authorName?: string; content?: string; category?: string };
   try {
@@ -23,7 +23,7 @@ export async function PUT(
   }
 
   const note = await prisma.internalNote.findFirst({
-    where: { id: noteId, analysisId },
+    where: { id: noteId, refreshId },
   });
   if (!note) {
     return Response.json({ error: "Note not found" }, { status: 404 });
@@ -54,10 +54,10 @@ export async function DELETE(
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id: analysisId, noteId } = await params;
+  const { id: refreshId, noteId } = await params;
 
   const note = await prisma.internalNote.findFirst({
-    where: { id: noteId, analysisId },
+    where: { id: noteId, refreshId },
   });
   if (!note) {
     return Response.json({ error: "Note not found" }, { status: 404 });

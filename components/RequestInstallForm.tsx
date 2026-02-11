@@ -44,14 +44,14 @@ type InstallFormValues = z.infer<typeof installFormSchema>;
 interface RequestInstallFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  analysisId: string;
+  refreshId: string;
   layoutIndex?: number;
 }
 
 export function RequestInstallForm({
   open,
   onOpenChange,
-  analysisId,
+  refreshId,
   layoutIndex,
 }: RequestInstallFormProps) {
   const form = useForm<InstallFormValues>({
@@ -69,7 +69,7 @@ export function RequestInstallForm({
   const onSubmit = async (values: InstallFormValues) => {
     try {
       const body: Record<string, unknown> = {
-        analysisId,
+        refreshId,
         email: values.email.trim(),
         phone: values.phone.trim(),
         hostingPlatform: values.hostingPlatform,

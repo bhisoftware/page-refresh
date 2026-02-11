@@ -65,7 +65,7 @@ export async function uploadBlobString(
 /**
  * Generate a unique blob key for a screenshot (WebP for smaller size).
  */
-export function screenshotKey(analysisId: string, url: string): string {
+export function screenshotKey(refreshId: string, url: string): string {
   const slug = url.replace(/^https?:\/\//, "").replace(/[^a-z0-9-]/gi, "-").slice(0, 50);
-  return `screenshots/${analysisId}-${slug}-${Date.now()}.webp`;
+  return `screenshots/${refreshId}-${slug}-${Date.now()}.webp`;
 }

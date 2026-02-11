@@ -10,7 +10,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Analysis {
+model Refresh {
   id                String   @id @default(cuid())
   url               String
   targetWebsite     String
@@ -151,8 +151,8 @@ model Template {
 
 model PromptLog {
   id                String   @id @default(cuid())
-  analysisId        String
-  analysis          Analysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  refreshId         String
+  refresh           Refresh  @relation(fields: [refreshId], references: [id], onDelete: Cascade)
 
   step              String   // 'screenshot_analysis' | 'industry_detection' | 'dimension_scoring' | etc.
   provider          String   // 'claude' | 'openai'
@@ -166,14 +166,14 @@ model PromptLog {
 
   createdAt         DateTime @default(now())
 
-  @@index([analysisId])
+  @@index([refreshId])
   @@index([step])
 }
 
 model InternalNote {
   id          String   @id @default(cuid())
-  analysisId  String
-  analysis    Analysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  refreshId   String
+  refresh     Refresh  @relation(fields: [refreshId], references: [id], onDelete: Cascade)
 
   authorName  String   // Team member name
   content     String   @db.Text
@@ -182,7 +182,7 @@ model InternalNote {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@index([analysisId])
+  @@index([refreshId])
 }
 
 model ScoringRubric {

@@ -6,7 +6,7 @@
 import { prisma } from "@/lib/prisma";
 
 export interface PromptLogParams {
-  analysisId: string;
+  refreshId: string;
   step: string;
   provider: "claude" | "openai";
   model: string;
@@ -19,7 +19,7 @@ export interface PromptLogParams {
 export async function createPromptLog(params: PromptLogParams): Promise<void> {
   await prisma.promptLog.create({
     data: {
-      analysisId: params.analysisId,
+      refreshId: params.refreshId,
       step: params.step,
       provider: params.provider,
       model: params.model,

@@ -22,7 +22,7 @@ export default async function AdminAnalysisPage({
 }) {
   const { id } = await params;
 
-  const analysis = await prisma.analysis.findUnique({
+  const refresh = await prisma.refresh.findUnique({
     where: { id },
     include: {
       internalNotes: { orderBy: { createdAt: "asc" } },
@@ -30,11 +30,11 @@ export default async function AdminAnalysisPage({
     },
   });
 
-  if (!analysis) notFound();
+  if (!refresh) notFound();
 
-  const overallScore = Number(analysis.overallScore) || 0;
-  const scoringDetails = (analysis.scoringDetails ?? []) as unknown as DimensionDetail[];
-  const resultsUrl = `/results/${id}?token=${encodeURIComponent(analysis.viewToken)}`;
+  const overallScore = Number(refresh.overallScore) || 0;
+  const scoringDetails = (refresh.scoringDetails ?? []) as unknown as DimensionDetail[];
+  const resultsUrl = `/results/${id}?token=${encodeURIComponent(refresh.viewToken)}`;
 
   return (
     <main className="min-h-screen bg-background">
@@ -44,12 +44,12 @@ export default async function AdminAnalysisPage({
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to analyses
+          Back to Refresh
         </Link>
 
         <div className="mb-6 flex items-center gap-4 flex-wrap">
           <h1 className="text-2xl font-semibold truncate max-w-xl">
-            {analysis.targetWebsite || analysis.url}
+            {refresh.targetWebsite || refresh.url}
           </h1>
           <Link
             href={resultsUrl}
@@ -67,30 +67,30 @@ export default async function AdminAnalysisPage({
             <CardTitle className="text-base">Contact (internal)</CardTitle>
           </CardHeader>
           <CardContent className="text-sm">
-            {(analysis.contactEmail || analysis.contactPhone) ? (
+            {(refresh.contactEmail || refresh.contactPhone) ? (
               <ul className="space-y-1">
-                {analysis.contactEmail && (
+                {refresh.contactEmail && (
                   <li>
                     <span className="text-muted-foreground">Email:</span>{" "}
-                    {analysis.contactEmail}
+                    {refresh.contactEmail}
                   </li>
                 )}
-                {analysis.contactPhone && (
+                {refresh.contactPhone && (
                   <li>
                     <span className="text-muted-foreground">Phone:</span>{" "}
-                    {analysis.contactPhone}
+                    {refresh.contactPhone}
                   </li>
                 )}
-                {analysis.quoteRequested && (
+                {refresh.quoteRequested && (
                   <li className="text-muted-foreground">Quote requested</li>
                 )}
-                {analysis.installRequested && (
+                {refresh.installRequested && (
                   <li className="text-muted-foreground">Install requested</li>
                 )}
-                {analysis.hostingPlatform && (
+                {refresh.hostingPlatform && (
                   <li>
                     <span className="text-muted-foreground">Platform:</span>{" "}
-                    {analysis.hostingPlatform}
+                    {refresh.hostingPlatform}
                   </li>
                 )}
               </ul>
@@ -117,8 +117,8 @@ export default async function AdminAnalysisPage({
               {overallScore}/100
             </p>
             <p className="mt-1 text-muted-foreground text-sm">
-              {analysis.industryDetected} ·{" "}
-              {analysis.createdAt.toLocaleString()}
+              {refresh.industryDetected} ·{" "}
+              {refresh.createdAt.toLocaleString()}
             </p>
           </CardContent>
         </Card>
@@ -131,12 +131,12 @@ export default async function AdminAnalysisPage({
 
         {/* Internal notes */}
         <AdminNotesSection
-          analysisId={id}
-          initialNotes={analysis.internalNotes}
+          refreshId={id}
+          initialNotes={refresh.internalNotes}
         />
 
         {/* Prompt logs */}
-        <AdminPromptLogs logs={analysis.promptHistory} />
+        <AdminPromptLogs logs={refresh.promptHistory} />
       </div>
     </main>
   );

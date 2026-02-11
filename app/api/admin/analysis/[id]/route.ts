@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 
 /**
- * GET: full analysis including internal notes and prompt logs. Requires admin cookie.
+ * GET: full refresh including internal notes and prompt logs. Requires admin cookie.
  */
 export async function GET(
   _request: NextRequest,
@@ -15,7 +15,7 @@ export async function GET(
 
   const { id } = await params;
 
-  const analysis = await prisma.analysis.findUnique({
+  const refresh = await prisma.refresh.findUnique({
     where: { id },
     include: {
       internalNotes: { orderBy: { createdAt: "asc" } },
@@ -23,9 +23,9 @@ export async function GET(
     },
   });
 
-  if (!analysis) {
-    return Response.json({ error: "Analysis not found" }, { status: 404 });
+  if (!refresh) {
+    return Response.json({ error: "Refresh not found" }, { status: 404 });
   }
 
-  return Response.json(analysis);
+  return Response.json(refresh);
 }

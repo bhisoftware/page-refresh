@@ -10,12 +10,12 @@ import type { InternalNote } from "@prisma/client";
 const CATEGORIES = ["review", "sales", "quality", "follow-up"] as const;
 
 interface AdminNotesSectionProps {
-  analysisId: string;
+  refreshId: string;
   initialNotes: InternalNote[];
 }
 
 export function AdminNotesSection({
-  analysisId,
+  refreshId,
   initialNotes,
 }: AdminNotesSectionProps) {
   const [notes, setNotes] = useState(initialNotes);
@@ -31,7 +31,7 @@ export function AdminNotesSection({
     if (!authorName.trim() || !content.trim()) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/analysis/${analysisId}/notes`, {
+      const res = await fetch(`/api/admin/analysis/${refreshId}/notes`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -72,7 +72,7 @@ export function AdminNotesSection({
     setLoading(true);
     try {
       const res = await fetch(
-        `/api/admin/analysis/${analysisId}/notes/${editingId}`,
+        `/api/admin/analysis/${refreshId}/notes/${editingId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -102,7 +102,7 @@ export function AdminNotesSection({
     setLoading(true);
     try {
       const res = await fetch(
-        `/api/admin/analysis/${analysisId}/notes/${noteId}`,
+        `/api/admin/analysis/${refreshId}/notes/${noteId}`,
         { method: "DELETE" }
       );
       if (!res.ok) throw new Error("Failed to delete");

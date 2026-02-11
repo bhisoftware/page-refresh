@@ -13,14 +13,14 @@ export async function POST(
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id: analysisId } = await params;
+  const { id: refreshId } = await params;
 
-  const exists = await prisma.analysis.findUnique({
-    where: { id: analysisId },
+  const exists = await prisma.refresh.findUnique({
+    where: { id: refreshId },
     select: { id: true },
   });
   if (!exists) {
-    return Response.json({ error: "Analysis not found" }, { status: 404 });
+    return Response.json({ error: "Refresh not found" }, { status: 404 });
   }
 
   let body: { authorName?: string; content?: string; category?: string };
@@ -43,7 +43,7 @@ export async function POST(
 
   const note = await prisma.internalNote.create({
     data: {
-      analysisId,
+      refreshId,
       authorName,
       content,
       category,

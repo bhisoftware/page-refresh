@@ -1,5 +1,5 @@
 /**
- * POST /api/request-install - Record install request for an analysis.
+ * POST /api/request-install - Record install request for a refresh.
  */
 
 import { NextRequest } from "next/server";
@@ -9,7 +9,7 @@ const VALID_LAYOUT_INDEXES = [1, 2, 3] as const;
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
-  const analysisId = typeof body.analysisId === "string" ? body.analysisId.trim() : "";
+  const refreshId = typeof body.refreshId === "string" ? body.refreshId.trim() : "";
   const rawLayoutIndex = typeof body.layoutIndex === "number" ? body.layoutIndex : null;
   const layoutIndex =
     rawLayoutIndex !== null && VALID_LAYOUT_INDEXES.includes(rawLayoutIndex as 1 | 2 | 3)
@@ -22,9 +22,9 @@ export async function POST(request: NextRequest) {
   const preferredTime = typeof body.preferredTime === "string" ? body.preferredTime.trim() : null;
   const notes = typeof body.notes === "string" ? body.notes.trim() : null;
 
-  if (!analysisId || !email || !phone) {
+  if (!refreshId || !email || !phone) {
     return Response.json(
-      { error: "Missing required fields: analysisId, email, phone" },
+      { error: "Missing required fields: refreshId, email, phone" },
       { status: 400 }
     );
   }
@@ -36,16 +36,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const analysis = await prisma.analysis.findUnique({
-    where: { id: analysisId },
+  const refresh = await prisma.refresh.findUnique({
+    where: { id: refreshId },
   });
 
-  if (!analysis) {
-    return Response.json({ error: "Analysis not found" }, { status: 404 });
+  if (!refresh) {
+    return Response.json({ error: "Refresh not found" }, { status: 404 });
   }
 
-  await prisma.analysis.update({
-    where: { id: analysisId },
+  await prisma.refresh.update({
+    where: { id: refreshId },
     data: {
       installRequested: true,
       ...(layoutIndex !== null && { selectedLayout: layoutIndex }),
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
       hostingPlatform: hostingPlatform ?? undefined,
       notes: (() => {
         const parts = [
-          analysis.notes,
+          refresh.notes,
           hasCredentialsReady ? "Has hosting credentials ready" : null,
           preferredTime ? `Preferred time: ${preferredTime}` : null,
           notes,

@@ -14,12 +14,12 @@ export interface LayoutItem {
 }
 
 interface LayoutSectionProps {
-  analysisId: string;
+  refreshId: string;
   viewToken: string;
   layouts: LayoutItem[];
 }
 
-export function LayoutSection({ analysisId, viewToken, layouts }: LayoutSectionProps) {
+export function LayoutSection({ refreshId, viewToken, layouts }: LayoutSectionProps) {
   const [showMore, setShowMore] = useState(false);
   const firstThree = layouts.slice(0, 3);
   const moreLayouts = layouts.slice(3, 6);
@@ -39,7 +39,7 @@ export function LayoutSection({ analysisId, viewToken, layouts }: LayoutSectionP
             layoutHtml={layout.layoutHtml}
             layoutCss={layout.layoutCss}
             layoutCopyRefreshed={layout.layoutCopyRefreshed}
-            analysisId={analysisId}
+            refreshId={refreshId}
             viewToken={viewToken}
           />
         ))}
@@ -56,7 +56,7 @@ export function LayoutSection({ analysisId, viewToken, layouts }: LayoutSectionP
                   layoutHtml={layout.layoutHtml}
                   layoutCss={layout.layoutCss}
                   layoutCopyRefreshed={layout.layoutCopyRefreshed}
-                  analysisId={analysisId}
+                  refreshId={refreshId}
                   viewToken={viewToken}
                 />
               ))}

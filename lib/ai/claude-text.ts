@@ -10,7 +10,7 @@ import type { TechStack } from "@/lib/scraping/tech-detector";
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export interface PromptLogContext {
-  analysisId: string;
+  refreshId: string;
   step: string;
   onRetry?: (delayMs: number) => void;
 }
@@ -86,7 +86,7 @@ ${truncated.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()}`;
 
   if (promptLog) {
     await createPromptLog({
-      analysisId: promptLog.analysisId,
+      refreshId: promptLog.refreshId,
       step: promptLog.step,
       provider: "claude",
       model: message.model,
@@ -146,7 +146,7 @@ export async function completeText(
 
   if (promptLog) {
     await createPromptLog({
-      analysisId: promptLog.analysisId,
+      refreshId: promptLog.refreshId,
       step: promptLog.step,
       provider: "claude",
       model: message.model,
@@ -216,7 +216,7 @@ ${summary}`;
 
   if (promptLog) {
     await createPromptLog({
-      analysisId: promptLog.analysisId,
+      refreshId: promptLog.refreshId,
       step: promptLog.step,
       provider: "claude",
       model: message.model,

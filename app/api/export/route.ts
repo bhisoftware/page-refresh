@@ -1,7 +1,7 @@
 /**
  * POST /api/export
- * Body: { analysisId, layoutIndex (1-6), platform, token }
- * Returns: ZIP file as binary download.
+ * Body: { refreshId, layoutIndex (1-6, optional), platform, token }
+ * Returns: ZIP file as binary download (full page = all 6 sections combined).
  * Auth: viewToken (same as results page).
  */
 
@@ -15,34 +15,26 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const {
-      analysisId,
+      refreshId,
       layoutIndex,
       platform,
       token,
     }: {
-      analysisId?: string;
+      refreshId?: string;
       layoutIndex?: number;
       platform?: string;
       token?: string;
     } = body;
 
     if (
-      !analysisId ||
-      typeof analysisId !== "string" ||
+      !refreshId ||
+      typeof refreshId !== "string" ||
       !token ||
       typeof token !== "string" ||
       token.length === 0
     ) {
       return NextResponse.json(
-        { error: "Missing or invalid analysisId or token" },
-        { status: 400 }
-      );
-    }
-
-    const index = typeof layoutIndex === "number" ? layoutIndex : parseInt(String(layoutIndex), 10);
-    if (!Number.isInteger(index) || index < 1 || index > 6) {
-      return NextResponse.json(
-        { error: "layoutIndex must be 1–6" },
+        { error: "Missing or invalid refreshId or token" },
         { status: 400 }
       );
     }
@@ -54,8 +46,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const analysis = await prisma.analysis.findUnique({
-      where: { id: analysisId },
+    const refresh = await prisma.refresh.findUnique({
+      where: { id: refreshId },
       select: {
         viewToken: true,
         url: true,
@@ -76,46 +68,39 @@ export async function POST(request: Request) {
       },
     });
 
-    if (!analysis || analysis.viewToken !== token) {
+    if (!refresh || refresh.viewToken !== token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const layoutKeys = [
-      "layout1Html",
-      "layout1Css",
-      "layout2Html",
-      "layout2Css",
-      "layout3Html",
-      "layout3Css",
-      "layout4Html",
-      "layout4Css",
-      "layout5Html",
-      "layout5Css",
-      "layout6Html",
-      "layout6Css",
-    ] as const;
-    const i = (index - 1) * 2;
-    const htmlKey = layoutKeys[i];
-    const cssKey = layoutKeys[i + 1];
-    const layoutHtml = (analysis[htmlKey] ?? "") as string;
-    const layoutCss = (analysis[cssKey] ?? "") as string;
+    const htmlKeys = ["layout1Html", "layout2Html", "layout3Html", "layout4Html", "layout5Html", "layout6Html"] as const;
+    const cssKeys = ["layout1Css", "layout2Css", "layout3Css", "layout4Css", "layout5Css", "layout6Css"] as const;
+    const fullPageParts: string[] = [];
+    const fullPageCssParts: string[] = [];
+    for (let i = 0; i < 6; i++) {
+      const html = (refresh[htmlKeys[i]] ?? "") as string;
+      if (!html?.trim()) continue;
+      fullPageParts.push(html.trim());
+      fullPageCssParts.push(((refresh[cssKeys[i]] ?? "") as string).trim());
+    }
+    const fullPageHtml = fullPageParts.join("\n");
+    const fullPageCss = fullPageCssParts.join("\n\n");
 
-    if (!layoutHtml?.trim()) {
+    if (!fullPageHtml) {
       return NextResponse.json(
-        { error: "Layout not available for this analysis" },
+        { error: "Layout not available for this refresh" },
         { status: 404 }
       );
     }
 
     const result = await exportLayout(
       platform as Platform,
-      layoutHtml,
-      layoutCss,
-      `layout-${index}`,
+      fullPageHtml,
+      fullPageCss,
+      "full-page",
       {
-        url: analysis.url,
-        industry: analysis.industryDetected ?? "Unknown",
-        score: analysis.overallScore ?? 0,
+        url: refresh.url,
+        industry: refresh.industryDetected ?? "Unknown",
+        score: refresh.overallScore ?? 0,
       }
     );
 

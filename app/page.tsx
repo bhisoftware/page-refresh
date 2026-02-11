@@ -68,7 +68,7 @@ export default function Home() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? `Analysis failed (${res.status})`);
+        throw new Error(data.error ?? `Refresh failed (${res.status})`);
       }
 
       const reader = res.body?.getReader();
@@ -89,7 +89,7 @@ export default function Home() {
                 type: string;
                 step?: string;
                 message?: string;
-                analysisId?: string;
+                refreshId?: string;
                 viewToken?: string;
               };
               if (data.type === "progress" && data.step) {
@@ -99,20 +99,20 @@ export default function Home() {
                   setCurrentStep(parseProgressStep(data.step));
                   setProgressMessage(data.message ?? "");
                 }
-              } else if (data.type === "done" && data.analysisId) {
+              } else if (data.type === "done" && data.refreshId) {
                 clearInterval(countdownInterval);
                 setCountdown(null);
                 const viewToken = data.viewToken;
                 const path =
                   typeof viewToken === "string" && viewToken.length > 0
-                    ? `/results/${data.analysisId}?token=${encodeURIComponent(viewToken)}`
-                    : `/results/${data.analysisId}`;
+                    ? `/results/${data.refreshId}?token=${encodeURIComponent(viewToken)}`
+                    : `/results/${data.refreshId}`;
                 router.push(path);
                 return;
               } else if (data.type === "error") {
                 clearInterval(countdownInterval);
                 setCountdown(null);
-                throw new Error(data.message ?? "Analysis failed");
+                throw new Error(data.message ?? "Refresh failed");
               }
             } catch (parseErr) {
               if (parseErr instanceof SyntaxError) continue;
@@ -122,12 +122,12 @@ export default function Home() {
         }
       }
       throw new Error(
-        "Analysis ended without result. This often happens when the analysis times out on the server (common with larger sites). Try again or use a simpler URL. If it persists, check Netlify function logs."
+        "Refresh ended without result. This often happens when the refresh times out on the server (common with larger sites). Try again or use a simpler URL. If it persists, check Netlify function logs."
       );
     } catch (err) {
       clearInterval(countdownInterval);
       setCountdown(null);
-      setError(err instanceof Error ? err.message : "Analysis failed");
+      setError(err instanceof Error ? err.message : "Refresh failed");
     } finally {
       setIsAnalyzing(false);
     }
@@ -136,53 +136,68 @@ export default function Home() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-6 md:p-8">
       <div className="w-full max-w-xl mx-auto text-center space-y-8">
-        {!isAnalyzing ? (
-          <>
-            <div className="space-y-3">
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
-                pagerefresh.ai
-              </h1>
-              <p className="text-lg text-muted-foreground max-w-md mx-auto">
-                Paste your website and get a $50,000 quality refresh in 5 minutes. Pay only if you love it.
-              </p>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Input
-                  type="text"
-                  inputMode="url"
-                  placeholder="https://yoursite.com"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  className="flex-1 h-11 text-base"
-                  disabled={isAnalyzing}
-                  aria-label="Website URL"
-                />
-                <Button type="submit" size="lg" className="h-11 px-6 shrink-0">
-                  Analyze My Website
-                </Button>
-              </div>
-              {error && (
-                <p className="text-sm text-destructive text-left" role="alert">
-                  {error}
-                </p>
-              )}
-            </form>
-          </>
-        ) : (
-          <div className={cn("flex flex-col items-center")}>
-            <h2 className="text-xl font-semibold mb-2">Analyzing your website</h2>
-            <p className="text-muted-foreground text-sm mb-6">
-              This usually takes 30–45 seconds.
+        <>
+          <div className="space-y-3">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+              PageRefresh
+            </h1>
+            <p className="text-lg text-muted-foreground max-w-md mx-auto">
+              $50,000 quality refresh in 5 minutes. Pay only if you love it.
             </p>
-            <AnalysisProgress
-              currentStep={currentStep}
-              message={progressMessage}
-              countdownSeconds={countdown ?? undefined}
-            />
           </div>
-        )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input
+                type="text"
+                inputMode="url"
+                placeholder="https://www.website.com/"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                onBlur={() => {
+                  const trimmed = url.trim();
+                  if (trimmed) {
+                    const normalized = normalizeWebsiteUrl(trimmed);
+                    if (normalized !== trimmed) setUrl(normalized);
+                  }
+                }}
+                className="flex-1 h-11 text-base"
+                disabled={isAnalyzing}
+                aria-label="Website URL"
+              />
+              <Button
+                type="submit"
+                size="lg"
+                className={cn(
+                  "h-11 px-6 shrink-0",
+                  isAnalyzing &&
+                    "bg-[#2d5016] text-white hover:bg-[#2d5016]/90 hover:text-white"
+                )}
+              >
+                {isAnalyzing ? "Pay Only If You Love It" : "Analyze My Website"}
+              </Button>
+            </div>
+            {error && (
+              <p className="text-sm text-destructive text-left" role="alert">
+                {error}
+              </p>
+            )}
+          </form>
+
+          {isAnalyzing && (
+            <div className={cn("flex flex-col items-center w-full")}>
+              <h2 className="text-xl font-semibold mb-2">Analyzing your website</h2>
+              <p className="text-muted-foreground text-sm mb-6">
+                This usually takes 30–45 seconds.
+              </p>
+              <AnalysisProgress
+                currentStep={currentStep}
+                message={progressMessage}
+                countdownSeconds={countdown ?? undefined}
+              />
+            </div>
+          )}
+        </>
       </div>
     </main>
   );

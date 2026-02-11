@@ -6,8 +6,8 @@ import { Badge } from "@/components/ui/badge";
 const PAGE_SIZE = 30;
 
 export default async function AdminListPage() {
-  const [analyses, total] = await Promise.all([
-    prisma.analysis.findMany({
+  const [refreshes, total] = await Promise.all([
+    prisma.refresh.findMany({
       take: PAGE_SIZE,
       orderBy: { createdAt: "desc" },
       select: {
@@ -22,13 +22,13 @@ export default async function AdminListPage() {
         _count: { select: { internalNotes: true } },
       },
     }),
-    prisma.analysis.count(),
+    prisma.refresh.count(),
   ]);
 
   return (
     <main className="min-h-screen bg-background p-6">
       <div className="mx-auto max-w-5xl">
-        <h1 className="text-2xl font-semibold mb-6">Analyses</h1>
+        <h1 className="text-2xl font-semibold mb-6">Refresh</h1>
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Recent ({total} total)</CardTitle>
@@ -47,7 +47,7 @@ export default async function AdminListPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {analyses.map((a) => (
+                  {refreshes.map((a) => (
                     <tr key={a.id} className="border-b hover:bg-muted/30">
                       <td className="p-3">
                         <Link

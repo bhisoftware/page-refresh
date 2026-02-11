@@ -35,21 +35,21 @@ export async function POST(request: NextRequest) {
           };
 
           try {
-            const analysisId = await runAnalysis({
+            const refreshId = await runAnalysis({
               url: normalizedUrl,
               onProgress: (p) => send({ type: "progress", ...p }),
             });
             const { prisma } = await import("@/lib/prisma");
-            const row = await prisma.analysis.findUnique({
-              where: { id: analysisId },
+            const row = await prisma.refresh.findUnique({
+              where: { id: refreshId },
               select: { viewToken: true },
             });
             const viewToken = row?.viewToken ?? "";
-            send({ type: "done", analysisId, viewToken });
+            send({ type: "done", refreshId, viewToken });
           } catch (err) {
             send({
               type: "error",
-              message: err instanceof Error ? err.message : "Analysis failed",
+              message: err instanceof Error ? err.message : "Refresh failed",
             });
           } finally {
             controller.close();
@@ -66,18 +66,18 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const analysisId = await runAnalysis({ url: normalizedUrl });
+    const refreshId = await runAnalysis({ url: normalizedUrl });
     const { prisma } = await import("@/lib/prisma");
-    const row = await prisma.analysis.findUnique({
-      where: { id: analysisId },
+    const row = await prisma.refresh.findUnique({
+      where: { id: refreshId },
       select: { viewToken: true },
     });
     return Response.json({
-      analysisId,
+      refreshId,
       viewToken: row?.viewToken ?? "",
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Analysis failed";
+    const message = err instanceof Error ? err.message : "Refresh failed";
     return Response.json({ error: message }, { status: 500 });
   }
 }
