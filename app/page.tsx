@@ -75,7 +75,7 @@ export default function Home() {
     setCurrentStep("screenshot");
     setProgressMessage("Starting analysis...");
     const startTime = Date.now();
-    const targetDuration = 40;
+    const targetDuration = 50;
     const countdownInterval = window.setInterval(() => {
       const elapsed = (Date.now() - startTime) / 1000;
       const remaining = Math.max(0, Math.round(targetDuration - elapsed));
@@ -169,10 +169,10 @@ export default function Home() {
         <>
           <div className="space-y-3">
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
-              PageRefresh
+              Page Refresh
             </h1>
             <p className="text-lg text-muted-foreground max-w-md mx-auto">
-              $50,000 quality refresh in 5 minutes.
+              $50,000 refresh in 50 seconds;
             </p>
           </div>
 
@@ -242,9 +242,9 @@ export default function Home() {
 
           {isAnalyzing && (
             <div className={cn("flex flex-col items-center w-full")}>
-              <h2 className="text-xl font-semibold mb-2">Analyzing your website</h2>
+              <h2 className="text-xl font-semibold mb-2">Analyzing {url || "your website"}</h2>
               <p className="text-muted-foreground text-sm mb-6">
-                This usually takes 30–45 seconds.
+                this can take up to 50 seconds
               </p>
               <AnalysisProgress
                 currentStep={currentStep}
