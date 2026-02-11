@@ -172,7 +172,7 @@ export default function Home() {
               Page Refresh
             </h1>
             <p className="text-lg text-muted-foreground max-w-md mx-auto">
-              $50,000 refresh in 50 seconds;
+              $50,000 refresh in 50 seconds
             </p>
           </div>
 
