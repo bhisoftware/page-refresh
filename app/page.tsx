@@ -167,9 +167,7 @@ export default function Home() {
           }
         }
       }
-      throw new Error(
-        "Refresh ended without result. This often happens when the refresh times out on the server (common with larger sites). Try again or use a simpler URL. If it persists, check Netlify function logs."
-      );
+      throw new Error("Refresh ended without result");
     } catch (err) {
       clearInterval(countdownInterval);
       setCountdown(null);

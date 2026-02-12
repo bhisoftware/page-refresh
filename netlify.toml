@@ -6,8 +6,7 @@
   NODE_VERSION = "20"
 
 # Function timeout: configure in Netlify UI (Site settings > Functions > Function timeout).
-# The analysis pipeline needs ~30-60s; set to 90s+ to avoid "Analysis ended without result".
-# Default is 10s (Free) or 26s (Pro). Next.js maxDuration=120 in route is advisory only.
+# The analysis pipeline needs ~30-60s; set to 90s+ to avoid "Refresh ended without result".
 [functions]
   node_bundler = "esbuild"
 

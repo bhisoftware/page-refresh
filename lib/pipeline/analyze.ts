@@ -211,86 +211,87 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   });
   logStepElapsed("score", startTime);
 
-  onProgress?.({ step: "layouts", message: "Designing 3 unique page concepts..." });
-
+  const useAiLayoutGeneration = process.env.USE_AI_LAYOUT_GENERATION === "true";
   type LayoutResult = { html: string; css: string; label: string };
   let layoutResults: LayoutResult[] = [];
   let usedTemplateFallback = false;
 
-  try {
-    const result = await generateLayouts({
-      url: normalizedUrl,
-      industry: industryDetected,
-      brandAnalysis,
-      scores: scoring.details,
-      assets: {
-        colors: assets.colors,
-        fonts: assets.fonts,
-        images: assets.images,
-        logo: assets.logo ?? null,
-        copy: assets.copy,
-      },
-      screenshotUrl: null,
-      promptLog: { refreshId, step: "layout_generation", onRetry },
-    });
-    layoutResults = result.layouts.map((l) => ({
-      html: l.html,
-      css: l.css,
-      label: l.label,
-    }));
-  } catch (layoutErr) {
-    const layoutErrMessage = layoutErr instanceof Error ? layoutErr.message : String(layoutErr);
-    console.warn("[pipeline] AI layout generation failed, falling back to template composition:", layoutErrMessage);
-    usedTemplateFallback = true;
-    if (onProgress) onProgress({ step: "layouts", message: "Using template fallback..." });
-    try {
-      const copySummary = JSON.stringify(assets.copy).slice(0, 500);
-      const compositions = await selectCompositions(
-        industryDetected,
-        scoring.details,
-        copySummary,
-        { refreshId, step: "composition_selection", onRetry }
-      );
-      const fallback = await getCachedFirstTemplate();
-      if (!fallback) throw new Error("No templates available. Run db:seed to load templates.");
-      const builtLayouts: Array<{ html: string; css: string; templateLabel: string; layoutContext: string }> = [];
-      for (let i = 0; i < 3; i++) {
-        const sectionNames = compositions[i] ?? compositions[0]!;
-        const sectionTemplates = await getCachedTemplatesByNames(sectionNames);
-        const templatesInOrder = sectionNames
-          .map((name) => sectionTemplates.find((t) => t.name === name))
-          .filter(Boolean) as Awaited<ReturnType<typeof getCachedTemplatesByNames>>;
-        const sections = templatesInOrder.length >= 3 ? templatesInOrder : [fallback, fallback, fallback];
-        const { html: composedHtml, css: composedCss } = composePage(sections);
-        const inj = injectAssets(composedHtml, composedCss, assets);
-        builtLayouts.push({
-          html: inj.html,
-          css: inj.css,
-          templateLabel: sectionNames.slice(0, 3).join(" + ") + (sectionNames.length > 3 ? ` + ${sectionNames.length - 3} more` : ""),
-          layoutContext: sections.map((s) => s.description).join(" | "),
-        });
-      }
-      onProgress?.({ step: "copy", message: "Refreshing copy..." });
-      const [refreshed1, refreshed2, refreshed3] = await Promise.all([
-        refreshCopy(industryDetected, assets.copy, builtLayouts[0]!.layoutContext, { refreshId, step: "copy_refresh_layout1", onRetry }),
-        refreshCopy(industryDetected, assets.copy, builtLayouts[1]!.layoutContext, { refreshId, step: "copy_refresh_layout2", onRetry }),
-        refreshCopy(industryDetected, assets.copy, builtLayouts[2]!.layoutContext, { refreshId, step: "copy_refresh_layout3", onRetry }),
-      ]);
-      const htmlWithRefreshed1 = applyRefreshedCopy(builtLayouts[0]!.html, refreshedCopyToMap(refreshed1));
-      const htmlWithRefreshed2 = applyRefreshedCopy(builtLayouts[1]!.html, refreshedCopyToMap(refreshed2));
-      const htmlWithRefreshed3 = applyRefreshedCopy(builtLayouts[2]!.html, refreshedCopyToMap(refreshed3));
-      layoutResults = [
-        { html: htmlWithRefreshed1, css: builtLayouts[0]!.css, label: builtLayouts[0]!.templateLabel },
-        { html: htmlWithRefreshed2, css: builtLayouts[1]!.css, label: builtLayouts[1]!.templateLabel },
-        { html: htmlWithRefreshed3, css: builtLayouts[2]!.css, label: builtLayouts[2]!.templateLabel },
-      ];
-    } catch (fallbackErr) {
-      const fallbackMessage = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
-      console.error("[pipeline] Template fallback also failed:", fallbackMessage);
-      throw new Error(
-        `Layout generation failed (${layoutErrMessage}). Template fallback failed: ${fallbackMessage}`
-      );
+  const runTemplateLayoutPath = async (): Promise<void> => {
+    onProgress?.({ step: "layouts", message: useAiLayoutGeneration ? "Using template fallback..." : "Generating 3 layout proposals..." });
+    const copySummary = JSON.stringify(assets.copy).slice(0, 500);
+    const compositions = await selectCompositions(
+      industryDetected,
+      scoring.details,
+      copySummary,
+      { refreshId, step: "composition_selection", onRetry }
+    );
+    const fallback = await getCachedFirstTemplate();
+    if (!fallback) throw new Error("No templates available. Run db:seed to load templates.");
+    const builtLayouts: Array<{ html: string; css: string; templateLabel: string; layoutContext: string }> = [];
+    for (let i = 0; i < 3; i++) {
+      const sectionNames = compositions[i] ?? compositions[0]!;
+      const sectionTemplates = await getCachedTemplatesByNames(sectionNames);
+      const templatesInOrder = sectionNames
+        .map((name) => sectionTemplates.find((t) => t.name === name))
+        .filter(Boolean) as Awaited<ReturnType<typeof getCachedTemplatesByNames>>;
+      const sections = templatesInOrder.length >= 3 ? templatesInOrder : [fallback, fallback, fallback];
+      const { html: composedHtml, css: composedCss } = composePage(sections);
+      const inj = injectAssets(composedHtml, composedCss, assets);
+      builtLayouts.push({
+        html: inj.html,
+        css: inj.css,
+        templateLabel: sectionNames.slice(0, 3).join(" + ") + (sectionNames.length > 3 ? ` + ${sectionNames.length - 3} more` : ""),
+        layoutContext: sections.map((s) => s.description).join(" | "),
+      });
     }
+    onProgress?.({ step: "copy", message: "Refreshing copy..." });
+    const [refreshed1, refreshed2, refreshed3] = await Promise.all([
+      refreshCopy(industryDetected, assets.copy, builtLayouts[0]!.layoutContext, { refreshId, step: "copy_refresh_layout1", onRetry }),
+      refreshCopy(industryDetected, assets.copy, builtLayouts[1]!.layoutContext, { refreshId, step: "copy_refresh_layout2", onRetry }),
+      refreshCopy(industryDetected, assets.copy, builtLayouts[2]!.layoutContext, { refreshId, step: "copy_refresh_layout3", onRetry }),
+    ]);
+    const htmlWithRefreshed1 = applyRefreshedCopy(builtLayouts[0]!.html, refreshedCopyToMap(refreshed1));
+    const htmlWithRefreshed2 = applyRefreshedCopy(builtLayouts[1]!.html, refreshedCopyToMap(refreshed2));
+    const htmlWithRefreshed3 = applyRefreshedCopy(builtLayouts[2]!.html, refreshedCopyToMap(refreshed3));
+    layoutResults = [
+      { html: htmlWithRefreshed1, css: builtLayouts[0]!.css, label: builtLayouts[0]!.templateLabel },
+      { html: htmlWithRefreshed2, css: builtLayouts[1]!.css, label: builtLayouts[1]!.templateLabel },
+      { html: htmlWithRefreshed3, css: builtLayouts[2]!.css, label: builtLayouts[2]!.templateLabel },
+    ];
+  };
+
+  if (useAiLayoutGeneration) {
+    onProgress?.({ step: "layouts", message: "Designing 3 unique page concepts..." });
+    try {
+      const result = await generateLayouts({
+        url: normalizedUrl,
+        industry: industryDetected,
+        brandAnalysis,
+        scores: scoring.details,
+        assets: {
+          colors: assets.colors,
+          fonts: assets.fonts,
+          images: assets.images,
+          logo: assets.logo ?? null,
+          copy: assets.copy,
+        },
+        screenshotUrl: null,
+        promptLog: { refreshId, step: "layout_generation", onRetry },
+      });
+      layoutResults = result.layouts.map((l) => ({
+        html: l.html,
+        css: l.css,
+        label: l.label,
+      }));
+    } catch (layoutErr) {
+      const layoutErrMessage = layoutErr instanceof Error ? layoutErr.message : String(layoutErr);
+      console.warn("[pipeline] AI layout generation failed, falling back to template composition:", layoutErrMessage);
+      usedTemplateFallback = true;
+      await runTemplateLayoutPath();
+    }
+  } else {
+    onProgress?.({ step: "layouts", message: "Generating 3 layout proposals..." });
+    await runTemplateLayoutPath();
   }
 
   logStepElapsed("layouts", startTime);
