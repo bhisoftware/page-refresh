@@ -42,6 +42,7 @@ export default async function AdminListPage() {
                     <th className="text-left p-3 font-medium">Industry</th>
                     <th className="text-left p-3 font-medium">Score</th>
                     <th className="text-left p-3 font-medium">Date</th>
+                    <th className="text-left p-3 font-medium">Time</th>
                     <th className="text-left p-3 font-medium">Notes</th>
                     <th className="text-left p-3 font-medium">Quote / Install</th>
                   </tr>
@@ -63,6 +64,12 @@ export default async function AdminListPage() {
                       <td className="p-3">{a.overallScore}/100</td>
                       <td className="p-3 text-muted-foreground">
                         {new Date(a.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="p-3 text-muted-foreground">
+                        {new Date(a.createdAt).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </td>
                       <td className="p-3">
                         {(a._count?.internalNotes ?? 0) > 0 ? (
