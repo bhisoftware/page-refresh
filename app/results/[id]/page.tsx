@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LayoutSection } from "@/components/LayoutSection";
 import { ScoreBreakdown, type DimensionDetail } from "@/components/ScoreBreakdown";
 import { SeoAuditSection, type SeoCheckItem, type SeoRecommendation } from "@/components/SeoAuditSection";
+import { BenchmarkComparison, type BenchmarkComparisonData } from "@/components/BenchmarkComparison";
 import { InstallCtaCard } from "@/components/InstallCtaCard";
 import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -41,14 +42,17 @@ async function getRefresh(id: string) {
       layout1Css: true,
       layout1Template: true,
       layout1CopyRefreshed: true,
+      layout1Rationale: true,
       layout2Html: true,
       layout2Css: true,
       layout2Template: true,
       layout2CopyRefreshed: true,
+      layout2Rationale: true,
       layout3Html: true,
       layout3Css: true,
       layout3Template: true,
       layout3CopyRefreshed: true,
+      layout3Rationale: true,
       layout4Html: true,
       layout4Css: true,
       layout4Template: true,
@@ -66,6 +70,7 @@ async function getRefresh(id: string) {
       installRequested: true,
       createdAt: true,
       processingTime: true,
+      benchmarkComparison: true,
     },
   });
 }
@@ -111,6 +116,7 @@ export default async function ResultsPage({
       layoutHtml: refresh.layout1Html,
       layoutCss: refresh.layout1Css ?? "",
       layoutCopyRefreshed: refresh.layout1CopyRefreshed ?? refresh.layout1Html,
+      rationale: refresh.layout1Rationale ?? undefined,
     },
     {
       layoutIndex: 2 as const,
@@ -118,6 +124,7 @@ export default async function ResultsPage({
       layoutHtml: refresh.layout2Html,
       layoutCss: refresh.layout2Css ?? "",
       layoutCopyRefreshed: refresh.layout2CopyRefreshed ?? refresh.layout2Html,
+      rationale: refresh.layout2Rationale ?? undefined,
     },
     {
       layoutIndex: 3 as const,
@@ -125,6 +132,7 @@ export default async function ResultsPage({
       layoutHtml: refresh.layout3Html,
       layoutCss: refresh.layout3Css ?? "",
       layoutCopyRefreshed: refresh.layout3CopyRefreshed ?? refresh.layout3Html,
+      rationale: refresh.layout3Rationale ?? undefined,
     },
     {
       layoutIndex: 4 as const,
@@ -132,6 +140,7 @@ export default async function ResultsPage({
       layoutHtml: refresh.layout4Html,
       layoutCss: refresh.layout4Css ?? "",
       layoutCopyRefreshed: refresh.layout4CopyRefreshed ?? refresh.layout4Html,
+      rationale: undefined,
     },
     {
       layoutIndex: 5 as const,
@@ -139,6 +148,7 @@ export default async function ResultsPage({
       layoutHtml: refresh.layout5Html,
       layoutCss: refresh.layout5Css ?? "",
       layoutCopyRefreshed: refresh.layout5CopyRefreshed ?? refresh.layout5Html,
+      rationale: undefined,
     },
     {
       layoutIndex: 6 as const,
@@ -146,6 +156,7 @@ export default async function ResultsPage({
       layoutHtml: refresh.layout6Html,
       layoutCss: refresh.layout6Css ?? "",
       layoutCopyRefreshed: refresh.layout6CopyRefreshed ?? refresh.layout6Html,
+      rationale: undefined,
     },
   ];
   const layoutsWithContent = layoutRows.filter((r) => r.layoutHtml?.trim());
@@ -205,6 +216,24 @@ export default async function ResultsPage({
           <h2 className="text-xl font-semibold mb-4">Score by dimension</h2>
           <ScoreBreakdown details={scoringDetails} />
         </section>
+
+        {/* Industry benchmark */}
+        {refresh.benchmarkComparison != null && (
+          <BenchmarkComparison
+            comparison={refresh.benchmarkComparison as unknown as BenchmarkComparisonData}
+            userScores={{
+              overall: overallScore,
+              clarity: Number(refresh.clarityScore) || 0,
+              visual: Number(refresh.visualScore) || 0,
+              hierarchy: Number(refresh.hierarchyScore) || 0,
+              trust: Number(refresh.trustScore) || 0,
+              conversion: Number(refresh.conversionScore) || 0,
+              content: Number(refresh.contentScore) || 0,
+              mobile: Number(refresh.mobileScore) || 0,
+              performance: Number(refresh.performanceScore) || 0,
+            }}
+          />
+        )}
 
         {/* SEO Audit */}
         <SeoAuditSection

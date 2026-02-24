@@ -2,138 +2,175 @@
 
 **"Paste your website and get a $50,000 quality refresh in 5 minutes. Pay only if you love it."**
 
-AI-powered website analysis and redesign tool for SMB businesses.
+AI-powered website analysis and redesign tool for SMB businesses. Scores any homepage across 8 quality dimensions (0-100), then generates 3 distinct redesign options using AI Creative Agents with the site's real brand assets.
 
-## 📋 Quick Start
+## Tech Stack
 
-1. **Review the plan**: Read `MVP-PLAN.md` for complete technical specification
-2. **Check prerequisites**: Review `PRE-LAUNCH-CHECKLIST.md` for required API keys and assets
-3. **Agent guides**: See `docs/` for agent-specific instructions
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 15 (App Router), React 19, TypeScript |
+| Styling | Tailwind CSS, shadcn/ui |
+| Database | PostgreSQL on AWS RDS, Prisma 6 |
+| Storage | Netlify Blobs (screenshots, brand assets) |
+| AI | Anthropic Claude Sonnet (all pipeline calls) |
+| Hosting | Netlify with `@netlify/plugin-nextjs` |
 
-## 📁 Documentation Structure
+## Quick Start
 
-### Implementation Plans
-- **`MVP-PLAN.md`** - Complete technical specification for MVP build
-  - Database schema
-  - 5-phase implementation plan
-  - 0-100 scoring system across 8 dimensions
-  - Tech stack: Next.js, TypeScript, Tailwind, PostgreSQL, Claude API, OpenAI API
+```bash
+# Install dependencies
+npm install
 
-- **`PRE-LAUNCH-CHECKLIST.md`** - Required assets, API keys, and setup instructions
-  - API credentials (Anthropic, OpenAI, AWS RDS, Netlify)
-  - Template files (20 needed)
-  - Industry guidelines (20 industries)
-  - Development environment setup
+# Copy environment variables and fill in values
+cp .env.example .env.local
 
-### Agent Guides
-- **`docs/CLAUDE-CODE-AGENT.md`** - Instructions for technical oversight agent
-  - Quality assurance responsibilities
-  - Architecture validation
-  - Testing protocol
-  - Success metrics
+# Run database migrations and seed data
+npm run db:migrate
+npm run db:seed
+npm run db:seed-skills
 
-- **`docs/CURSOR-AGENT.md`** - Instructions for implementation agent
-  - Step-by-step build guide
-  - Critical components explained
-  - Tech stack and file structure
-  - Common pitfalls to avoid
+# Start dev server (uses Turbopack)
+npm run dev
+```
 
-### Library Resources
-- **`library/bhi-claude-skills/`** - Industry-specific guidelines and scoring criteria
-  - Reference for creating 20 industry scoring rubrics
-  - Examples: accountants, lawyers, golf courses, beauty salons, barbershops, HOAs
-  - Used to build universal quality framework
+### Environment Variables
 
-### Original Design Documents (v2 Roadmap)
-- **`combined-flowchart.md`** - Original flowcharts (5 diagrams)
-- **`user-flow.mmd`** - User journey flowchart
-- **`technical-architecture.mmd`** - System architecture
-- **`claude-integration.mmd`** - AI integration sequence
-- **`industry-guidelines.mmd`** - Guidelines system
-- **`data-evolution.mmd`** - Storage evolution plan
+| Variable | Required | Description |
+|---|---|---|
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `ANTHROPIC_API_KEY` | Yes | Claude API key |
+| `NETLIFY_BLOBS_TOKEN` | Yes | Netlify Blobs access token |
+| `NEXT_PUBLIC_APP_URL` | Yes | App URL (e.g. `http://localhost:3000`) |
+| `ADMIN_SECRET` | Yes | Shared secret for `/admin` gate |
+| `API_CONFIG_ENCRYPTION_KEY` | Yes | 64-char hex for encrypting DB-stored API keys |
+| `SCREENSHOTONE_API_KEY` | No | Cloud screenshot service (falls back to HTML analysis) |
+| `OPENAI_API_KEY` | No | Reserved for future use (disconnected from pipeline) |
 
-## 🎯 MVP vs Full Vision
+## Architecture
 
-### MVP Scope (Building Now)
-- ✅ 0-100 scoring across 8 universal quality dimensions
-- ✅ 3 layout proposals with Design/Copy toggle
-- ✅ Basic SEO audit
-- ✅ Simple lead capture (Request Quote/Install forms)
-- ✅ 60-90 second analysis time
+### Analysis Pipeline
 
-### v2 Features (Documented in .mmd files)
-- 📋 Peer benchmarking (200 best sites per category)
-- 📋 Category-specific dimension weighting
-- 📋 6 layout options (3 + "Show 3 More")
-- 📋 Payment integration (Stripe)
-- 📋 Installation scheduling (Calendly)
-- 📋 Analysis history
-- 📋 Platform exports (Squarespace, WordPress, Wix)
-- 📋 PDF reports with AI reasoning
+The pipeline runs 6 AI calls in 3 sequential windows (~75s total):
 
-**The .mmd flowcharts represent the full product vision.** Keep them as reference for v2 development.
+```
+Step 0: URL normalization + UrlProfile find-or-create + HTML fetch + screenshot
+        (parallel)
 
-## 🏗️ Tech Stack
+Step 1: Promise.all (3 parallel)
+        - Screenshot Analysis Agent   [1 Claude call]
+        - Industry & SEO Agent        [1 Claude call]
+        - Asset extraction + Blob upload (no AI)
 
-- **Frontend**: Next.js 14+ (App Router), TypeScript, Tailwind CSS, shadcn/ui
-- **Backend**: Next.js API routes (serverless on Netlify), Prisma ORM
-- **Database**: PostgreSQL on AWS RDS
-- **Storage**: Netlify Blobs (screenshots, assets)
-- **AI**: Claude API (Vision + Text), OpenAI API (GPT-4)
-- **Hosting**: Netlify
+Step 2: Score Agent                    [1 Claude call]
+        (receives Step 1 outputs + benchmark data)
 
-## 🚀 Development Phases
+Step 3: Promise.all (3 parallel)
+        - Creative Agent Modern        [1 Claude call]
+        - Creative Agent Classy        [1 Claude call]
+        - Creative Agent Unique        [1 Claude call]
 
-1. **Phase 1**: Setup & Foundation (project, database, templates, rubric) — **Done**
-2. **Phase 2**: Core Analysis Pipeline (screenshot → scoring → layouts) — **Done**
-3. **Phase 3**: Frontend UI (landing, results, toggle, forms)
-4. **Phase 4**: Error Handling & Fallbacks — [Checklist: `docs/PHASE-4-ERROR-HANDLING-CHECKLIST.md`](docs/PHASE-4-ERROR-HANDLING-CHECKLIST.md)
-5. **Phase 5**: Performance Optimization
+Step 4: Save results to Refresh + update UrlProfile
+```
 
-### Phase 1 Complete
+All agent system prompts are stored in the `AgentSkill` database table and editable via the admin Skills Editor — no redeployment needed.
 
-- Next.js 15 (App Router), TypeScript, Tailwind, ESLint
-- Prisma schema (Analysis, Industry, Template, PromptLog, ScoringRubric)
-- `lib/prisma.ts` singleton
-- shadcn/ui base (CSS variables, Button), `lib/utils.ts`
-- **Scoring rubric**: 8 dimensions × 5 score ranges in `lib/seed-data/scoring-rubric.ts`
-- **20 industries**: `lib/seed-data/industries.ts` with scoring criteria per dimension
-- **20 templates**: `lib/seed-data/templates.ts` (placeholder HTML/CSS; replace via `TEMPLATES_MD_DIR` or seed)
-- **Scripts**: `scripts/create-scoring-rubric.ts`, `scripts/create-industries.ts`, `scripts/import-templates.ts`
-- **Seed**: `prisma/seed.ts` seeds rubric, templates, and industries
-- **Env**: `.env.example` for `DATABASE_URL`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `NETLIFY_BLOBS_TOKEN`, `NEXT_PUBLIC_APP_URL`
+### Database Models
 
-**To finish setup**: Copy `.env.example` to `.env.local`, set `DATABASE_URL`, then run `npm run db:migrate` and `npm run db:seed`.
+| Model | Purpose |
+|---|---|
+| `Refresh` | Single analysis run — scores, layouts, assets, SEO audit |
+| `UrlProfile` | Persistent URL data across analyses (brand assets, score history) |
+| `UrlAsset` | Downloaded brand assets stored in Netlify Blobs |
+| `AgentSkill` | Configurable AI agent prompts with versioning |
+| `AgentSkillHistory` | Agent prompt version history (rollback support) |
+| `ApiConfig` | DB-stored API keys with AES-256-GCM encryption |
+| `Benchmark` | Competitor sites scored for industry comparison |
+| `BenchmarkNote` | Admin notes on benchmarks |
+| `Industry` | 21 industries with dimension-specific scoring criteria |
+| `Template` | Legacy template definitions (retained for reference) |
+| `ScoringRubric` | Scoring criteria per dimension per score range |
+| `PromptLog` | Full prompt/response audit trail for every AI call |
+| `InternalNote` | Admin notes on individual analyses |
 
-### Phase 2 Complete
+### Scoring System
 
-- **Screenshot**: `lib/scraping/puppeteer.ts` — Puppeteer + @sparticuz/chromium (Netlify-compatible)
-- **Asset extraction**: `lib/scraping/asset-extractor.ts` — Colors, fonts, images, copy from HTML/CSS
-- **SEO audit**: `lib/seo/auditor.ts` — Title, meta, headings, image alt
-- **AI**: `lib/ai/claude-vision.ts`, `lib/ai/claude-text.ts`, `lib/ai/openai.ts` — Claude Vision, industry detection, GPT-4
-- **Scoring**: `lib/scoring/scorer.ts` — 0-100 across 8 dimensions with rubric
-- **Templates**: `lib/templates/injector.ts`, `selector.ts`, `copy-refresher.ts`
-- **Pipeline**: `lib/pipeline/analyze.ts` — Full orchestration
-- **API**: `POST /api/analyze` (accepts `{ url }`), `GET /api/analyze/[id]`
+Every homepage is scored 0-100 across 8 universal quality dimensions:
 
-**Local dev**: Set `CHROME_PATH` if Chrome is not at the default location, or run `npx @puppeteer/browsers install chromium@latest --path ./chromium`.
+1. **Clarity** — What is it, who is it for, what do I do?
+2. **Visual Quality** — Modern, intentional, trustworthy
+3. **Information Hierarchy** — Logical flow, scannable
+4. **Trust & Credibility** — Social proof, legitimacy signals
+5. **Conversion & Actionability** — Easy next step, clear CTA
+6. **Content Quality** — Written for humans, no buzzwords
+7. **Mobile Experience** — Designed for phones
+8. **Performance & Technical** — Fast, secure, not broken
 
-## 📊 8 Universal Quality Dimensions
+When 3+ scored benchmarks exist for the detected industry, the Score Agent provides gap analysis with percentiles and dimension-level comparisons.
 
-1. **Clarity** - What is it, who is it for, what do I do?
-2. **Visual Quality** - Modern, intentional, trustworthy
-3. **Information Hierarchy** - Logical flow, scannable
-4. **Trust & Credibility** - Social proof, legitimacy signals
-5. **Conversion & Actionability** - Easy next step, clear CTA
-6. **Content Quality** - Written for humans, no buzzwords
-7. **Mobile Experience** - Designed for phones
-8. **Performance & Technical** - Fast, secure, not broken
+## Key Routes
 
-Each dimension scored 0-100 with specific issues and recommendations.
+| Route | Description |
+|---|---|
+| `POST /api/analyze` | Start analysis (SSE progress stream) |
+| `GET /api/analyze/[id]` | Get analysis status/results |
+| `POST /api/analyze/preflight` | Validate URL before analysis |
+| `/results/[id]` | Public results page |
+| `/admin` | Admin dashboard (analyses list with pagination) |
+| `/admin/settings` | API key management + Agent Skills Editor |
+| `/admin/benchmarks` | Benchmark CRUD + scoring |
+| `/admin/analysis/[id]` | Analysis detail with prompt logs + notes |
+| `/admin/profile/[id]` | URL Profile detail with brand assets + history |
 
-## 📞 Support
+## Project Structure
 
-For questions or issues during development, refer to:
-- Implementation plan: `MVP-PLAN.md`
-- Agent guides: `docs/CLAUDE-CODE-AGENT.md` and `docs/CURSOR-AGENT.md`
-- Pre-launch checklist: `PRE-LAUNCH-CHECKLIST.md`
+```
+app/
+  api/analyze/          Main analysis endpoint (SSE)
+  api/admin/            Admin API routes (settings, skills, configs, benchmarks)
+  api/blob/[key]/       Netlify Blobs proxy
+  results/[id]/         Public results page
+  admin/                Admin dashboard, settings, benchmarks
+components/             UI components (score breakdown, layout cards, forms)
+lib/
+  pipeline/             Analysis orchestration + agent runners
+    analyze.ts          Main pipeline (4-step agent flow)
+    agents/             Individual agent runners + types
+    url-profile.ts      URL normalization + UrlProfile management
+    asset-extraction.ts Asset download + Blob upload
+  ai/                   AI client wrappers, retry logic, prompt logging
+  config/               API key resolution, encryption, agent skill loading
+  scoring/              Scoring engine
+  scraping/             HTML fetch, CSS extraction, asset extraction, tech detection
+  templates/            Legacy template system (retained, disconnected from pipeline)
+  storage/              Netlify Blobs wrapper
+prisma/
+  schema.prisma         All 13 models
+  seed.ts               Industries + templates + scoring rubric
+scripts/
+  seed-agent-skills.ts  Seed 6 agent skills
+docs/                   Enhancement specs + checklists
+```
+
+## Development Phases
+
+Architecture and implementation are documented in 4 phase handoff documents:
+
+| Phase | Document | Scope |
+|---|---|---|
+| 1 | `PHASE-1-HANDOFF.md` | Schema + foundation layer (models, config libs, URL profiles, asset extraction) |
+| 2 | `PHASE-2-HANDOFF.md` | Pipeline refactor (3-step agent architecture replacing 14-call sequential pipeline) |
+| 3 | `PHASE-3-HANDOFF.md` | Admin tooling (settings, skills editor, pagination, URL profiles) |
+| 4 | `PHASE-4-HANDOFF.md` | Benchmarking integration (CRUD, scoring, comparison display, rationale) |
+
+## npm Scripts
+
+| Script | Description |
+|---|---|
+| `npm run dev` | Start dev server (Turbopack) |
+| `npm run build` | Production build |
+| `npm run db:generate` | Regenerate Prisma client |
+| `npm run db:migrate` | Run pending migrations |
+| `npm run db:push` | Push schema changes (no migration) |
+| `npm run db:seed` | Seed industries, templates, scoring rubric |
+| `npm run db:seed-skills` | Seed 6 agent skills |
+| `npm run db:studio` | Open Prisma Studio |

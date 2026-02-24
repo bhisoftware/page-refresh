@@ -53,6 +53,11 @@ export function AdminPromptLogs({ logs }: AdminPromptLogsProps) {
                   <span className="text-muted-foreground text-xs">
                     {log.provider} / {log.model}
                   </span>
+                  {log.tokensUsed != null && (
+                    <span className="text-muted-foreground text-xs">
+                      {log.tokensUsed.toLocaleString()} tokens
+                    </span>
+                  )}
                   {log.responseTime != null && (
                     <span className="text-muted-foreground text-xs">
                       {log.responseTime}ms

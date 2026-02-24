@@ -11,6 +11,7 @@ export interface LayoutItem {
   layoutHtml: string;
   layoutCss: string;
   layoutCopyRefreshed: string;
+  rationale?: string;
 }
 
 interface LayoutSectionProps {
@@ -39,6 +40,7 @@ export function LayoutSection({ refreshId, viewToken, layouts }: LayoutSectionPr
             layoutHtml={layout.layoutHtml}
             layoutCss={layout.layoutCss}
             layoutCopyRefreshed={layout.layoutCopyRefreshed}
+            rationale={layout.rationale}
             refreshId={refreshId}
             viewToken={viewToken}
           />
@@ -56,6 +58,7 @@ export function LayoutSection({ refreshId, viewToken, layouts }: LayoutSectionPr
                   layoutHtml={layout.layoutHtml}
                   layoutCss={layout.layoutCss}
                   layoutCopyRefreshed={layout.layoutCopyRefreshed}
+                  rationale={layout.rationale}
                   refreshId={refreshId}
                   viewToken={viewToken}
                 />

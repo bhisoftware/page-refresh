@@ -23,19 +23,17 @@ function isUnreachableWebsiteError(message: string): boolean {
 }
 
 const PIPELINE_STEP_MAP: Record<string, PipelineStep> = {
-  screenshot: "screenshot",
-  extract: "extract",
-  seo: "seo",
-  vision: "vision",
-  industry: "industry",
-  score: "score",
-  layouts: "layouts",
-  copy: "copy",
+  started: "started",
+  analyzing: "analyzing",
+  scoring: "scoring",
+  generating: "generating",
   done: "done",
+  retry: "retry",
+  error: "error",
 };
 
 function parseProgressStep(step: string): PipelineStep {
-  return PIPELINE_STEP_MAP[step] ?? "screenshot";
+  return PIPELINE_STEP_MAP[step] ?? "started";
 }
 
 export default function Home() {
@@ -52,7 +50,7 @@ export default function Home() {
       urlInputRef.current.focus();
     }
   }, [urlFieldHint]);
-  const [currentStep, setCurrentStep] = useState<PipelineStep>("screenshot");
+  const [currentStep, setCurrentStep] = useState<PipelineStep>("started");
   const [progressMessage, setProgressMessage] = useState("");
   const [countdown, setCountdown] = useState<number | null>(null);
 
@@ -95,7 +93,7 @@ export default function Home() {
     }
 
     setIsAnalyzing(true);
-    setCurrentStep("screenshot");
+    setCurrentStep("started");
     setProgressMessage("Starting analysis...");
     const startTime = Date.now();
     const targetDuration = 50;

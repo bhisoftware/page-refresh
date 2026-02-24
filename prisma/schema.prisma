@@ -93,6 +93,21 @@ model Refresh {
   // Access: token required to view results (link-level, not guessable)
   viewToken         String   @unique @default(cuid())
 
+  // URL Profile link (Phase 2 sets this at pipeline start)
+  urlProfileId      String?
+  urlProfile        UrlProfile? @relation(fields: [urlProfileId], references: [id])
+
+  // Audit: which AgentSkill.version was used per agent at runtime
+  skillVersions     Json?
+
+  // Benchmark comparison (Phase 4 populates this)
+  benchmarkComparison Json?
+
+  // Layout rationale from Creative Agents (Phase 2 writes, Phase 4 enriches)
+  layout1Rationale  String   @db.Text @default("")
+  layout2Rationale  String   @db.Text @default("")
+  layout3Rationale  String   @db.Text @default("")
+
   // Relationships
   promptHistory     PromptLog[]
   internalNotes     InternalNote[]
@@ -102,6 +117,7 @@ model Refresh {
   @@index([createdAt])
   @@index([quoteRequested])
   @@index([installRequested])
+  @@index([urlProfileId])
 }
 
 model Industry {
@@ -200,4 +216,155 @@ model ScoringRubric {
 
   @@index([dimension])
   @@index([scoreRange])
+}
+
+// --- Phase 1 Foundation Models ---
+
+model UrlProfile {
+  id              String    @id @default(cuid())
+  url             String    @unique
+  domain          String
+  industry        String?
+  industryLocked  Boolean   @default(false)
+
+  brandAssets     Json?
+  extractedCopy   Json?
+  techStack       Json?
+
+  analysisCount   Int       @default(0)
+  lastAnalyzedAt  DateTime?
+  bestScore       Int?
+  latestScore     Int?
+
+  customerEmail   String?
+  customerId      String?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  expiresAt       DateTime?
+
+  analyses        Refresh[]
+  assets          UrlAsset[]
+
+  @@index([domain])
+  @@index([industry])
+  @@index([customerEmail])
+  @@index([expiresAt])
+}
+
+model UrlAsset {
+  id            String     @id @default(cuid())
+  urlProfileId  String
+  urlProfile    UrlProfile @relation(fields: [urlProfileId], references: [id], onDelete: Cascade)
+
+  assetType     String
+  fileName      String
+  mimeType      String
+  fileSize      Int?
+  storageKey    String
+  storageUrl   String?
+
+  metadata      Json?
+  sourceUrl     String?
+  extractedAt   DateTime   @default(now())
+
+  @@index([urlProfileId])
+  @@index([urlProfileId, assetType])
+}
+
+model AgentSkill {
+  id                  String    @id @default(cuid())
+  agentSlug           String    @unique
+  agentName           String
+  category            String
+  systemPrompt        String    @db.Text
+  outputSchema        Json?
+  modelOverride       String?
+  maxTokens           Int?
+  temperature         Float?
+  active              Boolean   @default(true)
+  version             Int       @default(1)
+  lastEditedBy        String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  history             AgentSkillHistory[]
+
+  @@index([agentSlug])
+  @@index([category])
+}
+
+model AgentSkillHistory {
+  id            String    @id @default(cuid())
+  agentSkillId  String
+  agentSkill    AgentSkill @relation(fields: [agentSkillId], references: [id], onDelete: Cascade)
+  agentSlug     String
+  systemPrompt  String    @db.Text
+  version       Int
+  editedBy      String?
+  changeNote    String?   @db.Text
+  createdAt     DateTime  @default(now())
+
+  @@index([agentSkillId])
+  @@index([agentSlug, version])
+}
+
+model ApiConfig {
+  id            String    @id @default(cuid())
+  provider      String
+  configKey     String
+  configValue   String    @db.Text
+  encrypted     Boolean   @default(false)
+  label         String?
+  active        Boolean   @default(true)
+  sortOrder     Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([provider, configKey, label])
+  @@index([provider])
+  @@index([provider, configKey, active])
+}
+
+model Benchmark {
+  id               String    @id @default(cuid())
+  url              String
+  domain           String?
+  siteName         String?
+  industry         String
+  screenshotUrl    String?
+  overallScore     Int       @default(0)
+  clarityScore     Int       @default(0)
+  visualScore      Int       @default(0)
+  hierarchyScore   Int       @default(0)
+  trustScore       Int       @default(0)
+  conversionScore  Int       @default(0)
+  contentScore     Int       @default(0)
+  mobileScore      Int       @default(0)
+  performanceScore Int       @default(0)
+  scoringDetails   Json      @default("[]")
+  scored           Boolean   @default(false)
+  scoredAt         DateTime?
+  active           Boolean   @default(true)
+  notes            BenchmarkNote[]
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([industry])
+  @@index([industry, scored])
+  @@index([industry, active])
+  @@index([industry, overallScore])
+}
+
+model BenchmarkNote {
+  id          String    @id @default(cuid())
+  benchmarkId String
+  benchmark   Benchmark @relation(fields: [benchmarkId], references: [id], onDelete: Cascade)
+  authorName  String
+  content     String    @db.Text
+  category    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([benchmarkId])
 }

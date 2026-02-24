@@ -5,50 +5,40 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 export type PipelineStep =
-  | "screenshot"
-  | "extract"
-  | "seo"
-  | "vision"
-  | "industry"
-  | "score"
-  | "layouts"
-  | "copy"
-  | "done";
+  | "started"
+  | "analyzing"
+  | "scoring"
+  | "generating"
+  | "done"
+  | "retry"
+  | "error";
 
 const STEP_ORDER: PipelineStep[] = [
-  "screenshot",
-  "extract",
-  "seo",
-  "vision",
-  "industry",
-  "score",
-  "layouts",
-  "copy",
+  "started",
+  "analyzing",
+  "scoring",
+  "generating",
   "done",
 ];
 
 const STEP_LABELS: Record<PipelineStep, string> = {
-  screenshot: "Capturing screenshot...",
-  extract: "Extracting assets...",
-  seo: "Running SEO audit...",
-  vision: "Analyzing with Claude Vision...",
-  industry: "Detecting industry...",
-  score: "Scoring across 8 dimensions...",
-  layouts: "Generating 3 layout proposals...",
-  copy: "Refreshing copy...",
-  done: "Finalizing...",
+  started: "Starting...",
+  analyzing: "Analyzing your website...",
+  scoring: "Scoring against industry benchmarks...",
+  generating: "Generating 3 design options...",
+  done: "Your results are ready!",
+  retry: "Retrying...",
+  error: "Something went wrong",
 };
 
 const STEP_ICONS: Record<PipelineStep, string> = {
-  screenshot: "📸",
-  extract: "🔍",
-  seo: "📋",
-  vision: "🤖",
-  industry: "🏢",
-  score: "📊",
-  layouts: "🎨",
-  copy: "✍️",
+  started: "🚀",
+  analyzing: "🔍",
+  scoring: "📊",
+  generating: "🎨",
   done: "✨",
+  retry: "⏳",
+  error: "⚠️",
 };
 
 function stepIndex(step: PipelineStep): number {
@@ -62,12 +52,10 @@ function phaseProgress(step: PipelineStep): {
   layouts: number;
 } {
   const i = stepIndex(step);
-  // Phase 1: screenshot + extract (0-1)
-  // Phase 2: seo, vision, industry, score (2-5)
-  // Phase 3: layouts, copy, done (6-8)
+  // started=0, analyzing=1, scoring=2, generating=3, done=4
   const screenshot = i >= 1 ? 100 : i >= 0 ? 50 : 0;
-  const analysis = i < 2 ? 0 : i <= 5 ? ((i - 2) / 4) * 100 : 100;
-  const layouts = i < 6 ? 0 : i <= 8 ? ((i - 6) / 3) * 100 : 100;
+  const analysis = i < 1 ? 0 : i <= 2 ? ((i - 1) / 2) * 100 : 100;
+  const layouts = i < 3 ? 0 : i <= 4 ? ((i - 3) / 2) * 100 : 100;
   return { screenshot, analysis, layouts };
 }
 
@@ -102,7 +90,7 @@ export function AnalysisProgress({
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Camera className="h-3.5 w-3.5" />
-              Screenshot
+              Accessing your site
             </div>
             <Progress value={screenshot} className="h-2" />
           </div>

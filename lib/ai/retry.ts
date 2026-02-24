@@ -37,7 +37,12 @@ export function isRetryableError(err: unknown): boolean {
     msg.includes("429") ||
     msg.includes("overloaded") ||
     msg.includes("capacity") ||
-    msg.includes("rate_limit_error")
+    msg.includes("rate_limit_error") ||
+    msg.includes("Connection error") ||
+    msg.includes("EPIPE") ||
+    msg.includes("ECONNRESET") ||
+    msg.includes("fetch failed") ||
+    msg.includes("socket hang up")
   );
 }
 

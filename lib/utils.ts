@@ -35,14 +35,17 @@ export type PublicRefresh = Pick<
   | "layout1Css"
   | "layout1Template"
   | "layout1CopyRefreshed"
+  | "layout1Rationale"
   | "layout2Html"
   | "layout2Css"
   | "layout2Template"
   | "layout2CopyRefreshed"
+  | "layout2Rationale"
   | "layout3Html"
   | "layout3Css"
   | "layout3Template"
   | "layout3CopyRefreshed"
+  | "layout3Rationale"
   | "layout4Html"
   | "layout4Css"
   | "layout4Template"
@@ -60,6 +63,10 @@ export type PublicRefresh = Pick<
   | "installRequested"
   | "createdAt"
   | "processingTime"
+  | "benchmarkComparison"
+  | "layout1Rationale"
+  | "layout2Rationale"
+  | "layout3Rationale"
 >;
 
 /**
@@ -96,14 +103,17 @@ export function serializeRefreshForPublic(refresh: Refresh): PublicRefresh {
     layout1Css: refresh.layout1Css,
     layout1Template: refresh.layout1Template,
     layout1CopyRefreshed: refresh.layout1CopyRefreshed,
+    layout1Rationale: refresh.layout1Rationale,
     layout2Html: refresh.layout2Html,
     layout2Css: refresh.layout2Css,
     layout2Template: refresh.layout2Template,
     layout2CopyRefreshed: refresh.layout2CopyRefreshed,
+    layout2Rationale: refresh.layout2Rationale,
     layout3Html: refresh.layout3Html,
     layout3Css: refresh.layout3Css,
     layout3Template: refresh.layout3Template,
     layout3CopyRefreshed: refresh.layout3CopyRefreshed,
+    layout3Rationale: refresh.layout3Rationale,
     layout4Html: refresh.layout4Html,
     layout4Css: refresh.layout4Css,
     layout4Template: refresh.layout4Template,
@@ -121,6 +131,7 @@ export function serializeRefreshForPublic(refresh: Refresh): PublicRefresh {
     installRequested: refresh.installRequested,
     createdAt: refresh.createdAt,
     processingTime: refresh.processingTime,
+    benchmarkComparison: refresh.benchmarkComparison,
   };
 }
 

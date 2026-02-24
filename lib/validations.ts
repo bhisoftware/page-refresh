@@ -44,3 +44,14 @@ export const adminNotesSchema = z.object({
   content: z.string().min(1, "content is required").max(10000),
   category: z.string().max(50).optional(),
 });
+
+export const benchmarkCreateSchema = z.object({
+  url: z.string().url().min(1),
+  industry: z.string().min(1).max(100),
+});
+
+export const benchmarkNotesSchema = z.object({
+  authorName: z.string().min(1).max(100),
+  content: z.string().min(1).max(10000),
+  category: z.string().max(50).optional(),
+});

@@ -69,3 +69,11 @@ export function screenshotKey(refreshId: string, url: string): string {
   const slug = url.replace(/^https?:\/\//, "").replace(/[^a-z0-9-]/gi, "-").slice(0, 50);
   return `screenshots/${refreshId}-${slug}-${Date.now()}.webp`;
 }
+
+/**
+ * Generate a blob key for a URL profile asset.
+ * Pattern: profiles/{profileId}/{assetType}.{ext}
+ */
+export function profileAssetKey(profileId: string, assetType: string, extension: string): string {
+  return `profiles/${profileId}/${assetType}.${extension}`;
+}

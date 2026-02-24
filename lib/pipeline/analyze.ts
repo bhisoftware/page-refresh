@@ -1,379 +1,37 @@
 /**
- * Main analysis pipeline: URL → Screenshot → Assets → SEO → Vision + Industry (parallel) → Score → AI Layouts (or template fallback).
- *
- * Layout step: Claude generates 3 unique HTML/CSS pages from scraped assets. On failure, falls back to template composition.
+ * Phase 2 pipeline: 3-step agent architecture.
+ * Step 0: UrlProfile + fetch. Step 1: Screenshot + Industry/SEO + Assets (parallel).
+ * Step 2: Score Agent. Step 3: 3 Creative Agents (parallel). Step 4: Save.
  */
 
 import { prisma } from "@/lib/prisma";
 import { fetchHtml } from "@/lib/scraping/fetch-html";
 import { captureScreenshotCloud } from "@/lib/scraping/cloud-screenshot";
-import { detectTechStack } from "@/lib/scraping/tech-detector";
-import { extractAssets } from "@/lib/scraping/asset-extractor";
-import { fetchExternalCss } from "@/lib/scraping/fetch-external-css";
-import { runSeoAudit } from "@/lib/seo/auditor";
 import { uploadBlob, screenshotKey } from "@/lib/storage/netlify-blobs";
 import { compressScreenshotToWebP } from "@/lib/scraping/screenshot-compress";
-import { analyzeScreenshot } from "@/lib/ai/claude-vision";
-import { detectIndustry, analyzeHtmlStructure } from "@/lib/ai/claude-text";
-import { scoreWebsite } from "@/lib/scoring/scorer";
-import { generateLayouts } from "@/lib/ai/generate-layouts";
-import {
-  injectAssets,
-  replacePlaceholders,
-  escapeHtml,
-  stripUnresolvedPlaceholders,
-  stripFallbackPlaceholderText,
-} from "@/lib/templates/injector";
-import { refreshCopy, type RefreshedCopy } from "@/lib/templates/copy-refresher";
-import { selectCompositions } from "@/lib/templates/selector";
-import { composePage } from "@/lib/templates/compose";
-import {
-  getCachedTemplatesByNames,
-  getCachedFirstTemplate,
-} from "@/lib/cache/seed-cache";
-import { normalizeWebsiteUrl } from "@/lib/utils";
-import {
-  estimateTokens,
-  checkBudget,
-  truncateToTokenBudget,
-} from "@/lib/ai/token-estimator";
+import { fetchExternalCss } from "@/lib/scraping/fetch-external-css";
+import { findOrCreateUrlProfile } from "@/lib/pipeline/url-profile";
+import { extractAndPersistAssets } from "@/lib/pipeline/asset-extraction";
+import { getAllActiveSkills } from "@/lib/config/agent-skills";
+import { runScreenshotAnalysisAgent } from "@/lib/pipeline/agents/screenshot-analysis";
+import { runIndustrySeoAgent } from "@/lib/pipeline/agents/industry-seo";
+import { runScoreAgent } from "@/lib/pipeline/agents/score";
+import { runCreativeAgent, type CreativeSlug } from "@/lib/pipeline/agents/creative";
+import type { CreativeAgentInput } from "@/lib/pipeline/agents/types";
+import type { AgentSkill } from "@prisma/client";
 
 export type PipelineProgress =
-  | { step: "screenshot"; message: string }
-  | { step: "extract"; message: string }
-  | { step: "seo"; message: string }
-  | { step: "vision"; message: string }
-  | { step: "industry"; message: string }
-  | { step: "score"; message: string }
-  | { step: "layouts"; message: string }
-  | { step: "copy"; message: string }
+  | { step: "started"; message?: string }
+  | { step: "analyzing"; message: string }
+  | { step: "scoring"; message: string }
+  | { step: "generating"; message: string }
+  | { step: "done"; message?: string; refreshId?: string; viewToken?: string }
   | { step: "retry"; message: string }
-  | { step: "done"; message: string };
+  | { step: "error"; message: string };
 
 export interface PipelineOptions {
   url: string;
   onProgress?: (p: PipelineProgress) => void;
-}
-
-function logStepElapsed(step: string, startTime: number): void {
-  const elapsed = Math.round((Date.now() - startTime) / 1000);
-  console.log(`[pipeline] ${step} completed in ${elapsed}s (total: ${elapsed}s)`);
-}
-
-export async function runAnalysis(options: PipelineOptions): Promise<string> {
-  const { url, onProgress } = options;
-  const startTime = Date.now();
-  const normalizedUrl = normalizeWebsiteUrl(
-    url.startsWith("http") ? url : `https://${url}`
-  );
-
-  onProgress?.({ step: "screenshot", message: "Fetching website..." });
-
-  const [{ html }, screenshotBuffer] = await Promise.all([
-    fetchHtml(normalizedUrl),
-    captureScreenshotCloud(normalizedUrl).catch(() => null),
-  ]);
-  logStepElapsed("screenshot", startTime);
-
-  onProgress?.({ step: "extract", message: "Extracting assets..." });
-
-  const inlineCss = extractInlineCss(html);
-  const externalCss = await fetchExternalCss(html, normalizedUrl, 3);
-  const css = [inlineCss, externalCss].filter(Boolean).join("\n");
-  const assets = extractAssets(html, css, normalizedUrl);
-  const techStack = detectTechStack(html);
-  logStepElapsed("extract", startTime);
-
-  onProgress?.({ step: "seo", message: "Running SEO audit..." });
-
-  const seoAudit = runSeoAudit(html);
-
-  // Create preliminary Refresh so we have refreshId for PromptLog on all AI calls
-  const refresh = await prisma.refresh.create({
-    data: {
-      url: normalizedUrl,
-      targetWebsite: normalizedUrl,
-      screenshotUrl: null,
-      htmlSnapshot: html,
-      cssSnapshot: css,
-      extractedColors: assets.colors as unknown as object,
-      extractedFonts: assets.fonts as unknown as object,
-      extractedImages: assets.images as unknown as object,
-      extractedCopy: assets.copy as unknown as object,
-      extractedLogo: assets.logo ?? null,
-      brandAnalysis: "",
-      industryDetected: "Unknown",
-      industryConfidence: 0,
-      overallScore: 0,
-      clarityScore: 0,
-      visualScore: 0,
-      hierarchyScore: 0,
-      trustScore: 0,
-      conversionScore: 0,
-      contentScore: 0,
-      mobileScore: 0,
-      performanceScore: 0,
-      scoringDetails: [],
-      seoAudit: seoAudit as unknown as object,
-      layout1Html: "",
-      layout1Css: "",
-      layout1Template: "pending",
-      layout1CopyRefreshed: "",
-      layout2Html: "",
-      layout2Css: "",
-      layout2Template: "pending",
-      layout2CopyRefreshed: "",
-      layout3Html: "",
-      layout3Css: "",
-      layout3Template: "pending",
-      layout3CopyRefreshed: "",
-      layout4Html: "",
-      layout4Css: "",
-      layout4Template: "pending",
-      layout4CopyRefreshed: "",
-      layout5Html: "",
-      layout5Css: "",
-      layout5Template: "pending",
-      layout5CopyRefreshed: "",
-      layout6Html: "",
-      layout6Css: "",
-      layout6Template: "pending",
-      layout6CopyRefreshed: "",
-    },
-  });
-  logStepElapsed("seo+db_create", startTime);
-
-  const refreshId = refresh.id;
-  const onRetry = (delayMs: number) =>
-    onProgress?.({ step: "retry", message: `Refresh paused due to API limits. Retrying in ${Math.round(delayMs / 1000)} seconds...` });
-  const promptLog = { refreshId, step: "", onRetry };
-
-  onProgress?.({ step: "vision", message: "Analyzing design..." });
-  onProgress?.({ step: "industry", message: "Detecting industry..." });
-
-  const INDUSTRY_HTML_TOKEN_BUDGET = 40_000;
-  const htmlForIndustry =
-    estimateTokens(html) > INDUSTRY_HTML_TOKEN_BUDGET
-      ? truncateToTokenBudget(html, INDUSTRY_HTML_TOKEN_BUDGET)
-      : html;
-  if (htmlForIndustry !== html) {
-    console.warn(
-      `[pipeline] HTML truncated for industry step (${estimateTokens(html)} -> ${estimateTokens(htmlForIndustry)} tokens)`
-    );
-  }
-
-  const visionPromise = screenshotBuffer
-    ? analyzeScreenshot(screenshotBuffer.toString("base64"), {
-        ...promptLog,
-        step: "screenshot_analysis",
-      })
-    : analyzeHtmlStructure(html, techStack, {
-        ...promptLog,
-        step: "html_structure_analysis",
-      });
-
-  const [visionResult, industryResult] = await Promise.all([
-    visionPromise,
-    detectIndustry(htmlForIndustry, { ...promptLog, step: "industry_detection" }),
-  ]);
-  logStepElapsed("vision+industry", startTime);
-
-  const brandAnalysis = visionResult.analysis;
-  const industryDetected = industryResult.industry;
-  const industryConfidence = industryResult.confidence;
-
-  onProgress?.({ step: "score", message: "Scoring across 8 dimensions..." });
-
-  const SCORING_CONTEXT_TOKEN_BUDGET = 25_000;
-  const scoringBrandAnalysis =
-    estimateTokens(brandAnalysis) > SCORING_CONTEXT_TOKEN_BUDGET
-      ? truncateToTokenBudget(brandAnalysis, SCORING_CONTEXT_TOKEN_BUDGET)
-      : brandAnalysis;
-  if (scoringBrandAnalysis !== brandAnalysis) {
-    console.warn(
-      `[pipeline] brandAnalysis truncated for scoring (${estimateTokens(brandAnalysis)} -> ${estimateTokens(scoringBrandAnalysis)} tokens)`
-    );
-  }
-  const scoringContext = `${scoringBrandAnalysis}\n${JSON.stringify(assets.copy)}\n${JSON.stringify(seoAudit)}`;
-  const budgetCheck = checkBudget(scoringContext, 1024);
-  if (!budgetCheck.fits) {
-    console.warn(
-      `[pipeline] Scoring context large (${budgetCheck.promptTokens} tokens); using truncated brand analysis`
-    );
-  }
-
-  const scoring = await scoreWebsite({
-    industry: industryDetected,
-    brandAnalysis: scoringBrandAnalysis,
-    extractedCopy: assets.copy,
-    seoAudit: seoAudit as unknown as Record<string, unknown>,
-    promptLog: { refreshId, step: "dimension_scoring", onRetry },
-  });
-  logStepElapsed("score", startTime);
-
-  const useAiLayoutGeneration = process.env.USE_AI_LAYOUT_GENERATION === "true";
-  type LayoutResult = { html: string; css: string; label: string };
-  let layoutResults: LayoutResult[] = [];
-  let usedTemplateFallback = false;
-
-  const runTemplateLayoutPath = async (): Promise<void> => {
-    onProgress?.({ step: "layouts", message: useAiLayoutGeneration ? "Using template fallback..." : "Generating 3 layout proposals..." });
-    const copySummary = JSON.stringify(assets.copy).slice(0, 500);
-    const compositions = await selectCompositions(
-      industryDetected,
-      scoring.details,
-      copySummary,
-      { refreshId, step: "composition_selection", onRetry }
-    );
-    const fallback = await getCachedFirstTemplate();
-    if (!fallback) throw new Error("No templates available. Run db:seed to load templates.");
-    const builtLayouts: Array<{ html: string; css: string; templateLabel: string; layoutContext: string }> = [];
-    for (let i = 0; i < 3; i++) {
-      const sectionNames = compositions[i] ?? compositions[0]!;
-      const sectionTemplates = await getCachedTemplatesByNames(sectionNames);
-      const templatesInOrder = sectionNames
-        .map((name) => sectionTemplates.find((t) => t.name === name))
-        .filter(Boolean) as Awaited<ReturnType<typeof getCachedTemplatesByNames>>;
-      const sections = templatesInOrder.length >= 3 ? templatesInOrder : [fallback, fallback, fallback];
-      const { html: composedHtml, css: composedCss } = composePage(sections);
-      const inj = injectAssets(composedHtml, composedCss, assets);
-      builtLayouts.push({
-        html: inj.html,
-        css: inj.css,
-        templateLabel: sectionNames.slice(0, 3).join(" + ") + (sectionNames.length > 3 ? ` + ${sectionNames.length - 3} more` : ""),
-        layoutContext: sections.map((s) => s.description).join(" | "),
-      });
-    }
-    onProgress?.({ step: "copy", message: "Refreshing copy..." });
-    const [refreshed1, refreshed2, refreshed3] = await Promise.all([
-      refreshCopy(industryDetected, assets.copy, builtLayouts[0]!.layoutContext, { refreshId, step: "copy_refresh_layout1", onRetry }),
-      refreshCopy(industryDetected, assets.copy, builtLayouts[1]!.layoutContext, { refreshId, step: "copy_refresh_layout2", onRetry }),
-      refreshCopy(industryDetected, assets.copy, builtLayouts[2]!.layoutContext, { refreshId, step: "copy_refresh_layout3", onRetry }),
-    ]);
-    const htmlWithRefreshed1 = applyRefreshedCopy(builtLayouts[0]!.html, refreshedCopyToMap(refreshed1));
-    const htmlWithRefreshed2 = applyRefreshedCopy(builtLayouts[1]!.html, refreshedCopyToMap(refreshed2));
-    const htmlWithRefreshed3 = applyRefreshedCopy(builtLayouts[2]!.html, refreshedCopyToMap(refreshed3));
-    layoutResults = [
-      { html: htmlWithRefreshed1, css: builtLayouts[0]!.css, label: builtLayouts[0]!.templateLabel },
-      { html: htmlWithRefreshed2, css: builtLayouts[1]!.css, label: builtLayouts[1]!.templateLabel },
-      { html: htmlWithRefreshed3, css: builtLayouts[2]!.css, label: builtLayouts[2]!.templateLabel },
-    ];
-  };
-
-  if (useAiLayoutGeneration) {
-    onProgress?.({ step: "layouts", message: "Designing 3 unique page concepts..." });
-    try {
-      const result = await generateLayouts({
-        url: normalizedUrl,
-        industry: industryDetected,
-        brandAnalysis,
-        scores: scoring.details,
-        assets: {
-          colors: assets.colors,
-          fonts: assets.fonts,
-          images: assets.images,
-          logo: assets.logo ?? null,
-          copy: assets.copy,
-        },
-        screenshotUrl: null,
-        promptLog: { refreshId, step: "layout_generation", onRetry },
-      });
-      layoutResults = result.layouts.map((l) => ({
-        html: l.html,
-        css: l.css,
-        label: l.label,
-      }));
-    } catch (layoutErr) {
-      const layoutErrMessage = layoutErr instanceof Error ? layoutErr.message : String(layoutErr);
-      console.warn("[pipeline] AI layout generation failed, falling back to template composition:", layoutErrMessage);
-      usedTemplateFallback = true;
-      await runTemplateLayoutPath();
-    }
-  } else {
-    onProgress?.({ step: "layouts", message: "Generating 3 layout proposals..." });
-    await runTemplateLayoutPath();
-  }
-
-  logStepElapsed("layouts", startTime);
-  if (usedTemplateFallback) {
-    console.log("[pipeline] Layouts were generated via template fallback (AI generation failed).");
-  }
-
-  // Safety net: strip any {{...}} or fallback placeholder text before persisting. Pad to 3 so partial AI success (1–2 layouts) still writes safely.
-  const emptyLayout = { html: "", css: "", copyRefreshed: "", label: "" };
-  const cleaned = layoutResults
-    .slice(0, 3)
-    .map((l, i) => {
-      const design = stripUnresolvedPlaceholders(l.html);
-      if (design.stripped) console.warn(`[pipeline] Layout ${i + 1}: stripped unresolved {{placeholders}} before save`);
-      const html = stripFallbackPlaceholderText(design.html);
-      return { html, css: l.css, copyRefreshed: html, label: l.label };
-    });
-  const padded = [
-    cleaned[0] ?? emptyLayout,
-    cleaned[1] ?? emptyLayout,
-    cleaned[2] ?? emptyLayout,
-  ];
-
-  let screenshotUrl: string | null = null;
-  if (screenshotBuffer) {
-    const { buffer: optimized, contentType } = await compressScreenshotToWebP(screenshotBuffer);
-    const blobKey = screenshotKey(refreshId, normalizedUrl);
-    screenshotUrl = await uploadBlob(blobKey, optimized, contentType);
-  }
-
-  const processingTime = Math.round((Date.now() - startTime) / 1000);
-  logStepElapsed("upload+finalize", startTime);
-  console.log(`[pipeline] refresh ${refreshId} complete in ${processingTime}s`);
-
-  onProgress?.({ step: "done", message: "Finalizing..." });
-
-  await prisma.refresh.update({
-    where: { id: refreshId },
-    data: {
-      screenshotUrl,
-      brandAnalysis,
-      industryDetected,
-      industryConfidence,
-      overallScore: scoring.overallScore,
-      clarityScore: scoring.dimensionScores.clarity,
-      visualScore: scoring.dimensionScores.visual,
-      hierarchyScore: scoring.dimensionScores.hierarchy,
-      trustScore: scoring.dimensionScores.trust,
-      conversionScore: scoring.dimensionScores.conversion,
-      contentScore: scoring.dimensionScores.content,
-      mobileScore: scoring.dimensionScores.mobile,
-      performanceScore: scoring.dimensionScores.performance,
-      scoringDetails: scoring.details as unknown as object,
-      layout1Html: padded[0].html,
-      layout1Css: padded[0].css,
-      layout1Template: padded[0].label,
-      layout1CopyRefreshed: padded[0].copyRefreshed,
-      layout2Html: padded[1].html,
-      layout2Css: padded[1].css,
-      layout2Template: padded[1].label,
-      layout2CopyRefreshed: padded[1].copyRefreshed,
-      layout3Html: padded[2].html,
-      layout3Css: padded[2].css,
-      layout3Template: padded[2].label,
-      layout3CopyRefreshed: padded[2].copyRefreshed,
-      layout4Html: "",
-      layout4Css: "",
-      layout4Template: "",
-      layout4CopyRefreshed: "",
-      layout5Html: "",
-      layout5Css: "",
-      layout5Template: "",
-      layout5CopyRefreshed: "",
-      layout6Html: "",
-      layout6Css: "",
-      layout6Template: "",
-      layout6CopyRefreshed: "",
-      processingTime,
-    },
-  });
-
-  return refreshId;
 }
 
 function extractInlineCss(html: string): string {
@@ -387,36 +45,306 @@ function extractInlineCss(html: string): string {
     .join("\n");
 }
 
-function refreshedCopyToMap(refreshed: RefreshedCopy): Record<string, string | undefined> {
-  const map: Record<string, string | undefined> = {
-    headline: refreshed.headline,
-    subheadline: refreshed.subheadline,
-    ctaText: refreshed.ctaText,
-    ctaSecondary: (() => {
-      const r = refreshed as unknown as Record<string, unknown>;
-      return typeof r.ctaSecondary === "string" ? r.ctaSecondary : undefined;
-    })(),
-    heroSection: refreshed.heroSection,
-  };
-  if (refreshed.sections) {
-    refreshed.sections.forEach((s, i) => {
-      map[`section${i + 1}_title`] = s.title;
-      map[`section${i + 1}_body`] = s.body;
-    });
-  }
-  for (const [key, value] of Object.entries(refreshed)) {
-    if (typeof value === "string" && !(key in map)) map[key] = value;
-  }
-  return map;
-}
+const DEFAULT_REFRESH_PLACEHOLDER = {
+  url: "",
+  targetWebsite: "",
+  htmlSnapshot: "",
+  cssSnapshot: "",
+  extractedColors: [],
+  extractedFonts: [],
+  extractedImages: [],
+  extractedCopy: {},
+  extractedLogo: null,
+  brandAnalysis: "",
+  industryDetected: "Unknown",
+  industryConfidence: 0,
+  overallScore: 0,
+  clarityScore: 0,
+  visualScore: 0,
+  hierarchyScore: 0,
+  trustScore: 0,
+  conversionScore: 0,
+  contentScore: 0,
+  mobileScore: 0,
+  performanceScore: 0,
+  scoringDetails: [],
+  seoAudit: {},
+  layout1Html: "",
+  layout1Css: "",
+  layout1Template: "pending",
+  layout1CopyRefreshed: "",
+  layout2Html: "",
+  layout2Css: "",
+  layout2Template: "pending",
+  layout2CopyRefreshed: "",
+  layout3Html: "",
+  layout3Css: "",
+  layout3Template: "pending",
+  layout3CopyRefreshed: "",
+  layout4Html: "",
+  layout4Css: "",
+  layout4Template: "",
+  layout4CopyRefreshed: "",
+  layout5Html: "",
+  layout5Css: "",
+  layout5Template: "",
+  layout5CopyRefreshed: "",
+  layout6Html: "",
+  layout6Css: "",
+  layout6Template: "",
+  layout6CopyRefreshed: "",
+};
 
-function applyRefreshedCopy(
-  html: string,
-  refreshed: Record<string, string | undefined>
-): string {
-  const map: Record<string, string> = {};
-  for (const [key, value] of Object.entries(refreshed)) {
-    if (typeof value === "string") map[key] = escapeHtml(value);
+export async function runAnalysis(options: PipelineOptions): Promise<string> {
+  const { url, onProgress } = options;
+  const startTime = Date.now();
+  const rawUrl = url.startsWith("http") ? url : `https://${url}`;
+
+  const onRetry = (delayMs: number) =>
+    onProgress?.({ step: "retry", message: `Refresh paused due to API limits. Retrying in ${Math.round(delayMs / 1000)} seconds...` });
+
+  // --- Step 0: UrlProfile + cooldown + fetch ---
+  const urlProfile = await findOrCreateUrlProfile(rawUrl);
+  if (urlProfile.lastAnalyzedAt) {
+    const minutesSince = (Date.now() - urlProfile.lastAnalyzedAt.getTime()) / 60000;
+    if (minutesSince < 5) {
+      const existing = await prisma.refresh.findFirst({
+        where: { urlProfileId: urlProfile.id },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, viewToken: true },
+      });
+      if (existing) {
+        return existing.id;
+      }
+    }
   }
-  return replacePlaceholders(html, map);
+
+  onProgress?.({ step: "started" });
+
+  const [fetchResult, screenshotBuffer] = await Promise.all([
+    fetchHtml(rawUrl).then((r) => r.html),
+    captureScreenshotCloud(rawUrl).catch(() => null),
+  ]);
+  const html = fetchResult;
+
+  const inlineCss = extractInlineCss(html);
+  const externalCss = await fetchExternalCss(html, rawUrl, 3);
+  const css = [inlineCss, externalCss].filter(Boolean).join("\n");
+
+  const refresh = await prisma.refresh.create({
+    data: {
+      ...DEFAULT_REFRESH_PLACEHOLDER,
+      url: rawUrl,
+      targetWebsite: rawUrl,
+      urlProfileId: urlProfile.id,
+      htmlSnapshot: html,
+      cssSnapshot: css,
+    },
+  });
+  const refreshId = refresh.id;
+  const skills = await getAllActiveSkills();
+  const skillVersions: Record<string, number> = {};
+  skills.forEach((s: AgentSkill) => {
+    skillVersions[s.agentSlug] = s.version;
+  });
+
+  // --- Step 1: Parallel analysis + asset extraction ---
+  onProgress?.({ step: "analyzing", message: "Analyzing your website..." });
+
+  let screenshotAnalysis: Awaited<ReturnType<typeof runScreenshotAnalysisAgent>>;
+  let industrySeo: Awaited<ReturnType<typeof runIndustrySeoAgent>>;
+  let assetResult: Awaited<ReturnType<typeof extractAndPersistAssets>>;
+
+  try {
+    [screenshotAnalysis, industrySeo, assetResult] = await Promise.all([
+      runScreenshotAnalysisAgent({
+        skills,
+        html,
+        screenshotBuffer,
+        refreshId,
+        onRetry,
+      }),
+      runIndustrySeoAgent({
+        skills,
+        html,
+        css,
+        refreshId,
+        onRetry,
+      }),
+      extractAndPersistAssets(urlProfile, html, css, rawUrl, screenshotBuffer),
+    ]);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[pipeline] Step 1 failed:", msg);
+    onProgress?.({ step: "error", message: msg });
+    throw err;
+  }
+
+  const industry = industrySeo.industry?.name ?? "General Business";
+
+  // --- Step 2: Score Agent ---
+  onProgress?.({ step: "scoring", message: "Scoring against industry benchmarks..." });
+
+  const benchmarks = await prisma.benchmark.findMany({
+    where: { industry, scored: true, active: true },
+    select: {
+      overallScore: true,
+      clarityScore: true,
+      visualScore: true,
+      hierarchyScore: true,
+      trustScore: true,
+      conversionScore: true,
+      contentScore: true,
+      mobileScore: true,
+      performanceScore: true,
+    },
+  });
+
+  const scoreResult = await runScoreAgent({
+    skills,
+    input: {
+      screenshotAnalysis,
+      industrySeo,
+      benchmarks,
+      benchmarkCount: benchmarks.length,
+    },
+    refreshId,
+    onRetry,
+  });
+
+  // --- Step 3: Creative Agents ---
+  onProgress?.({ step: "generating", message: "Generating 3 design options..." });
+
+  // Don't pass data URIs to creative agents — they're MB-sized base64 strings
+  // In production, these will be short /api/blob/ URLs from Netlify Blobs
+  const safeUrl = (url: string | undefined | null): string | null => {
+    if (!url) return null;
+    if (url.startsWith("data:")) return null;
+    return url;
+  };
+
+  const creativeInput: CreativeAgentInput = {
+    creativeBrief: scoreResult.creativeBrief,
+    industry,
+    brandAssets: {
+      logoUrl: safeUrl(assetResult.storedAssets.find((a) => a.assetType === "logo")?.storageUrl),
+      heroImageUrl: safeUrl(assetResult.storedAssets.find((a) => a.assetType === "hero_image")?.storageUrl),
+      colors: assetResult.assets.colors.map((c) => ("hex" in c ? c.hex : String(c))),
+      fonts: assetResult.assets.fonts.map((f) => ("family" in f ? f.family : String(f))),
+      navLinks: assetResult.assets.copy?.navItems ?? [],
+      copy: assetResult.assets.copy,
+    },
+  };
+
+  const creativeSlugs: CreativeSlug[] = ["creative-modern", "creative-classy", "creative-unique"];
+  const creativeResults = await Promise.allSettled(
+    creativeSlugs.map((slug) =>
+      runCreativeAgent({ skills, slug, input: creativeInput, refreshId, onRetry })
+    )
+  );
+
+  const layouts = creativeResults.map((r, i) => {
+    if (r.status === "fulfilled") return r.value;
+    console.error(`[pipeline] Creative agent ${i} failed:`, r.reason);
+    return null;
+  });
+  const successCount = layouts.filter(Boolean).length;
+  if (successCount === 0) {
+    const msg = "All 3 Creative Agents failed. No layouts generated.";
+    onProgress?.({ step: "error", message: msg });
+    throw new Error(msg);
+  }
+
+  // --- Step 4: Save results ---
+  let benchmarkComparison: Record<string, unknown> | null = null;
+  if (benchmarks.length >= 3) {
+    const beatCount = benchmarks.filter((b) => b.overallScore < scoreResult.scores.overall).length;
+    const percentile = Math.round((beatCount / benchmarks.length) * 100);
+    type ScoreKey = "overallScore" | "clarityScore" | "visualScore" | "hierarchyScore" | "trustScore" | "conversionScore" | "contentScore" | "mobileScore" | "performanceScore";
+    const avg = (key: ScoreKey) =>
+      Math.round(
+        benchmarks.reduce((sum, b) => sum + (b[key] as number), 0) / benchmarks.length
+      );
+    const top10 = (key: ScoreKey) => {
+      const sorted = benchmarks.map((b) => b[key] as number).sort((a, b) => b - a);
+      return sorted[Math.max(0, Math.floor(sorted.length * 0.1))] ?? 0;
+    };
+    const dimensions: ScoreKey[] = ["clarityScore", "visualScore", "hierarchyScore", "trustScore", "conversionScore", "contentScore", "mobileScore", "performanceScore"];
+    benchmarkComparison = {
+      percentile,
+      sampleSize: benchmarks.length,
+      industry,
+      industryAvg: avg("overallScore"),
+      top10Overall: top10("overallScore"),
+      dimensions: dimensions.map((dim) => ({
+        dimension: dim.replace("Score", ""),
+        industryAvg: avg(dim),
+        top10: top10(dim),
+      })),
+    };
+  }
+
+  let screenshotUrl: string | null = null;
+  if (screenshotBuffer) {
+    const { buffer: optimized, contentType } = await compressScreenshotToWebP(screenshotBuffer);
+    const blobKey = screenshotKey(refreshId, rawUrl);
+    screenshotUrl = await uploadBlob(blobKey, optimized, contentType);
+  }
+
+  await prisma.refresh.update({
+    where: { id: refreshId },
+    data: {
+      overallScore: scoreResult.scores.overall,
+      clarityScore: scoreResult.scores.clarity,
+      visualScore: scoreResult.scores.visual,
+      hierarchyScore: scoreResult.scores.hierarchy,
+      trustScore: scoreResult.scores.trust,
+      conversionScore: scoreResult.scores.conversion,
+      contentScore: scoreResult.scores.content,
+      mobileScore: scoreResult.scores.mobile,
+      performanceScore: scoreResult.scores.performance,
+      scoringDetails: (scoreResult.scoringDetails ?? []) as object,
+      industryDetected: industry,
+      industryConfidence: industrySeo.industry?.confidence ?? 0,
+      brandAnalysis: JSON.stringify(screenshotAnalysis),
+      seoAudit: (industrySeo.seo ?? {}) as object,
+      extractedColors: assetResult.assets.colors as unknown as object,
+      extractedFonts: assetResult.assets.fonts as unknown as object,
+      extractedImages: assetResult.assets.images as unknown as object,
+      extractedCopy: assetResult.assets.copy as object,
+      extractedLogo: assetResult.assets.logo ?? null,
+      layout1Html: layouts[0]?.html ?? "",
+      layout1Css: "",
+      layout1Template: "Modern",
+      layout1CopyRefreshed: layouts[0]?.html ?? "",
+      layout1Rationale: layouts[0]?.rationale ?? "",
+      layout2Html: layouts[1]?.html ?? "",
+      layout2Css: "",
+      layout2Template: "Classy",
+      layout2CopyRefreshed: layouts[1]?.html ?? "",
+      layout2Rationale: layouts[1]?.rationale ?? "",
+      layout3Html: layouts[2]?.html ?? "",
+      layout3Css: "",
+      layout3Template: "Unique",
+      layout3CopyRefreshed: layouts[2]?.html ?? "",
+      layout3Rationale: layouts[2]?.rationale ?? "",
+      screenshotUrl,
+      skillVersions: skillVersions as object,
+      ...(benchmarkComparison ? { benchmarkComparison: benchmarkComparison as object } : {}),
+      processingTime: Math.round((Date.now() - startTime) / 1000),
+    },
+  });
+
+  await prisma.urlProfile.update({
+    where: { id: urlProfile.id },
+    data: {
+      analysisCount: { increment: 1 },
+      lastAnalyzedAt: new Date(),
+      latestScore: scoreResult.scores.overall,
+      bestScore: Math.max(urlProfile.bestScore ?? 0, scoreResult.scores.overall),
+      ...(urlProfile.industryLocked ? {} : { industry }),
+    },
+  });
+
+  return refreshId;
 }

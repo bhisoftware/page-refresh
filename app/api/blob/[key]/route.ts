@@ -11,6 +11,12 @@ const CACHE_MAX_AGE = "31536000"; // 1 year; keys are unique per analysis
 function contentTypeForKey(decodedKey: string): string {
   if (decodedKey.endsWith(".webp")) return "image/webp";
   if (decodedKey.endsWith(".png")) return "image/png";
+  if (decodedKey.endsWith(".jpg") || decodedKey.endsWith(".jpeg")) return "image/jpeg";
+  if (decodedKey.endsWith(".svg")) return "image/svg+xml";
+  if (decodedKey.endsWith(".ico")) return "image/x-icon";
+  if (decodedKey.endsWith(".gif")) return "image/gif";
+  if (decodedKey.endsWith(".woff")) return "font/woff";
+  if (decodedKey.endsWith(".woff2")) return "font/woff2";
   return "application/octet-stream";
 }
 

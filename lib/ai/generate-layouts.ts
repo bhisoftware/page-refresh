@@ -260,7 +260,7 @@ export async function generateLayouts(
     throw new Error(
       "generateLayouts: all 3 layout calls failed — " +
         results
-          .map((r, i) => (r.status === "rejected" ? (r.reason as Error)?.message : null))
+          .map((r) => (r.status === "rejected" ? (r.reason as Error)?.message : null))
           .filter(Boolean)
           .join("; ")
     );

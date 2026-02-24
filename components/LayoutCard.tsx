@@ -26,6 +26,7 @@ interface LayoutCardProps {
   layoutHtml: string;
   layoutCss: string;
   layoutCopyRefreshed: string;
+  rationale?: string;
   refreshId: string;
   viewToken: string;
   className?: string;
@@ -36,7 +37,8 @@ export function LayoutCard({
   templateName,
   layoutHtml,
   layoutCss,
-  layoutCopyRefreshed,
+  layoutCopyRefreshed, // eslint-disable-line @typescript-eslint/no-unused-vars -- reserved for Design/Copy toggle
+  rationale,
   refreshId,
   viewToken,
   className,
@@ -62,15 +64,16 @@ export function LayoutCard({
         </CardHeader>
         <CardContent className="flex-1 p-0">
           <div className="relative w-full bg-muted/30" style={{ height: "80vh" }}>
-            {/* Phase 2 iframe sandbox: allow-same-origin only. Current templates are static HTML/CSS; no allow-scripts. If we add interactive templates (e.g. accordion/carousel JS), we must enable allow-scripts and accept the security tradeoff (our HTML only). */}
+            {/* allow-scripts required: Creative agents generate HTML with Tailwind CDN (a JS runtime). Without allow-scripts, Tailwind classes are ignored and layouts render unstyled. Safe because HTML is our own agent output, not user-supplied. */}
             <iframe
               title={`Layout ${layoutIndex}${templateName ? ` — ${templateName}` : ""} preview`}
               srcDoc={srcdoc}
               className="absolute inset-0 h-full w-full border-0"
-              sandbox="allow-same-origin"
+              sandbox="allow-scripts"
             />
           </div>
         </CardContent>
+        {/* Rationale is stored for admin review only — not shown to business owners */}
         <CardFooter className="flex flex-col gap-3">
           <div className="flex flex-col sm:flex-row gap-2 w-full">
             <select
