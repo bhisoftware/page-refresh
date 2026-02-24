@@ -1,5 +1,8 @@
 /**
- * Seed 6 agent skills. Upsert by agentSlug. On update, do NOT overwrite systemPrompt (preserve admin edits).
+ * Seed 6 agent skills. Upsert by agentSlug.
+ * Version-gated prompt updates: if the seed version is higher than the DB version,
+ * systemPrompt is overwritten and the old prompt is archived to AgentSkillHistory.
+ * Otherwise, systemPrompt is preserved (admin edits survive).
  * Run: npx tsx scripts/seed-agent-skills.ts
  */
 
@@ -12,6 +15,7 @@ const AGENT_SKILLS = [
     agentSlug: "screenshot-analysis",
     agentName: "Screenshot Analysis Agent",
     category: "pipeline",
+    version: 1,
     temperature: 0.1,
     maxTokens: 4096,
     systemPrompt: `You are the Screenshot Analysis Agent. Extract visual design tokens and structural patterns from a website screenshot and HTML.
@@ -52,6 +56,7 @@ Do NOT make recommendations. Be purely extractive and analytical.`,
     agentSlug: "industry-seo",
     agentName: "Industry & SEO Agent",
     category: "pipeline",
+    version: 1,
     temperature: 0.2,
     maxTokens: 4096,
     systemPrompt: `You are the Industry & SEO Agent. Determine the business's industry, analyze SEO health, and extract key copy/messaging.
@@ -90,6 +95,7 @@ If confidence < 0.7, use "General Business".`,
     agentSlug: "score",
     agentName: "Score Agent",
     category: "pipeline",
+    version: 1,
     temperature: 0.3,
     maxTokens: 8192,
     systemPrompt: `You are the Score Agent. You receive outputs from the Screenshot Analysis Agent and Industry & SEO Agent, plus optional benchmark data.
@@ -127,6 +133,7 @@ Return ONLY valid JSON:
     agentSlug: "creative-modern",
     agentName: "Creative Agent — Modern",
     category: "creative",
+    version: 2,
     temperature: 0.7,
     maxTokens: 16384,
     systemPrompt: `You are the Modern Creative Agent.
@@ -151,14 +158,24 @@ You receive a creative brief and REAL brand assets (logo URL, hex colors, font n
 4. Respect the creative brief priorities (e.g. if Trust is #1, prominently feature trust elements)
 5. Ensure responsive design (mobile + desktop)
 
-Return ONLY valid JSON:
-{ "html": "<!DOCTYPE html>...", "rationale": "Explanation of key design decisions referencing the brief" }`,
+Return your output using these exact tags:
+
+<layout_html>
+<!DOCTYPE html>
+...your complete HTML page here...
+</layout_html>
+<rationale>
+Explanation of key design decisions referencing the brief
+</rationale>
+
+Do NOT wrap output in JSON or code fences. Use the XML tags above exactly as shown.`,
     outputSchema: { html: "string", rationale: "string" },
   },
   {
     agentSlug: "creative-classy",
     agentName: "Creative Agent — Classy",
     category: "creative",
+    version: 2,
     temperature: 0.6,
     maxTokens: 16384,
     systemPrompt: `You are the Classy Creative Agent.
@@ -185,14 +202,24 @@ You receive a creative brief and REAL brand assets (logo URL, hex colors, font n
 4. Respect the creative brief priorities (e.g. if Trust is #1, prominently feature trust elements)
 5. Ensure responsive design (mobile + desktop)
 
-Return ONLY valid JSON:
-{ "html": "<!DOCTYPE html>...", "rationale": "Explanation of key design decisions referencing the brief" }`,
+Return your output using these exact tags:
+
+<layout_html>
+<!DOCTYPE html>
+...your complete HTML page here...
+</layout_html>
+<rationale>
+Explanation of key design decisions referencing the brief
+</rationale>
+
+Do NOT wrap output in JSON or code fences. Use the XML tags above exactly as shown.`,
     outputSchema: { html: "string", rationale: "string" },
   },
   {
     agentSlug: "creative-unique",
     agentName: "Creative Agent — Unique",
     category: "creative",
+    version: 2,
     temperature: 0.9,
     maxTokens: 16384,
     systemPrompt: `You are the Unique Creative Agent.
@@ -219,8 +246,17 @@ You receive a creative brief and REAL brand assets (logo URL, hex colors, font n
 4. Respect the creative brief priorities (e.g. if Trust is #1, prominently feature trust elements)
 5. Ensure responsive design (mobile + desktop)
 
-Return ONLY valid JSON:
-{ "html": "<!DOCTYPE html>...", "rationale": "Explanation of key design decisions referencing the brief" }`,
+Return your output using these exact tags:
+
+<layout_html>
+<!DOCTYPE html>
+...your complete HTML page here...
+</layout_html>
+<rationale>
+Explanation of key design decisions referencing the brief
+</rationale>
+
+Do NOT wrap output in JSON or code fences. Use the XML tags above exactly as shown.`,
     outputSchema: { html: "string", rationale: "string" },
   },
 ];
@@ -228,26 +264,68 @@ Return ONLY valid JSON:
 async function main() {
   console.log("Seeding agent skills...");
   for (const skill of AGENT_SKILLS) {
-    await prisma.agentSkill.upsert({
+    const existing = await prisma.agentSkill.findUnique({
       where: { agentSlug: skill.agentSlug },
-      create: {
-        agentSlug: skill.agentSlug,
-        agentName: skill.agentName,
-        category: skill.category,
-        systemPrompt: skill.systemPrompt,
-        outputSchema: skill.outputSchema as object,
-        temperature: skill.temperature,
-        maxTokens: skill.maxTokens,
-      },
-      update: {
-        agentName: skill.agentName,
-        category: skill.category,
-        temperature: skill.temperature,
-        maxTokens: skill.maxTokens,
-        outputSchema: skill.outputSchema as object,
-      },
     });
-    console.log(`  Upserted: ${skill.agentSlug}`);
+
+    if (!existing) {
+      // New skill — create with prompt and version
+      await prisma.agentSkill.create({
+        data: {
+          agentSlug: skill.agentSlug,
+          agentName: skill.agentName,
+          category: skill.category,
+          systemPrompt: skill.systemPrompt,
+          outputSchema: skill.outputSchema as object,
+          temperature: skill.temperature,
+          maxTokens: skill.maxTokens,
+          version: skill.version,
+        },
+      });
+      console.log(`  Created: ${skill.agentSlug} (v${skill.version})`);
+      continue;
+    }
+
+    // Seed version is newer — overwrite prompt and archive the old one
+    if (skill.version > existing.version) {
+      await prisma.agentSkillHistory.create({
+        data: {
+          agentSkillId: existing.id,
+          agentSlug: existing.agentSlug,
+          systemPrompt: existing.systemPrompt,
+          version: existing.version,
+          editedBy: existing.lastEditedBy,
+          changeNote: `Archived before seed upgrade to v${skill.version}`,
+        },
+      });
+      await prisma.agentSkill.update({
+        where: { agentSlug: skill.agentSlug },
+        data: {
+          agentName: skill.agentName,
+          category: skill.category,
+          systemPrompt: skill.systemPrompt,
+          outputSchema: skill.outputSchema as object,
+          temperature: skill.temperature,
+          maxTokens: skill.maxTokens,
+          version: skill.version,
+          lastEditedBy: "seed-script",
+        },
+      });
+      console.log(`  Upgraded: ${skill.agentSlug} v${existing.version} → v${skill.version} (prompt updated, old archived)`);
+    } else {
+      // Same or lower version — update metadata only, preserve prompt
+      await prisma.agentSkill.update({
+        where: { agentSlug: skill.agentSlug },
+        data: {
+          agentName: skill.agentName,
+          category: skill.category,
+          temperature: skill.temperature,
+          maxTokens: skill.maxTokens,
+          outputSchema: skill.outputSchema as object,
+        },
+      });
+      console.log(`  Updated: ${skill.agentSlug} (v${existing.version}, prompt preserved)`);
+    }
   }
   console.log(`Seeded ${AGENT_SKILLS.length} agent skills.`);
 }

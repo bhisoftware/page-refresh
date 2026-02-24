@@ -16,6 +16,22 @@ function extractText(message: Anthropic.Message): string {
   return block && "text" in block ? block.text : "";
 }
 
+/**
+ * Extract HTML and rationale from XML-style tagged output.
+ * Primary parsing path — avoids JSON escaping issues entirely.
+ */
+function extractFromTags(text: string): CreativeAgentOutput | null {
+  const htmlMatch = text.match(/<layout_html>([\s\S]*?)<\/layout_html>/);
+  if (!htmlMatch) return null;
+  const html = htmlMatch[1].trim();
+  if (!html) return null;
+
+  const rationaleMatch = text.match(/<rationale>([\s\S]*?)<\/rationale>/);
+  const rationale = rationaleMatch ? rationaleMatch[1].trim() : "";
+
+  return { html, rationale };
+}
+
 const CREATIVE_SLUGS = ["creative-modern", "creative-classy", "creative-unique"] as const;
 export type CreativeSlug = (typeof CREATIVE_SLUGS)[number];
 
@@ -72,12 +88,18 @@ export async function runCreativeAgent(
     responseTimeMs: Date.now() - startMs,
   });
 
+  // Primary path: extract from XML-style tags (avoids JSON escaping issues)
+  const tagged = extractFromTags(text);
+  if (tagged) return tagged;
+
+  // Fallback: try JSON parsing (backwards compat with older prompts in DB)
   const parsed = safeParseJSON(text);
-  if (!parsed.success || !parsed.data) {
-    throw new Error(`Creative Agent ${slug} returned invalid JSON`);
+  if (parsed.success && parsed.data) {
+    const data = parsed.data as Record<string, unknown>;
+    const html = typeof data.html === "string" ? data.html : "";
+    const rationale = typeof data.rationale === "string" ? data.rationale : "";
+    if (html.trim()) return { html, rationale };
   }
-  const data = parsed.data as Record<string, unknown>;
-  const html = typeof data.html === "string" ? data.html : "";
-  const rationale = typeof data.rationale === "string" ? data.rationale : "";
-  return { html, rationale };
+
+  throw new Error(`Creative Agent ${slug} returned unparseable output (no tags, invalid JSON)`);
 }

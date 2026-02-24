@@ -236,23 +236,31 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     },
   };
 
+  // Run creative agents sequentially with a short delay to reduce rate-limit (429) failures.
+  // All 3 layouts are required for the product; sequential calls are more reliable than parallel.
   const creativeSlugs: CreativeSlug[] = ["creative-modern", "creative-classy", "creative-unique"];
-  const creativeResults = await Promise.allSettled(
-    creativeSlugs.map((slug) =>
-      runCreativeAgent({ skills, slug, input: creativeInput, refreshId, onRetry })
-    )
-  );
-
-  const layouts = creativeResults.map((r, i) => {
-    if (r.status === "fulfilled") return r.value;
-    console.error(`[pipeline] Creative agent ${i} failed:`, r.reason);
-    return null;
-  });
+  const CREATIVE_DELAY_MS = 2000;
+  const layouts: (Awaited<ReturnType<typeof runCreativeAgent>> | null)[] = [];
+  for (let i = 0; i < creativeSlugs.length; i++) {
+    if (i > 0) await new Promise((r) => setTimeout(r, CREATIVE_DELAY_MS));
+    try {
+      const result = await runCreativeAgent({
+        skills,
+        slug: creativeSlugs[i],
+        input: creativeInput,
+        refreshId,
+        onRetry,
+      });
+      layouts.push(result);
+    } catch (err) {
+      console.error(`[pipeline] Creative agent ${creativeSlugs[i]} failed:`, err);
+      layouts.push(null);
+    }
+  }
   const successCount = layouts.filter(Boolean).length;
   if (successCount === 0) {
-    const msg = "All 3 Creative Agents failed. No layouts generated.";
-    onProgress?.({ step: "error", message: msg });
-    throw new Error(msg);
+    console.error("[pipeline] All 3 Creative Agents failed. Saving scores/SEO/benchmarks without layouts.");
+    onProgress?.({ step: "error", message: "Layout generation was unable to complete. Your scores and audit are still saved below." });
   }
 
   // --- Step 4: Save results ---
@@ -315,17 +323,17 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
       extractedLogo: assetResult.assets.logo ?? null,
       layout1Html: layouts[0]?.html ?? "",
       layout1Css: "",
-      layout1Template: "Modern",
+      layout1Template: layouts[0]?.html?.trim() ? "Modern" : "pending",
       layout1CopyRefreshed: layouts[0]?.html ?? "",
       layout1Rationale: layouts[0]?.rationale ?? "",
       layout2Html: layouts[1]?.html ?? "",
       layout2Css: "",
-      layout2Template: "Classy",
+      layout2Template: layouts[1]?.html?.trim() ? "Classy" : "pending",
       layout2CopyRefreshed: layouts[1]?.html ?? "",
       layout2Rationale: layouts[1]?.rationale ?? "",
       layout3Html: layouts[2]?.html ?? "",
       layout3Css: "",
-      layout3Template: "Unique",
+      layout3Template: layouts[2]?.html?.trim() ? "Unique" : "pending",
       layout3CopyRefreshed: layouts[2]?.html ?? "",
       layout3Rationale: layouts[2]?.rationale ?? "",
       screenshotUrl,

@@ -2,6 +2,7 @@ import { notFound, forbidden } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LayoutSection } from "@/components/LayoutSection";
+import { LayoutSectionErrorBoundary } from "@/components/LayoutSectionErrorBoundary";
 import { ScoreBreakdown, type DimensionDetail } from "@/components/ScoreBreakdown";
 import { SeoAuditSection, type SeoCheckItem, type SeoRecommendation } from "@/components/SeoAuditSection";
 import { BenchmarkComparison, type BenchmarkComparisonData } from "@/components/BenchmarkComparison";
@@ -108,7 +109,10 @@ export default async function ResultsPage({
   if (!tokenValid) forbidden();
 
   const overallScore = Number(refresh.overallScore) || 0;
-  const scoringDetails = (refresh.scoringDetails ?? []) as unknown as DimensionDetail[];
+  const rawScoringDetails = refresh.scoringDetails;
+  const scoringDetails = Array.isArray(rawScoringDetails)
+    ? (rawScoringDetails as unknown as DimensionDetail[])
+    : [];
   const layoutRows = [
     {
       layoutIndex: 1 as const,
@@ -204,9 +208,10 @@ export default async function ResultsPage({
         <Card className="mb-8">
           <CardContent className="pt-6">
             <p className="text-foreground leading-relaxed">
-              Your homepage design scores {overallScore}/100. Compared to web
-              standards, here are 3 homepage refresh directions that
-              address the gaps we found:
+              Your homepage design scores {overallScore}/100.
+              {hasLayouts
+                ? " Compared to web standards, here are 3 homepage refresh directions that address the gaps we found:"
+                : " Layout generation was unable to complete for this run; your scores and audit below are still valid. You can try another refresh or use the options above."}
             </p>
           </CardContent>
         </Card>
@@ -243,12 +248,17 @@ export default async function ResultsPage({
 
         {/* Layout cards */}
         {hasLayouts ? (
-          <LayoutSection refreshId={id} viewToken={token!} layouts={layoutsWithContent} />
+          <LayoutSectionErrorBoundary>
+            <LayoutSection refreshId={id} viewToken={token!} layouts={layoutsWithContent} />
+          </LayoutSectionErrorBoundary>
         ) : (
-          <section className="mb-10">
+          <section className="mb-10 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 p-6">
             <h2 className="text-xl font-semibold mb-4">Choose a layout</h2>
             <p className="text-muted-foreground">
-              Layout proposals are not available for this refresh.
+              Layout generation was unable to complete for this refresh. Your
+              scores, benchmark comparison, and SEO audit above are still
+              valid. Try running another refresh, or check that the creative
+              agents (AgentSkill records) are seeded and active.
             </p>
           </section>
         )}

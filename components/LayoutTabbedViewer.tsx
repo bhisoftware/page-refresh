@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { RequestQuoteForm } from "@/components/RequestQuoteForm";
 import { Download } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { wrapInDocument } from "@/lib/layout-preview";
+import type { LayoutItem } from "@/components/LayoutSection";
 
 const EXPORT_PLATFORMS = [
   { value: "html", label: "HTML/CSS" },
@@ -15,62 +15,58 @@ const EXPORT_PLATFORMS = [
   { value: "wix", label: "Wix" },
 ] as const;
 
-interface LayoutCardProps {
-  layoutIndex: 1 | 2 | 3 | 4 | 5 | 6;
-  templateName: string;
-  layoutHtml: string;
-  layoutCss: string;
-  layoutCopyRefreshed: string;
-  rationale?: string;
+interface LayoutTabbedViewerProps {
   refreshId: string;
   viewToken: string;
-  className?: string;
+  /** Exactly 3 layouts (Option 1, 2, 3) */
+  layouts: [LayoutItem, LayoutItem, LayoutItem];
 }
 
-export function LayoutCard({
-  layoutIndex,
-  templateName,
-  layoutHtml,
-  layoutCss,
-  layoutCopyRefreshed, // eslint-disable-line @typescript-eslint/no-unused-vars -- reserved for Design/Copy toggle
-  rationale, // eslint-disable-line @typescript-eslint/no-unused-vars -- reserved for admin review
-  refreshId,
-  viewToken,
-  className,
-}: LayoutCardProps) {
-  const [quoteOpen, setQuoteOpen] = useState(false);
+export function LayoutTabbedViewer({ refreshId, viewToken, layouts }: LayoutTabbedViewerProps) {
   const [exportPlatform, setExportPlatform] = useState<string>("html");
   const [exportLoading, setExportLoading] = useState(false);
+  const [quoteOpen, setQuoteOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("1");
 
-  // AI-generated pages: copy is already integrated; Design/Copy toggle hidden (Option A)
+  const layoutByTab = useMemo(() => {
+    const map: Record<string, LayoutItem> = {};
+    layouts.forEach((layout) => {
+      map[String(layout.layoutIndex)] = layout;
+    });
+    return map;
+  }, [layouts]);
+
+  const currentLayout = layoutByTab[activeTab] ?? layouts[0];
+
   const srcdoc = useMemo(
-    () => wrapInDocument(layoutHtml, layoutCss),
-    [layoutHtml, layoutCss]
+    () =>
+      wrapInDocument(currentLayout.layoutHtml, currentLayout.layoutCss ?? "", {
+        desktopViewport: true,
+      }),
+    [currentLayout.layoutHtml, currentLayout.layoutCss]
   );
 
   return (
     <>
-      <Card className={cn("flex flex-col overflow-hidden", className)}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-lg">
-            Layout {layoutIndex}
-            {templateName ? ` — ${templateName}` : ""}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex-1 p-0">
-          <div className="relative w-full bg-muted/30" style={{ height: "80vh" }}>
-            {/* allow-scripts required: Creative agents generate HTML with Tailwind CDN (a JS runtime). Without allow-scripts, Tailwind classes are ignored and layouts render unstyled. Safe because HTML is our own agent output, not user-supplied. */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="mb-2">
+          <TabsTrigger value="1">Option 1</TabsTrigger>
+          <TabsTrigger value="2">Option 2</TabsTrigger>
+          <TabsTrigger value="3">Option 3</TabsTrigger>
+        </TabsList>
+        <div className="mt-0">
+          <div
+            className="relative w-full bg-muted/30 overflow-x-auto"
+            style={{ height: "80vh", minWidth: "min(100%, 1280px)" }}
+          >
             <iframe
-              title={`Layout ${layoutIndex}${templateName ? ` — ${templateName}` : ""} preview`}
+              title={`Layout option ${activeTab} preview`}
               srcDoc={srcdoc}
-              className="absolute inset-0 h-full w-full border-0"
+              className="h-full w-full min-w-[1280px] border-0"
               sandbox="allow-scripts"
             />
           </div>
-        </CardContent>
-        {/* Rationale is stored for admin review only — not shown to business owners */}
-        <CardFooter className="flex flex-col gap-3">
-          <div className="flex flex-col sm:flex-row gap-2 w-full">
+          <div className="flex flex-col sm:flex-row gap-2 w-full mt-4">
             <select
               value={exportPlatform}
               onChange={(e) => setExportPlatform(e.target.value)}
@@ -95,7 +91,7 @@ export function LayoutCard({
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                       refreshId,
-                      layoutIndex,
+                      layoutIndex: currentLayout.layoutIndex,
                       platform: exportPlatform,
                       token: viewToken,
                     }),
@@ -105,7 +101,9 @@ export function LayoutCard({
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
                   a.href = url;
-                  a.download = res.headers.get("Content-Disposition")?.match(/filename="?([^";]+)"?/)?.[1] ?? `layout-${layoutIndex}-${exportPlatform}.zip`;
+                  a.download =
+                    res.headers.get("Content-Disposition")?.match(/filename="?([^";]+)"?/)?.[1] ??
+                    `layout-${currentLayout.layoutIndex}-${exportPlatform}.zip`;
                   a.click();
                   URL.revokeObjectURL(url);
                 } finally {
@@ -116,21 +114,18 @@ export function LayoutCard({
               <Download className="h-4 w-4" />
               {exportLoading ? "Generating…" : "Download"}
             </Button>
+            <Button className="sm:w-auto" onClick={() => setQuoteOpen(true)}>
+              Select This Layout
+            </Button>
           </div>
-          <Button
-            className="w-full"
-            onClick={() => setQuoteOpen(true)}
-          >
-            Select This Layout
-          </Button>
-        </CardFooter>
-      </Card>
+        </div>
+      </Tabs>
 
       <RequestQuoteForm
         open={quoteOpen}
         onOpenChange={setQuoteOpen}
         refreshId={refreshId}
-        layoutIndex={layoutIndex}
+        layoutIndex={currentLayout.layoutIndex}
       />
     </>
   );
