@@ -204,9 +204,10 @@ export default async function ResultsPage({
         <Card className="mb-8">
           <CardContent className="pt-6">
             <p className="text-foreground leading-relaxed">
-              Your homepage design scores {overallScore}/100. Compared to web
-              standards, here are 3 homepage refresh directions that
-              address the gaps we found:
+              Your homepage design scores {overallScore}/100.{" "}
+              {hasLayouts
+                ? "Compared to web standards, here are 3 homepage refresh directions that address the gaps we found:"
+                : "See the detailed breakdown below for areas to improve."}
             </p>
           </CardContent>
         </Card>
@@ -246,10 +247,16 @@ export default async function ResultsPage({
           <LayoutSection refreshId={id} viewToken={token!} layouts={layoutsWithContent} />
         ) : (
           <section className="mb-10">
-            <h2 className="text-xl font-semibold mb-4">Choose a layout</h2>
-            <p className="text-muted-foreground">
-              Layout proposals are not available for this refresh.
-            </p>
+            <h2 className="text-xl font-semibold mb-4">Layout proposals</h2>
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-muted-foreground">
+                  Layout generation was unable to complete for this refresh. Your
+                  score and analysis results are still available above. Try running
+                  a new refresh to generate layout proposals.
+                </p>
+              </CardContent>
+            </Card>
           </section>
         )}
 

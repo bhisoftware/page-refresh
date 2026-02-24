@@ -77,7 +77,10 @@ export async function runCreativeAgent(
     throw new Error(`Creative Agent ${slug} returned invalid JSON`);
   }
   const data = parsed.data as Record<string, unknown>;
-  const html = typeof data.html === "string" ? data.html : "";
+  const html = typeof data.html === "string" ? data.html.trim() : "";
+  if (!html) {
+    throw new Error(`Creative Agent ${slug} returned empty HTML`);
+  }
   const rationale = typeof data.rationale === "string" ? data.rationale : "";
   return { html, rationale };
 }

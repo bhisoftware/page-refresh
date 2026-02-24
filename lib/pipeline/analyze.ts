@@ -245,14 +245,24 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
 
   const layouts = creativeResults.map((r, i) => {
     if (r.status === "fulfilled") return r.value;
-    console.error(`[pipeline] Creative agent ${i} failed:`, r.reason);
+    const reason = r.reason instanceof Error ? r.reason.message : String(r.reason);
+    console.error(`[pipeline] Creative agent ${creativeSlugs[i]} failed:`, reason);
     return null;
   });
   const successCount = layouts.filter(Boolean).length;
   if (successCount === 0) {
-    const msg = "All 3 Creative Agents failed. No layouts generated.";
-    onProgress?.({ step: "error", message: msg });
-    throw new Error(msg);
+    const reasons = creativeResults
+      .map((r, i) => {
+        if (r.status === "rejected") {
+          const msg = r.reason instanceof Error ? r.reason.message : String(r.reason);
+          return `  ${creativeSlugs[i]}: ${msg}`;
+        }
+        return null;
+      })
+      .filter(Boolean)
+      .join("\n");
+    console.error(`[pipeline] All 3 Creative Agents failed. Saving analysis without layouts.\n${reasons}`);
+    onProgress?.({ step: "generating", message: "Layout generation failed — saving analysis results..." });
   }
 
   // --- Step 4: Save results ---
@@ -315,17 +325,17 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
       extractedLogo: assetResult.assets.logo ?? null,
       layout1Html: layouts[0]?.html ?? "",
       layout1Css: "",
-      layout1Template: "Modern",
+      layout1Template: layouts[0] ? "Modern" : "",
       layout1CopyRefreshed: layouts[0]?.html ?? "",
       layout1Rationale: layouts[0]?.rationale ?? "",
       layout2Html: layouts[1]?.html ?? "",
       layout2Css: "",
-      layout2Template: "Classy",
+      layout2Template: layouts[1] ? "Classy" : "",
       layout2CopyRefreshed: layouts[1]?.html ?? "",
       layout2Rationale: layouts[1]?.rationale ?? "",
       layout3Html: layouts[2]?.html ?? "",
       layout3Css: "",
-      layout3Template: "Unique",
+      layout3Template: layouts[2] ? "Unique" : "",
       layout3CopyRefreshed: layouts[2]?.html ?? "",
       layout3Rationale: layouts[2]?.rationale ?? "",
       screenshotUrl,
