@@ -21,6 +21,9 @@
 # Cursor IDE
 .cursor/
 
+# Playwright MCP
+.playwright-mcp/
+
 # Debug
 npm-debug.log*
 yarn-debug.log*

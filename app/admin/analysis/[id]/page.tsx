@@ -118,7 +118,9 @@ export default async function AdminAnalysisPage({
             </p>
             <p className="mt-1 text-muted-foreground text-sm">
               {refresh.industryDetected} ·{" "}
-              {refresh.createdAt.toLocaleString()}
+              {new Date(refresh.createdAt).toLocaleString(undefined, {
+                timeZone: "America/New_York",
+              })}
             </p>
           </CardContent>
         </Card>

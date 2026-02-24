@@ -81,10 +81,10 @@ export default async function AdminProfilePage({
               <p>Analysis count: {profile.analysisCount}</p>
               <p>Best score: {profile.bestScore ?? "—"}</p>
               <p>Latest score: {profile.latestScore ?? "—"}</p>
-              <p>Last analyzed: {profile.lastAnalyzedAt ? new Date(profile.lastAnalyzedAt).toLocaleString() : "—"}</p>
+              <p>Last analyzed: {profile.lastAnalyzedAt ? new Date(profile.lastAnalyzedAt).toLocaleString(undefined, { timeZone: "America/New_York" }) : "—"}</p>
               {profile.customerEmail && <p>Customer: {profile.customerEmail}</p>}
-              {profile.expiresAt && <p>Expires: {new Date(profile.expiresAt).toLocaleDateString()}</p>}
-              <p>Created: {new Date(profile.createdAt).toLocaleString()}</p>
+              {profile.expiresAt && <p>Expires: {new Date(profile.expiresAt).toLocaleDateString(undefined, { timeZone: "America/New_York" })}</p>}
+              <p>Created: {new Date(profile.createdAt).toLocaleString(undefined, { timeZone: "America/New_York" })}</p>
             </CardContent>
           </Card>
         </div>
@@ -108,7 +108,9 @@ export default async function AdminProfilePage({
                   {profile.analyses.map((a) => (
                     <tr key={a.id} className="border-b hover:bg-muted/30">
                       <td className="p-3 text-muted-foreground">
-                        {new Date(a.createdAt).toLocaleString()}
+                        {new Date(a.createdAt).toLocaleString(undefined, {
+                          timeZone: "America/New_York",
+                        })}
                       </td>
                       <td className="p-3">{a.overallScore}/100</td>
                       <td className="p-3 text-muted-foreground">

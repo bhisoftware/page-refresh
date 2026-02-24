@@ -190,7 +190,9 @@ export function AdminNotesSection({
                       )}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {new Date(note.createdAt).toLocaleString()}
+                      {new Date(note.createdAt).toLocaleString(undefined, {
+                      timeZone: "America/New_York",
+                    })}
                     </span>
                   </div>
                   <p className="mt-1 whitespace-pre-wrap">{note.content}</p>

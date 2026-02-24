@@ -96,12 +96,15 @@ export default async function AdminListPage({
                       </td>
                       <td className="p-3">{a.overallScore}/100</td>
                       <td className="p-3 text-muted-foreground">
-                        {new Date(a.createdAt).toLocaleDateString()}
+                        {new Date(a.createdAt).toLocaleDateString(undefined, {
+                          timeZone: "America/New_York",
+                        })}
                       </td>
                       <td className="p-3 text-muted-foreground">
                         {new Date(a.createdAt).toLocaleTimeString([], {
                           hour: "2-digit",
                           minute: "2-digit",
+                          timeZone: "America/New_York",
                         })}
                       </td>
                       <td className="p-3">
