@@ -10,6 +10,7 @@ import {
   PutObjectCommand,
   GetObjectCommand,
 } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 let _client: S3Client | null = null;
 
@@ -92,6 +93,22 @@ export async function s3Download(
   } catch {
     return null;
   }
+}
+
+/**
+ * Generate a pre-signed URL for downloading an object.
+ * Default expiry: 1 hour (3600s). Objects are immutable so browsers
+ * cache them via Cache-Control; the signed URL just needs to last
+ * long enough for the initial fetch.
+ */
+export async function s3GetSignedUrl(
+  key: string,
+  expiresIn = 3600
+): Promise<string | null> {
+  const client = getClient();
+  if (!client) return null;
+  const command = new GetObjectCommand({ Bucket: getBucket(), Key: key });
+  return getSignedUrl(client, command, { expiresIn });
 }
 
 /**

@@ -1,24 +1,16 @@
 /**
- * Serves blobs by key from S3.
- * Cache headers for screenshots (immutable by key) to reduce repeat loads.
+ * Serves blobs by key via signed S3 redirect.
+ *
+ * Instead of proxying bytes through the serverless function,
+ * generates a short-lived pre-signed URL and 302-redirects to S3.
+ * The S3 objects already have Cache-Control headers set at upload time,
+ * so browsers cache the asset after the first fetch.
+ *
+ * Falls back to proxying the bytes if signing fails.
  */
 
 import { NextRequest } from "next/server";
-import { s3Download } from "@/lib/storage/s3";
-
-const CACHE_MAX_AGE = "31536000"; // 1 year; keys are unique per analysis
-
-function contentTypeForKey(decodedKey: string): string {
-  if (decodedKey.endsWith(".webp")) return "image/webp";
-  if (decodedKey.endsWith(".png")) return "image/png";
-  if (decodedKey.endsWith(".jpg") || decodedKey.endsWith(".jpeg")) return "image/jpeg";
-  if (decodedKey.endsWith(".svg")) return "image/svg+xml";
-  if (decodedKey.endsWith(".ico")) return "image/x-icon";
-  if (decodedKey.endsWith(".gif")) return "image/gif";
-  if (decodedKey.endsWith(".woff")) return "font/woff";
-  if (decodedKey.endsWith(".woff2")) return "font/woff2";
-  return "application/octet-stream";
-}
+import { s3Download, s3GetSignedUrl } from "@/lib/storage/s3";
 
 export async function GET(
   _request: NextRequest,
@@ -28,14 +20,28 @@ export async function GET(
   const decodedKey = decodeURIComponent(key);
 
   try {
+    // Try signed URL redirect first (avoids proxying bytes through function)
+    const signedUrl = await s3GetSignedUrl(decodedKey);
+    if (signedUrl) {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          Location: signedUrl,
+          // Don't cache the redirect itself — signed URLs expire
+          "Cache-Control": "private, no-cache",
+        },
+      });
+    }
+
+    // Fallback: proxy bytes (e.g. if presigner unavailable)
     const result = await s3Download(decodedKey);
     if (!result) {
       return new Response("Not found", { status: 404 });
     }
     return new Response(result.data, {
       headers: {
-        "Content-Type": result.contentType || contentTypeForKey(decodedKey),
-        "Cache-Control": `public, max-age=${CACHE_MAX_AGE}, immutable`,
+        "Content-Type": result.contentType || "application/octet-stream",
+        "Cache-Control": "public, max-age=31536000, immutable",
       },
     });
   } catch {
