@@ -66,18 +66,26 @@ export async function POST(request: NextRequest) {
   try {
     const accept = request.headers.get("accept") ?? "";
     if (accept.includes("text/event-stream")) {
+      const KEEPALIVE_INTERVAL_MS = 25_000; // Vercel closes stream after ~60s idle
       const stream = new ReadableStream({
         async start(controller) {
           const encoder = new TextEncoder();
           const send = (data: object) => {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+            try {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+            } catch {
+              // Stream may already be closed (e.g. client disconnected)
+            }
           };
+
+          const keepaliveId = setInterval(() => send({ type: "keepalive" }), KEEPALIVE_INTERVAL_MS);
 
           try {
             const refreshId = await runAnalysis({
               url: normalizedUrl,
               onProgress: (p) => send({ type: "progress", ...p }),
             });
+            clearInterval(keepaliveId);
             const { prisma } = await import("@/lib/prisma");
             const row = await prisma.refresh.findUnique({
               where: { id: refreshId },
@@ -86,6 +94,7 @@ export async function POST(request: NextRequest) {
             const viewToken = row?.viewToken ?? "";
             send({ type: "done", refreshId, viewToken });
           } catch (err) {
+            clearInterval(keepaliveId);
             const message = err instanceof Error ? err.message : "Refresh failed";
             console.error("[analyze] pipeline error (SSE):", message);
             if (err instanceof Error && err.stack) console.error(err.stack);

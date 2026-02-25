@@ -238,6 +238,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
 
   // Run creative agents sequentially with a short delay to reduce rate-limit (429) failures.
   // All 3 layouts are required for the product; sequential calls are more reliable than parallel.
+  // Send progress after each so the SSE stream doesn't hit Vercel's ~60s idle timeout.
   const creativeSlugs: CreativeSlug[] = ["creative-modern", "creative-classy", "creative-unique"];
   const CREATIVE_DELAY_MS = 2000;
   const layouts: (Awaited<ReturnType<typeof runCreativeAgent>> | null)[] = [];
@@ -252,9 +253,11 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
         onRetry,
       });
       layouts.push(result);
+      onProgress?.({ step: "generating", message: `Generated ${i + 1} of 3 design options...` });
     } catch (err) {
       console.error(`[pipeline] Creative agent ${creativeSlugs[i]} failed:`, err);
       layouts.push(null);
+      onProgress?.({ step: "generating", message: `Layout ${i + 1} skipped. Continuing...` });
     }
   }
   const successCount = layouts.filter(Boolean).length;
