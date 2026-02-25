@@ -1,6 +1,6 @@
 /**
  * DB-first, env-fallback API key resolution.
- * Providers: anthropic, openai, screenshotone. NOT netlify_blobs.
+ * Providers: anthropic, openai, screenshotone.
  */
 
 import { prisma } from "@/lib/prisma";

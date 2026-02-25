@@ -7,7 +7,7 @@
 import { prisma } from "@/lib/prisma";
 import { fetchHtml } from "@/lib/scraping/fetch-html";
 import { captureScreenshotCloud } from "@/lib/scraping/cloud-screenshot";
-import { uploadBlob, screenshotKey } from "@/lib/storage/netlify-blobs";
+import { uploadBlob, screenshotKey } from "@/lib/storage/blobs";
 import { compressScreenshotToWebP } from "@/lib/scraping/screenshot-compress";
 import { fetchExternalCss } from "@/lib/scraping/fetch-external-css";
 import { findOrCreateUrlProfile } from "@/lib/pipeline/url-profile";
@@ -99,6 +99,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   const { url, onProgress } = options;
   const startTime = Date.now();
   const rawUrl = url.startsWith("http") ? url : `https://${url}`;
+  console.log("[pipeline] starting", { url: rawUrl });
 
   const onRetry = (delayMs: number) =>
     onProgress?.({ step: "retry", message: `Refresh paused due to API limits. Retrying in ${Math.round(delayMs / 1000)} seconds...` });
@@ -213,10 +214,11 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   });
 
   // --- Step 3: Creative Agents ---
+  console.log("[pipeline] step 3: creative agents");
   onProgress?.({ step: "generating", message: "Generating 3 design options..." });
 
   // Don't pass data URIs to creative agents — they're MB-sized base64 strings
-  // In production, these will be short /api/blob/ URLs from Netlify Blobs
+  // In production, these will be short /api/blob/ URLs backed by S3
   const safeUrl = (url: string | undefined | null): string | null => {
     if (!url) return null;
     if (url.startsWith("data:")) return null;
@@ -244,6 +246,8 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   const layouts: (Awaited<ReturnType<typeof runCreativeAgent>> | null)[] = [];
   for (let i = 0; i < creativeSlugs.length; i++) {
     if (i > 0) await new Promise((r) => setTimeout(r, CREATIVE_DELAY_MS));
+    console.log("[pipeline] creative agent", i + 1, "of 3");
+    onProgress?.({ step: "generating", message: `Starting layout ${i + 1} of 3...` });
     try {
       const result = await runCreativeAgent({
         skills,
@@ -357,5 +361,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     },
   });
 
+  const elapsedSec = Math.round((Date.now() - startTime) / 1000);
+  console.log("[pipeline] completed", { refreshId, elapsedSec });
   return refreshId;
 }

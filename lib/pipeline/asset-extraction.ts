@@ -1,11 +1,11 @@
 /**
- * Extract brand assets from HTML, download files, upload to Netlify Blobs, write UrlAsset rows.
+ * Extract brand assets from HTML, download files, upload to S3, write UrlAsset rows.
  * Reuses extractAssets and detectTechStack. Non-fatal: on failure returns what was extracted.
  */
 
 import type { UrlProfile } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { uploadBlob, profileAssetKey } from "@/lib/storage/netlify-blobs";
+import { uploadBlob, profileAssetKey } from "@/lib/storage/blobs";
 import { extractAssets, type ExtractedAssets } from "@/lib/scraping/asset-extractor";
 import { detectTechStack, type TechStack } from "@/lib/scraping/tech-detector";
 import * as cheerio from "cheerio";

@@ -11,9 +11,9 @@ AI-powered website analysis and redesign tool for SMB businesses. Scores any hom
 | Framework | Next.js 15 (App Router), React 19, TypeScript |
 | Styling | Tailwind CSS, shadcn/ui |
 | Database | PostgreSQL on AWS RDS, Prisma 6 |
-| Storage | Netlify Blobs (screenshots, brand assets) |
+| Storage | AWS S3 (screenshots, brand assets) |
 | AI | Anthropic Claude Sonnet (all pipeline calls) |
-| Hosting | Netlify with `@netlify/plugin-nextjs` |
+| Hosting | Vercel |
 
 ## Quick Start
 
@@ -39,7 +39,10 @@ npm run dev
 |---|---|---|
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `ANTHROPIC_API_KEY` | Yes | Claude API key |
-| `NETLIFY_BLOBS_TOKEN` | Yes | Netlify Blobs access token |
+| `AWS_S3_BUCKET` | Yes | S3 bucket name (e.g. `pagerefresh-assets`) |
+| `AWS_REGION` | Yes | AWS region (e.g. `us-east-2`) |
+| `AWS_ACCESS_KEY_ID` | Yes | AWS access key |
+| `AWS_SECRET_ACCESS_KEY` | Yes | AWS secret key |
 | `NEXT_PUBLIC_APP_URL` | Yes | App URL (e.g. `http://localhost:3000`) |
 | `ADMIN_SECRET` | Yes | Shared secret for `/admin` gate |
 | `API_CONFIG_ENCRYPTION_KEY` | Yes | 64-char hex for encrypting DB-stored API keys |
@@ -80,7 +83,7 @@ All agent system prompts are stored in the `AgentSkill` database table and edita
 |---|---|
 | `Refresh` | Single analysis run — scores, layouts, assets, SEO audit |
 | `UrlProfile` | Persistent URL data across analyses (brand assets, score history) |
-| `UrlAsset` | Downloaded brand assets stored in Netlify Blobs |
+| `UrlAsset` | Downloaded brand assets stored in S3 |
 | `AgentSkill` | Configurable AI agent prompts with versioning |
 | `AgentSkillHistory` | Agent prompt version history (rollback support) |
 | `ApiConfig` | DB-stored API keys with AES-256-GCM encryption |
@@ -127,7 +130,7 @@ When 3+ scored benchmarks exist for the detected industry, the Score Agent provi
 app/
   api/analyze/          Main analysis endpoint (SSE)
   api/admin/            Admin API routes (settings, skills, configs, benchmarks)
-  api/blob/[key]/       Netlify Blobs proxy
+  api/blob/[key]/       S3 blob proxy
   results/[id]/         Public results page
   admin/                Admin dashboard, settings, benchmarks
 components/             UI components (score breakdown, layout cards, forms)
@@ -142,7 +145,7 @@ lib/
   scoring/              Scoring engine
   scraping/             HTML fetch, CSS extraction, asset extraction, tech detection
   templates/            Legacy template system (retained, disconnected from pipeline)
-  storage/              Netlify Blobs wrapper
+  storage/              S3 storage wrapper
 prisma/
   schema.prisma         All 13 models
   seed.ts               Industries + templates + scoring rubric

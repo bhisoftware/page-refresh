@@ -14,7 +14,7 @@
   ```
   Copy output to `.env.local` as `API_CONFIG_ENCRYPTION_KEY="<value>"`
 
-- [ ] **Add to Netlify env vars:** Go to Netlify dashboard → Site settings → Environment variables → Add `API_CONFIG_ENCRYPTION_KEY` with the same value
+- [ ] **Add to Vercel env vars:** Go to Vercel dashboard → Project Settings → Environment Variables → Add `API_CONFIG_ENCRYPTION_KEY` with the same value
 
 ### Database
 
@@ -52,7 +52,7 @@
 
 - [ ] **Decide which API keys to store in DB vs keep as env vars.** Recommendation:
   - Move to DB: `ANTHROPIC_API_KEY` (rotatable via admin UI)
-  - Keep as env: `OPENAI_API_KEY` (not used in pipeline anymore), `NETLIFY_BLOBS_TOKEN` (platform), `DATABASE_URL` (infrastructure), `ADMIN_SECRET`
+  - Keep as env: `OPENAI_API_KEY` (not used in pipeline anymore), `DATABASE_URL` (infrastructure), `ADMIN_SECRET`, S3 credentials
 
 - [ ] **Test the key rotation flow:** Add Anthropic key via admin Settings → verify pipeline uses it → deactivate → verify pipeline falls back to env var
 
@@ -114,8 +114,8 @@
   - Rate limit proximity
   - Cost per day/week
 
-- [ ] **Monitor Netlify function duration.** If pipeline approaches 120s limit consistently, consider:
-  - Moving to Netlify Background Functions (Phase 2 of deployment architecture)
+- [ ] **Monitor Vercel function duration.** If pipeline approaches the function timeout limit, consider:
+  - Increasing the function timeout in `vercel.json` (Pro plan: up to 300s)
   - Or reducing token budgets in agent skill configs
 
 ### Cost
@@ -132,9 +132,9 @@
   - Indefinite for now (storage costs are negligible at low volume)
   - Build cleanup job when approaching 1000+ profiles
 
-### Netlify Blobs
+### S3 Storage
 
-- [ ] **Check Netlify Blobs storage usage** periodically. At ~3-5 MB per URL profile:
-  - 100 profiles ≈ 300-500 MB (fine)
-  - 1000 profiles ≈ 3-5 GB (evaluate plan limits)
-  - If limits hit: migrate to Cloudflare R2 ($0.015/GB/mo, zero egress)
+- [ ] **Check S3 storage usage** periodically. At ~3-5 MB per URL profile:
+  - 100 profiles ≈ 300-500 MB (~$0.01/mo)
+  - 1000 profiles ≈ 3-5 GB (~$0.07/mo)
+  - Consider S3 lifecycle rules to expire old screenshots after 90 days if costs grow
