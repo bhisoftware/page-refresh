@@ -179,8 +179,8 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   const rawUrl = url.startsWith("http") ? url : `https://${url}`;
   console.log("[pipeline] starting", { url: rawUrl });
 
-  const onRetry = (delayMs: number) =>
-    onProgress?.({ step: "retry", message: `Refresh paused due to API limits. Retrying in ${Math.round(delayMs / 1000)} seconds...` });
+  const onRetry = (_delayMs: number) =>
+    onProgress?.({ step: "generating", message: "Still working on your designs..." });
 
   // --- Step 0: UrlProfile + cooldown + fetch ---
   const urlProfile = await findOrCreateUrlProfile(rawUrl);
@@ -413,48 +413,50 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     },
   };
 
-  // Run creative agents in parallel — each is an independent Claude API call with the same input.
-  // Individual agents still use withRetry for 429/5xx; parallel execution means retries don't stack.
+  // Run creative agents in parallel with a 3s stagger to avoid overwhelming the API.
+  // Much faster than fully sequential (3-6s stagger vs 15-25s per agent) while avoiding 429/529 spikes.
   const creativeSlugs: CreativeSlug[] = ["creative-modern", "creative-classy", "creative-unique"];
   const creativeTemplateNames = ["Modern", "Classy", "Unique"];
   const accentColor = creativeInput.brandAssets.colors[0] ?? "#2d5016";
+  const CREATIVE_STAGGER_MS = 3000;
   let completedCount = 0;
 
   const creativeResults = await Promise.allSettled(
-    creativeSlugs.map((slug, i) => {
+    creativeSlugs.map(async (slug, i) => {
+      // Stagger launches to avoid overwhelming the API with simultaneous requests
+      if (i > 0) await new Promise((r) => setTimeout(r, i * CREATIVE_STAGGER_MS));
       console.log("[pipeline] creative agent", i + 1, "of 3 — starting");
-      return runCreativeAgent({
+      const result = await runCreativeAgent({
         skills,
         slug,
         input: creativeInput,
         refreshId,
         onRetry,
-      }).then(async (result) => {
-        // Persist this layout immediately on completion
-        const templateName = result.html?.trim() ? creativeTemplateNames[i] : "pending";
-        const layoutNum = i + 1;
-        await prisma.refresh.update({
-          where: { id: refreshId },
-          data: {
-            [`layout${layoutNum}Html`]: result.html ?? "",
-            [`layout${layoutNum}Css`]: "",
-            [`layout${layoutNum}Template`]: templateName,
-            [`layout${layoutNum}CopyRefreshed`]: result.html ?? "",
-            [`layout${layoutNum}Rationale`]: result.rationale ?? "",
-          },
-        });
-        completedCount++;
-        console.log("[pipeline] creative agent", i + 1, "of 3 — done");
-        onProgress?.({
-          step: "token",
-          key: "layouts",
-          data: {
-            options: creativeTemplateNames.slice(0, completedCount).map((label) => ({ label, accentColor })),
-          },
-        });
-        onProgress?.({ step: "generating", message: `Generated ${completedCount} of 3 design options...` });
-        return result;
       });
+      // Persist this layout immediately on completion
+      const templateName = result.html?.trim() ? creativeTemplateNames[i] : "pending";
+      const layoutNum = i + 1;
+      await prisma.refresh.update({
+        where: { id: refreshId },
+        data: {
+          [`layout${layoutNum}Html`]: result.html ?? "",
+          [`layout${layoutNum}Css`]: "",
+          [`layout${layoutNum}Template`]: templateName,
+          [`layout${layoutNum}CopyRefreshed`]: result.html ?? "",
+          [`layout${layoutNum}Rationale`]: result.rationale ?? "",
+        },
+      });
+      completedCount++;
+      console.log("[pipeline] creative agent", i + 1, "of 3 — done");
+      onProgress?.({
+        step: "token",
+        key: "layouts",
+        data: {
+          options: creativeTemplateNames.slice(0, completedCount).map((label) => ({ label, accentColor })),
+        },
+      });
+      onProgress?.({ step: "generating", message: `Generated ${completedCount} of 3 design options...` });
+      return result;
     })
   );
 

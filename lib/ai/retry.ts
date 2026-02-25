@@ -24,6 +24,7 @@ export function isRetryableError(err: unknown): boolean {
     const o = err as Record<string, unknown>;
     if (typeof o.status === "number") {
       if (o.status === 429) return true;
+      if (o.status === 529) return true; // Anthropic overloaded
       if (o.status >= 500 && o.status < 600) return true;
     }
     if (o.error && typeof o.error === "object") {

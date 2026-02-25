@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { AnalysisProgress, type PipelineStep } from "@/components/AnalysisProgress";
+import { type PipelineStep } from "@/components/AnalysisProgress";
+import { AnalysisLoaderCards } from "@/components/AnalysisLoaderCards";
 import { Loader2 } from "lucide-react";
 import { cn, normalizeWebsiteUrl } from "@/lib/utils";
 
@@ -150,7 +151,7 @@ export default function Home() {
                 setTokens(prev => ({ ...prev, [data.key!]: data.data! }));
               } else if (data.type === "progress" && data.step) {
                 if (data.step === "retry") {
-                  setProgressMessage(data.message ?? "Retrying...");
+                  // Silently ignore retry events — don't surface API internals to users
                 } else {
                   setCurrentStep(parseProgressStep(data.step));
                   setProgressMessage(data.message ?? "");
@@ -181,13 +182,15 @@ export default function Home() {
     } catch (err) {
       clearInterval(countdownInterval);
       setCountdown(null);
-      const message = err instanceof Error ? err.message : "Refresh failed";
-      if (isUnreachableWebsiteError(message)) {
+      const rawMessage = err instanceof Error ? err.message : "Refresh failed";
+      if (isUnreachableWebsiteError(rawMessage)) {
         setUrlFieldHint(true);
         setError("");
       } else {
         setUrlFieldHint(false);
-        setError(message);
+        // Don't show raw API error JSON to users
+        const isRawApiError = rawMessage.includes('"type":"error"') || rawMessage.includes("overloaded") || rawMessage.includes("rate_limit");
+        setError(isRawApiError ? "Our servers are busy. Please try again in a moment." : rawMessage);
       }
     } finally {
       setIsAnalyzing(false);
@@ -283,12 +286,16 @@ export default function Home() {
 
           {isAnalyzing && !isPreflightInProgress && (
             <div className={cn("flex flex-col items-center w-full")}>
-              <h2 className="text-xl font-semibold mb-6">Analyzing {url || "your website"}</h2>
-              <AnalysisProgress
-                currentStep={currentStep}
-                message={progressMessage}
-                countdownSeconds={countdown ?? undefined}
+              <h2 className="text-xl font-semibold mb-6">
+                Analyzing <em className="not-italic text-[#6b8f71]">{url || "your website"}</em>
+              </h2>
+              {progressMessage ? (
+                <p className="text-sm text-muted-foreground mb-4 -mt-2">{progressMessage}</p>
+              ) : null}
+              <AnalysisLoaderCards
                 tokens={tokens}
+                currentStep={currentStep}
+                countdownSeconds={countdown ?? undefined}
               />
             </div>
           )}
