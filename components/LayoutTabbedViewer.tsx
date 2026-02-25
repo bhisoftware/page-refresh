@@ -42,6 +42,7 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts }: LayoutTabb
     () =>
       wrapInDocument(currentLayout.layoutHtml, currentLayout.layoutCss ?? "", {
         desktopViewport: true,
+        scaleToFit: 0.85,
       }),
     [currentLayout.layoutHtml, currentLayout.layoutCss]
   );
@@ -55,16 +56,35 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts }: LayoutTabb
           <TabsTrigger value="3">Option 3</TabsTrigger>
         </TabsList>
         <div className="mt-0">
+          {/* Browser-style frame: rounded border, title bar, no horizontal scroll */}
           <div
-            className="relative w-full bg-muted/30 overflow-x-auto"
-            style={{ height: "80vh", minWidth: "min(100%, 1280px)" }}
+            className="rounded-lg border border-border bg-muted/20 shadow-lg overflow-hidden"
+            style={{ height: "80vh" }}
           >
-            <iframe
-              title={`Layout option ${activeTab} preview`}
-              srcDoc={srcdoc}
-              className="h-full w-full min-w-[1280px] border-0"
-              sandbox="allow-scripts"
-            />
+            <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-2">
+              <div className="flex gap-1.5">
+                <span className="h-3 w-3 rounded-full bg-red-500/80" aria-hidden />
+                <span className="h-3 w-3 rounded-full bg-amber-500/80" aria-hidden />
+                <span className="h-3 w-3 rounded-full bg-green-500/80" aria-hidden />
+              </div>
+              <div className="flex-1 min-w-0 flex justify-center">
+                <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                  Layout preview
+                </span>
+              </div>
+            </div>
+            <div
+              className="w-full overflow-x-hidden overflow-y-auto bg-muted/30"
+              style={{ height: "calc(80vh - 2.5rem)" }}
+            >
+              <iframe
+                title={`Layout option ${activeTab} preview`}
+                srcDoc={srcdoc}
+                className="h-full w-full border-0 align-top"
+                sandbox="allow-scripts"
+                style={{ minHeight: "100%" }}
+              />
+            </div>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 w-full mt-4">
             <select

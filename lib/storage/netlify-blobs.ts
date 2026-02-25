@@ -1,64 +1,49 @@
 /**
- * Netlify Blobs storage wrapper.
- * Stores screenshots and assets in Netlify Blobs.
- * Falls back to data URLs for local dev when NETLIFY_BLOBS_TOKEN is not set.
+ * Asset storage wrapper.
+ * Uses AWS S3 for screenshots and brand assets.
+ * Falls back to data URLs for local dev when S3 is not configured.
  */
 
-const STORE_NAME = "pagerefresh-assets";
+import { isS3Configured, s3Upload, s3UploadString } from "./s3";
 
-type BlobStoreLike = { set(key: string, data: ArrayBuffer | Blob | string): Promise<unknown> };
-let _store: BlobStoreLike | null = null;
-
-async function getStore(): Promise<BlobStoreLike | null> {
-  if (_store) return _store;
-  const token = process.env.NETLIFY_BLOBS_TOKEN;
-  if (!token) return null;
-  try {
-    const { getStore: getNetlifyStore } = await import("@netlify/blobs");
-    _store = getNetlifyStore({ name: STORE_NAME, consistency: "strong" }) as unknown as BlobStoreLike;
-    return _store;
-  } catch {
-    return null;
-  }
+function blobUrl(key: string): string {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://pagerefresh.ai";
+  return `${baseUrl}/api/blob/${encodeURIComponent(key)}`;
 }
 
 /**
- * Upload a Buffer (e.g. PNG screenshot) to Netlify Blobs.
- * Returns a URL that can be used to access the blob.
- * When Netlify Blobs is not available, returns a data URL.
+ * Upload a Buffer (e.g. PNG screenshot) to storage.
+ * Returns a URL that can be used to access the asset.
  */
 export async function uploadBlob(
   key: string,
   data: Buffer,
   contentType = "image/png"
 ): Promise<string> {
-  const store = await getStore();
-  if (store) {
-    const u8 = new Uint8Array(data);
-    const blob = new Blob([u8], { type: contentType });
-    await store.set(key, blob);
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://pagerefresh.ai";
-    return `${baseUrl}/api/blob/${encodeURIComponent(key)}`;
+  if (isS3Configured()) {
+    const ok = await s3Upload(key, data, contentType);
+    if (ok) return blobUrl(key);
   }
-  // Fallback: data URL (for local dev without Netlify)
+
+  // Fallback: data URL (local dev without S3)
   const b64 = data.toString("base64");
   return `data:${contentType};base64,${b64}`;
 }
 
 /**
- * Upload a string (e.g. JSON) to Netlify Blobs.
+ * Upload a string (e.g. JSON) to storage.
  */
 export async function uploadBlobString(
   key: string,
   data: string,
   contentType = "application/json"
 ): Promise<string> {
-  const store = await getStore();
-  if (store) {
-    await store.set(key, data);
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://pagerefresh.ai";
-    return `${baseUrl}/api/blob/${encodeURIComponent(key)}`;
+  if (isS3Configured()) {
+    const ok = await s3UploadString(key, data, contentType);
+    if (ok) return blobUrl(key);
   }
+
+  // Fallback: data URL (local dev without S3)
   return `data:${contentType};base64,${Buffer.from(data).toString("base64")}`;
 }
 

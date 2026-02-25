@@ -8,7 +8,7 @@ import { runAnalysis } from "@/lib/pipeline/analyze";
 import { analysisRateLimiter } from "@/lib/rate-limiter";
 import { analyzeSchema } from "@/lib/validations";
 
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 function getClientIp(request: NextRequest): string {
   const forwarded = request.headers.get("x-forwarded-for");
