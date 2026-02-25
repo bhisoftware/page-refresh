@@ -207,7 +207,7 @@ export default async function ResultsPage({
         {/* Summary message */}
         <Card className="mb-8">
           <CardContent className="pt-6">
-            <p className="text-foreground leading-relaxed">
+            <p className="text-foreground leading-relaxed text-center">
               Your homepage design scores {overallScore}/100.
               {hasLayouts
                 ? " Compared to web standards, here are 3 homepage refresh directions that address the gaps we found:"

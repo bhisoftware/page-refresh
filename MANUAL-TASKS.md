@@ -22,7 +22,7 @@
   ```bash
   npx prisma migrate deploy
   ```
-  (Netlify build command already does this — verify it runs on next deploy)
+  (Vercel build runs this — verify it runs on next deploy)
 
 - [ ] **Run agent skills seed against production:**
   ```bash

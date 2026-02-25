@@ -37,45 +37,69 @@ npm run dev
 
 | Variable | Required | Description |
 |---|---|---|
-| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `DATABASE_URL` | Yes | PostgreSQL connection string (with `?connection_limit=1&connect_timeout=10` for serverless) |
 | `ANTHROPIC_API_KEY` | Yes | Claude API key |
 | `AWS_S3_BUCKET` | Yes | S3 bucket name (e.g. `pagerefresh-assets`) |
 | `AWS_REGION` | Yes | AWS region (e.g. `us-east-2`) |
-| `AWS_ACCESS_KEY_ID` | Yes | AWS access key |
-| `AWS_SECRET_ACCESS_KEY` | Yes | AWS secret key |
+| `AWS_ACCESS_KEY_ID` | Yes | AWS IAM access key |
+| `AWS_SECRET_ACCESS_KEY` | Yes | AWS IAM secret key |
 | `NEXT_PUBLIC_APP_URL` | Yes | App URL (e.g. `http://localhost:3000`) |
-| `ADMIN_SECRET` | Yes | Shared secret for `/admin` gate |
-| `API_CONFIG_ENCRYPTION_KEY` | Yes | 64-char hex for encrypting DB-stored API keys |
-| `SCREENSHOTONE_API_KEY` | No | Cloud screenshot service (falls back to HTML analysis) |
+| `ADMIN_SECRET` | Yes | Shared secret for `/admin` gate (min 32 chars) |
+| `API_CONFIG_ENCRYPTION_KEY` | Yes | 64-char hex string for encrypting DB-stored API keys. Generate: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `SCREENSHOTONE_API_KEY` | No | Cloud screenshot service. Falls back to HTML-only analysis if unset. |
 | `OPENAI_API_KEY` | No | Reserved for future use (disconnected from pipeline) |
+
+S3 is optional for local dev — when unconfigured, assets fall back to data URIs.
 
 ## Architecture
 
 ### Analysis Pipeline
 
-The pipeline runs 6 AI calls in 3 sequential windows (~75s total):
+The pipeline runs 6 AI calls across 4 sequential windows (~75s total):
 
 ```
-Step 0: URL normalization + UrlProfile find-or-create + HTML fetch + screenshot
-        (parallel)
+Step 0: URL normalization, UrlProfile find-or-create
+        HTML fetch + cloud screenshot (parallel)
+        Create preliminary Refresh record
 
-Step 1: Promise.all (3 parallel)
+Step 1: 3 parallel operations
         - Screenshot Analysis Agent   [1 Claude call]
         - Industry & SEO Agent        [1 Claude call]
-        - Asset extraction + Blob upload (no AI)
+        - Asset extraction + S3 upload (no AI)
 
 Step 2: Score Agent                    [1 Claude call]
-        (receives Step 1 outputs + benchmark data)
+        Receives Step 1 outputs + benchmark data from DB
 
-Step 3: Promise.all (3 parallel)
+Step 3: 3 Creative Agents (sequential, 2s delay between each)
         - Creative Agent Modern        [1 Claude call]
         - Creative Agent Classy        [1 Claude call]
         - Creative Agent Unique        [1 Claude call]
 
-Step 4: Save results to Refresh + update UrlProfile
+Step 4: Save scores, layouts, rationale to Refresh
+        Update UrlProfile (analysisCount, latestScore, lastAnalyzedAt)
 ```
 
-All agent system prompts are stored in the `AgentSkill` database table and editable via the admin Skills Editor — no redeployment needed.
+Progress is streamed to the client via Server-Sent Events (SSE) with steps: `started` → `analyzing` → `scoring` → `generating` → `done`.
+
+Creative agents run sequentially (not parallel) with a 2-second delay between calls to avoid Anthropic rate limits (429s). Each agent's progress is emitted to keep the SSE stream alive within Vercel's idle timeout.
+
+### Agent System
+
+6 agents power the pipeline, split into two categories:
+
+**Pipeline agents** (extract and score):
+- **Screenshot Analysis** — extracts visual design tokens (colors, typography, layout patterns) from screenshot + HTML
+- **Industry & SEO** — detects industry, audits SEO health, extracts key copy/messaging
+- **Score** — scores 8 dimensions (0-100), produces creative brief for layout generation
+
+**Creative agents** (generate layouts):
+- **Modern** — clean, minimalist, tech-forward aesthetic
+- **Classy** — refined, professional, trust-first layout
+- **Unique** — breaks industry conventions, personality-driven
+
+All agent system prompts are stored in the `AgentSkill` database table and editable via the admin Skills Editor — no redeployment needed. Each edit auto-increments the version and archives the previous prompt for rollback.
+
+Creative agents output HTML wrapped in XML tags (`<layout_html>` / `<rationale>`), which is more reliable than JSON-encoded HTML for avoiding parse failures.
 
 ### Database Models
 
@@ -108,62 +132,70 @@ Every homepage is scored 0-100 across 8 universal quality dimensions:
 7. **Mobile Experience** — Designed for phones
 8. **Performance & Technical** — Fast, secure, not broken
 
-When 3+ scored benchmarks exist for the detected industry, the Score Agent provides gap analysis with percentiles and dimension-level comparisons.
+When 3+ scored benchmarks exist for the detected industry, the Score Agent provides gap analysis with percentiles and dimension-level comparisons against industry averages and top-10% thresholds.
 
 ## Key Routes
+
+### Public
 
 | Route | Description |
 |---|---|
 | `POST /api/analyze` | Start analysis (SSE progress stream) |
-| `GET /api/analyze/[id]` | Get analysis status/results |
 | `POST /api/analyze/preflight` | Validate URL before analysis |
+| `GET /api/analyze/[id]` | Get analysis status/results |
+| `GET /api/blob/[key]` | Serve S3 assets via signed URL redirect |
+| `GET /api/export` | Export analysis as downloadable archive |
+| `POST /api/request-quote` | Submit quote request (lead capture) |
+| `POST /api/request-install` | Submit install request (lead capture) |
+| `/` | Landing page with URL input |
 | `/results/[id]` | Public results page |
-| `/admin` | Admin dashboard (analyses list with pagination) |
+
+### Admin
+
+| Route | Description |
+|---|---|
+| `/admin` | Analyses list with pagination |
+| `/admin/analysis/[id]` | Analysis detail — prompt logs, notes, score breakdown |
 | `/admin/settings` | API key management + Agent Skills Editor |
-| `/admin/benchmarks` | Benchmark CRUD + scoring |
-| `/admin/analysis/[id]` | Analysis detail with prompt logs + notes |
-| `/admin/profile/[id]` | URL Profile detail with brand assets + history |
+| `/admin/benchmarks` | Benchmark list — add URLs, score, filter by industry |
+| `/admin/benchmark/[id]` | Benchmark detail — scores, notes |
+| `/admin/profile/[id]` | URL Profile — brand assets, analysis history, score trend |
 
 ## Project Structure
 
 ```
 app/
-  api/analyze/          Main analysis endpoint (SSE)
-  api/admin/            Admin API routes (settings, skills, configs, benchmarks)
-  api/blob/[key]/       S3 blob proxy
+  page.tsx              Landing page with URL input
+  api/analyze/          Main analysis endpoint (SSE) + preflight
+  api/admin/            Admin API routes (settings, skills, configs, benchmarks, profiles)
+  api/blob/[key]/       S3 signed URL redirect for assets
+  api/export/           Analysis export
+  api/request-quote/    Lead capture
+  api/request-install/  Lead capture
   results/[id]/         Public results page
-  admin/                Admin dashboard, settings, benchmarks
-components/             UI components (score breakdown, layout cards, forms)
+  admin/                Admin dashboard, settings, benchmarks, analysis detail, profiles
+components/             UI components (score breakdown, layout cards, forms, admin)
 lib/
-  pipeline/             Analysis orchestration + agent runners
-    analyze.ts          Main pipeline (4-step agent flow)
-    agents/             Individual agent runners + types
+  pipeline/
+    analyze.ts          Main pipeline orchestration (5-step agent flow)
+    agents/             Individual agent runners (screenshot, industry-seo, score, creative)
     url-profile.ts      URL normalization + UrlProfile management
-    asset-extraction.ts Asset download + Blob upload
-  ai/                   AI client wrappers, retry logic, prompt logging
-  config/               API key resolution, encryption, agent skill loading
+    asset-extraction.ts Asset download + S3 upload
+  ai/                   Claude client, retry logic, prompt logging, JSON repair, token estimation
+  config/               API key resolution (DB-first, env-fallback), encryption, agent skill loading
   scoring/              Scoring engine
-  scraping/             HTML fetch, CSS extraction, asset extraction, tech detection
+  scraping/             HTML fetch, CSS extraction, asset extraction, tech detection, cloud screenshot
   templates/            Legacy template system (retained, disconnected from pipeline)
-  storage/              S3 storage wrapper
+  storage/
+    blobs.ts            Storage abstraction (uploadBlob, screenshotKey, profileAssetKey)
+    s3.ts               AWS S3 implementation (upload, signed URLs)
 prisma/
-  schema.prisma         All 13 models
-  seed.ts               Industries + templates + scoring rubric
+  schema.prisma         13 models
+  seed.ts               Industries, templates, scoring rubric
 scripts/
   seed-agent-skills.ts  Seed 6 agent skills
-docs/                   Enhancement specs + checklists
+  seed-benchmarks.ts    Seed benchmark URLs by industry
 ```
-
-## Development Phases
-
-Architecture and implementation are documented in 4 phase handoff documents:
-
-| Phase | Document | Scope |
-|---|---|---|
-| 1 | `PHASE-1-HANDOFF.md` | Schema + foundation layer (models, config libs, URL profiles, asset extraction) |
-| 2 | `PHASE-2-HANDOFF.md` | Pipeline refactor (3-step agent architecture replacing 14-call sequential pipeline) |
-| 3 | `PHASE-3-HANDOFF.md` | Admin tooling (settings, skills editor, pagination, URL profiles) |
-| 4 | `PHASE-4-HANDOFF.md` | Benchmarking integration (CRUD, scoring, comparison display, rationale) |
 
 ## npm Scripts
 
@@ -171,9 +203,20 @@ Architecture and implementation are documented in 4 phase handoff documents:
 |---|---|
 | `npm run dev` | Start dev server (Turbopack) |
 | `npm run build` | Production build |
+| `npm run lint` | Run ESLint |
 | `npm run db:generate` | Regenerate Prisma client |
 | `npm run db:migrate` | Run pending migrations |
-| `npm run db:push` | Push schema changes (no migration) |
+| `npm run db:push` | Push schema changes (no migration file) |
 | `npm run db:seed` | Seed industries, templates, scoring rubric |
 | `npm run db:seed-skills` | Seed 6 agent skills |
+| `npm run db:seed-benchmarks` | Seed benchmark URLs by industry |
 | `npm run db:studio` | Open Prisma Studio |
+
+## Documentation
+
+| File | Description |
+|---|---|
+| `MANUAL-TASKS.md` | Owner action items — env vars, seeding, benchmark curation, monitoring, costs |
+| `docs/ENHANCEMENT-E-PEER-BENCHMARKING.md` | Feature spec for peer benchmarking system |
+| `docs/INCIDENT-CREATIVE-LAYOUTS.md` | Incident report on creative agent failures — root causes, fixes, follow-up |
+| `docs/SESSION-2026-02-25-CREATIVE-AGENTS-AND-DEPLOYMENT.md` | Session notes on XML output format and Vercel deployment |

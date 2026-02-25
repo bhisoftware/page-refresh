@@ -73,18 +73,27 @@ export async function POST(request: NextRequest) {
           const send = (data: object) => {
             try {
               controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
-            } catch {
-              // Stream may already be closed (e.g. client disconnected)
+            } catch (e) {
+              console.warn("[analyze] SSE send failed (stream likely closed):", e);
             }
           };
 
           const keepaliveId = setInterval(() => send({ type: "keepalive" }), KEEPALIVE_INTERVAL_MS);
 
+          const PIPELINE_TIMEOUT_MS = 240_000; // 4 min so we send error before Vercel maxDuration (300s)
           try {
-            const refreshId = await runAnalysis({
-              url: normalizedUrl,
-              onProgress: (p) => send({ type: "progress", ...p }),
-            });
+            const refreshId = await Promise.race([
+              runAnalysis({
+                url: normalizedUrl,
+                onProgress: (p) => send({ type: "progress", ...p }),
+              }),
+              new Promise<string>((_, reject) =>
+                setTimeout(
+                  () => reject(new Error("Analysis timed out. Please try again.")),
+                  PIPELINE_TIMEOUT_MS
+                )
+              ),
+            ]);
             clearInterval(keepaliveId);
             const { prisma } = await import("@/lib/prisma");
             const row = await prisma.refresh.findUnique({
@@ -92,6 +101,7 @@ export async function POST(request: NextRequest) {
               select: { viewToken: true },
             });
             const viewToken = row?.viewToken ?? "";
+            console.log("[analyze] pipeline completed, sending done", { refreshId });
             send({ type: "done", refreshId, viewToken });
           } catch (err) {
             clearInterval(keepaliveId);

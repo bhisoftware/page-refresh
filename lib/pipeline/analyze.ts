@@ -1,7 +1,7 @@
 /**
- * Phase 2 pipeline: 3-step agent architecture.
+ * Phase 2 pipeline: 3-step agent architecture with incremental persistence.
  * Step 0: UrlProfile + fetch. Step 1: Screenshot + Industry/SEO + Assets (parallel).
- * Step 2: Score Agent. Step 3: 3 Creative Agents (parallel). Step 4: Save.
+ * Step 2: Score Agent. Step 3: 3 Creative Agents (sequential). Each step persists to DB immediately.
  */
 
 import { prisma } from "@/lib/prisma";
@@ -25,6 +25,7 @@ export type PipelineProgress =
   | { step: "analyzing"; message: string }
   | { step: "scoring"; message: string }
   | { step: "generating"; message: string }
+  | { step: "token"; key: string; data: Record<string, unknown> }
   | { step: "done"; message?: string; refreshId?: string; viewToken?: string }
   | { step: "retry"; message: string }
   | { step: "error"; message: string };
@@ -135,6 +136,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   const refresh = await prisma.refresh.create({
     data: {
       ...DEFAULT_REFRESH_PLACEHOLDER,
+      status: "fetching",
       url: rawUrl,
       targetWebsite: rawUrl,
       urlProfileId: urlProfile.id,
@@ -151,6 +153,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
 
   // --- Step 1: Parallel analysis + asset extraction ---
   onProgress?.({ step: "analyzing", message: "Analyzing your website..." });
+  await prisma.refresh.update({ where: { id: refreshId }, data: { status: "analyzing" } });
 
   let screenshotAnalysis: Awaited<ReturnType<typeof runScreenshotAnalysisAgent>>;
   let industrySeo: Awaited<ReturnType<typeof runIndustrySeoAgent>>;
@@ -178,10 +181,51 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[pipeline] Step 1 failed:", msg);
     onProgress?.({ step: "error", message: msg });
+    await prisma.refresh.update({ where: { id: refreshId }, data: { status: "failed" } }).catch(() => {});
     throw err;
   }
 
   const industry = industrySeo.industry?.name ?? "General Business";
+
+  // Persist Step 1 results immediately
+  await prisma.refresh.update({
+    where: { id: refreshId },
+    data: {
+      status: "scoring",
+      extractedColors: assetResult.assets.colors as unknown as object,
+      extractedFonts: assetResult.assets.fonts as unknown as object,
+      extractedImages: assetResult.assets.images as unknown as object,
+      extractedCopy: assetResult.assets.copy as object,
+      extractedLogo: assetResult.assets.logo ?? null,
+      brandAnalysis: JSON.stringify(screenshotAnalysis),
+      industryDetected: industry,
+      industryConfidence: industrySeo.industry?.confidence ?? 0,
+      seoAudit: (industrySeo.seo ?? {}) as object,
+    },
+  });
+
+  // Emit tokens — lightweight signals for frontend
+  const topColors = assetResult.assets.colors
+    .slice(0, 5)
+    .map((c) => ("hex" in c ? c.hex : String(c)));
+  const topFonts = assetResult.assets.fonts
+    .slice(0, 4)
+    .map((f) => ("family" in f ? f.family : String(f)));
+
+  onProgress?.({ step: "token", key: "industry", data: {
+    name: industry,
+    confidence: industrySeo.industry?.confidence ?? 0,
+  }});
+  onProgress?.({ step: "token", key: "colors", data: { palette: topColors }});
+  onProgress?.({ step: "token", key: "fonts", data: { families: topFonts }});
+  onProgress?.({ step: "token", key: "seo", data: {
+    score: industrySeo.seo?.score ?? null,
+    issueCount: industrySeo.seo?.issues?.length ?? 0,
+  }});
+  onProgress?.({ step: "token", key: "structure", data: {
+    heroType: screenshotAnalysis.layout?.heroType ?? null,
+    sectionCount: screenshotAnalysis.layout?.sectionCount ?? null,
+  }});
 
   // --- Step 2: Score Agent ---
   onProgress?.({ step: "scoring", message: "Scoring against industry benchmarks..." });
@@ -213,64 +257,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     onRetry,
   });
 
-  // --- Step 3: Creative Agents ---
-  console.log("[pipeline] step 3: creative agents");
-  onProgress?.({ step: "generating", message: "Generating 3 design options..." });
-
-  // Don't pass data URIs to creative agents — they're MB-sized base64 strings
-  // In production, these will be short /api/blob/ URLs backed by S3
-  const safeUrl = (url: string | undefined | null): string | null => {
-    if (!url) return null;
-    if (url.startsWith("data:")) return null;
-    return url;
-  };
-
-  const creativeInput: CreativeAgentInput = {
-    creativeBrief: scoreResult.creativeBrief,
-    industry,
-    brandAssets: {
-      logoUrl: safeUrl(assetResult.storedAssets.find((a) => a.assetType === "logo")?.storageUrl),
-      heroImageUrl: safeUrl(assetResult.storedAssets.find((a) => a.assetType === "hero_image")?.storageUrl),
-      colors: assetResult.assets.colors.map((c) => ("hex" in c ? c.hex : String(c))),
-      fonts: assetResult.assets.fonts.map((f) => ("family" in f ? f.family : String(f))),
-      navLinks: assetResult.assets.copy?.navItems ?? [],
-      copy: assetResult.assets.copy,
-    },
-  };
-
-  // Run creative agents sequentially with a short delay to reduce rate-limit (429) failures.
-  // All 3 layouts are required for the product; sequential calls are more reliable than parallel.
-  // Send progress after each so the SSE stream doesn't hit Vercel's ~60s idle timeout.
-  const creativeSlugs: CreativeSlug[] = ["creative-modern", "creative-classy", "creative-unique"];
-  const CREATIVE_DELAY_MS = 2000;
-  const layouts: (Awaited<ReturnType<typeof runCreativeAgent>> | null)[] = [];
-  for (let i = 0; i < creativeSlugs.length; i++) {
-    if (i > 0) await new Promise((r) => setTimeout(r, CREATIVE_DELAY_MS));
-    console.log("[pipeline] creative agent", i + 1, "of 3");
-    onProgress?.({ step: "generating", message: `Starting layout ${i + 1} of 3...` });
-    try {
-      const result = await runCreativeAgent({
-        skills,
-        slug: creativeSlugs[i],
-        input: creativeInput,
-        refreshId,
-        onRetry,
-      });
-      layouts.push(result);
-      onProgress?.({ step: "generating", message: `Generated ${i + 1} of 3 design options...` });
-    } catch (err) {
-      console.error(`[pipeline] Creative agent ${creativeSlugs[i]} failed:`, err);
-      layouts.push(null);
-      onProgress?.({ step: "generating", message: `Layout ${i + 1} skipped. Continuing...` });
-    }
-  }
-  const successCount = layouts.filter(Boolean).length;
-  if (successCount === 0) {
-    console.error("[pipeline] All 3 Creative Agents failed. Saving scores/SEO/benchmarks without layouts.");
-    onProgress?.({ step: "error", message: "Layout generation was unable to complete. Your scores and audit are still saved below." });
-  }
-
-  // --- Step 4: Save results ---
+  // Calculate benchmark comparison immediately (moved from Step 4)
   let benchmarkComparison: Record<string, unknown> | null = null;
   if (benchmarks.length >= 3) {
     const beatCount = benchmarks.filter((b) => b.overallScore < scoreResult.scores.overall).length;
@@ -299,16 +286,11 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     };
   }
 
-  let screenshotUrl: string | null = null;
-  if (screenshotBuffer) {
-    const { buffer: optimized, contentType } = await compressScreenshotToWebP(screenshotBuffer);
-    const blobKey = screenshotKey(refreshId, rawUrl);
-    screenshotUrl = await uploadBlob(blobKey, optimized, contentType);
-  }
-
+  // Persist Step 2 results immediately
   await prisma.refresh.update({
     where: { id: refreshId },
     data: {
+      status: "generating",
       overallScore: scoreResult.scores.overall,
       clarityScore: scoreResult.scores.clarity,
       visualScore: scoreResult.scores.visual,
@@ -319,33 +301,107 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
       mobileScore: scoreResult.scores.mobile,
       performanceScore: scoreResult.scores.performance,
       scoringDetails: (scoreResult.scoringDetails ?? []) as object,
-      industryDetected: industry,
-      industryConfidence: industrySeo.industry?.confidence ?? 0,
-      brandAnalysis: JSON.stringify(screenshotAnalysis),
-      seoAudit: (industrySeo.seo ?? {}) as object,
-      extractedColors: assetResult.assets.colors as unknown as object,
-      extractedFonts: assetResult.assets.fonts as unknown as object,
-      extractedImages: assetResult.assets.images as unknown as object,
-      extractedCopy: assetResult.assets.copy as object,
-      extractedLogo: assetResult.assets.logo ?? null,
-      layout1Html: layouts[0]?.html ?? "",
-      layout1Css: "",
-      layout1Template: layouts[0]?.html?.trim() ? "Modern" : "pending",
-      layout1CopyRefreshed: layouts[0]?.html ?? "",
-      layout1Rationale: layouts[0]?.rationale ?? "",
-      layout2Html: layouts[1]?.html ?? "",
-      layout2Css: "",
-      layout2Template: layouts[1]?.html?.trim() ? "Classy" : "pending",
-      layout2CopyRefreshed: layouts[1]?.html ?? "",
-      layout2Rationale: layouts[1]?.rationale ?? "",
-      layout3Html: layouts[2]?.html ?? "",
-      layout3Css: "",
-      layout3Template: layouts[2]?.html?.trim() ? "Unique" : "pending",
-      layout3CopyRefreshed: layouts[2]?.html ?? "",
-      layout3Rationale: layouts[2]?.rationale ?? "",
+      ...(benchmarkComparison ? { benchmarkComparison: benchmarkComparison as object } : {}),
+    },
+  });
+
+  // Emit score token
+  const scoreEntries = Object.entries(scoreResult.scores).filter(([k]) => k !== "overall");
+  const bestDim = scoreEntries.reduce((a, b) => (b[1] > a[1] ? b : a));
+  const worstDim = scoreEntries.reduce((a, b) => (b[1] < a[1] ? b : a));
+  onProgress?.({ step: "token", key: "scores", data: {
+    overall: scoreResult.scores.overall,
+    top: { name: bestDim[0], score: bestDim[1] },
+    bottom: { name: worstDim[0], score: worstDim[1] },
+  }});
+
+  // --- Step 3: Creative Agents ---
+  console.log("[pipeline] step 3: creative agents");
+  onProgress?.({ step: "generating", message: "Generating 3 design options..." });
+
+  // Don't pass data URIs to creative agents — they're MB-sized base64 strings
+  const safeUrl = (url: string | undefined | null): string | null => {
+    if (!url) return null;
+    if (url.startsWith("data:")) return null;
+    return url;
+  };
+
+  const creativeInput: CreativeAgentInput = {
+    creativeBrief: scoreResult.creativeBrief,
+    industry,
+    brandAssets: {
+      logoUrl: safeUrl(assetResult.storedAssets.find((a) => a.assetType === "logo")?.storageUrl),
+      heroImageUrl: safeUrl(assetResult.storedAssets.find((a) => a.assetType === "hero_image")?.storageUrl),
+      colors: assetResult.assets.colors.map((c) => ("hex" in c ? c.hex : String(c))),
+      fonts: assetResult.assets.fonts.map((f) => ("family" in f ? f.family : String(f))),
+      navLinks: assetResult.assets.copy?.navItems ?? [],
+      copy: assetResult.assets.copy,
+    },
+  };
+
+  // Run creative agents sequentially with a short delay to reduce rate-limit (429) failures.
+  // All 3 layouts are required for the product; sequential calls are more reliable than parallel.
+  // Send progress after each so the SSE stream doesn't hit Vercel's ~60s idle timeout.
+  const creativeSlugs: CreativeSlug[] = ["creative-modern", "creative-classy", "creative-unique"];
+  const creativeTemplateNames = ["Modern", "Classy", "Unique"];
+  const CREATIVE_DELAY_MS = 2000;
+  const layouts: (Awaited<ReturnType<typeof runCreativeAgent>> | null)[] = [];
+  for (let i = 0; i < creativeSlugs.length; i++) {
+    if (i > 0) await new Promise((r) => setTimeout(r, CREATIVE_DELAY_MS));
+    console.log("[pipeline] creative agent", i + 1, "of 3");
+    onProgress?.({ step: "generating", message: `Starting layout ${i + 1} of 3...` });
+    try {
+      const result = await runCreativeAgent({
+        skills,
+        slug: creativeSlugs[i],
+        input: creativeInput,
+        refreshId,
+        onRetry,
+      });
+      layouts.push(result);
+
+      // Persist this layout immediately
+      const templateName = result.html?.trim() ? creativeTemplateNames[i] : "pending";
+      const layoutNum = i + 1;
+      await prisma.refresh.update({
+        where: { id: refreshId },
+        data: {
+          [`layout${layoutNum}Html`]: result.html ?? "",
+          [`layout${layoutNum}Css`]: "",
+          [`layout${layoutNum}Template`]: templateName,
+          [`layout${layoutNum}CopyRefreshed`]: result.html ?? "",
+          [`layout${layoutNum}Rationale`]: result.rationale ?? "",
+        },
+      });
+
+      onProgress?.({ step: "token", key: "layout", data: { index: layoutNum, template: creativeTemplateNames[i] }});
+      onProgress?.({ step: "generating", message: `Generated ${i + 1} of 3 design options...` });
+    } catch (err) {
+      console.error(`[pipeline] Creative agent ${creativeSlugs[i]} failed:`, err);
+      layouts.push(null);
+      onProgress?.({ step: "generating", message: `Layout ${i + 1} skipped. Continuing...` });
+    }
+  }
+  const successCount = layouts.filter(Boolean).length;
+  if (successCount === 0) {
+    console.error("[pipeline] All 3 Creative Agents failed. Saving scores/SEO/benchmarks without layouts.");
+    onProgress?.({ step: "error", message: "Layout generation was unable to complete. Your scores and audit are still saved below." });
+  }
+
+  // --- Step 4: Finalize ---
+  let screenshotUrl: string | null = null;
+  if (screenshotBuffer) {
+    const { buffer: optimized, contentType } = await compressScreenshotToWebP(screenshotBuffer);
+    const blobKey = screenshotKey(refreshId, rawUrl);
+    screenshotUrl = await uploadBlob(blobKey, optimized, contentType);
+  }
+
+  await prisma.refresh.update({
+    where: { id: refreshId },
+    data: {
+      status: "complete",
       screenshotUrl,
       skillVersions: skillVersions as object,
-      ...(benchmarkComparison ? { benchmarkComparison: benchmarkComparison as object } : {}),
       processingTime: Math.round((Date.now() - startTime) / 1000),
     },
   });

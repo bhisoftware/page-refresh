@@ -85,6 +85,9 @@ model Refresh {
   hostingPlatform   String?  // For install request
   notes             String?  @db.Text
 
+  // Pipeline status
+  status            String   @default("pending")  // pending | fetching | analyzing | scoring | generating | complete | failed
+
   // Metadata
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -118,6 +121,7 @@ model Refresh {
   @@index([quoteRequested])
   @@index([installRequested])
   @@index([urlProfileId])
+  @@index([status])
 }
 
 model Industry {

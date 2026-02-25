@@ -63,6 +63,7 @@ interface AnalysisProgressProps {
   currentStep: PipelineStep;
   message?: string;
   countdownSeconds?: number;
+  tokens?: Record<string, Record<string, unknown>>;
   className?: string;
 }
 
@@ -70,6 +71,7 @@ export function AnalysisProgress({
   currentStep,
   message,
   countdownSeconds,
+  tokens: _tokens,
   className,
 }: AnalysisProgressProps) {
   const { screenshot, analysis, layouts } = phaseProgress(currentStep);

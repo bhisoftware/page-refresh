@@ -53,6 +53,7 @@ export default function Home() {
   const [currentStep, setCurrentStep] = useState<PipelineStep>("started");
   const [progressMessage, setProgressMessage] = useState("");
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [tokens, setTokens] = useState<Record<string, Record<string, unknown>>>({});
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,9 +81,15 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: normalized }),
       });
-      const preflightData = (await preflightRes.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const preflightData = (await preflightRes.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        errorDetail?: string;
+      };
       if (!preflightData.ok) {
-        setError(preflightData.error ?? "We couldn't reach this website. Check the URL and try again.");
+        const main = preflightData.error ?? "We couldn't reach this website. Check the URL and try again.";
+        const detail = preflightData.errorDetail ? ` [${preflightData.errorDetail}]` : "";
+        setError(main + detail);
         return;
       }
     } catch {
@@ -95,6 +102,7 @@ export default function Home() {
     setIsAnalyzing(true);
     setCurrentStep("started");
     setProgressMessage("Starting analysis...");
+    setTokens({});
     const startTime = Date.now();
     const targetDuration = 50;
     const countdownInterval = window.setInterval(() => {
@@ -132,11 +140,15 @@ export default function Home() {
               const data = JSON.parse(line.slice(6)) as {
                 type: string;
                 step?: string;
+                key?: string;
+                data?: Record<string, unknown>;
                 message?: string;
                 refreshId?: string;
                 viewToken?: string;
               };
-              if (data.type === "progress" && data.step) {
+              if (data.type === "progress" && data.step === "token" && data.key && data.data) {
+                setTokens(prev => ({ ...prev, [data.key!]: data.data! }));
+              } else if (data.type === "progress" && data.step) {
                 if (data.step === "retry") {
                   setProgressMessage(data.message ?? "Retrying...");
                 } else {
@@ -276,6 +288,7 @@ export default function Home() {
                 currentStep={currentStep}
                 message={progressMessage}
                 countdownSeconds={countdown ?? undefined}
+                tokens={tokens}
               />
             </div>
           )}

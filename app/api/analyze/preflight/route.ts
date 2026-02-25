@@ -75,8 +75,15 @@ export async function POST(request: NextRequest) {
     return Response.json({ ok: true });
   } catch (e) {
     clearTimeout(timeoutId);
-    const msg = e instanceof Error ? e.message : "Could not reach URL.";
-    if (msg.includes("abort") || msg.includes("timeout")) {
+    const err = e instanceof Error ? e : new Error(String(e));
+    const msg = err.message;
+    const causeLower = err.cause != null ? String(err.cause).toLowerCase() : "";
+    const isTimeout =
+      msg.toLowerCase().includes("abort") ||
+      msg.toLowerCase().includes("timeout") ||
+      causeLower.includes("timeout") ||
+      causeLower.includes("connecttimeout");
+    if (isTimeout) {
       return Response.json({
         ok: false,
         error: "This URL took too long to respond. Try again or use a simpler page.",
@@ -85,6 +92,7 @@ export async function POST(request: NextRequest) {
     return Response.json({
       ok: false,
       error: "We couldn't reach this website. Check the URL or try again later.",
+      errorDetail: `${err.name}: ${msg}${err.cause != null ? ` (cause: ${String(err.cause)})` : ""}`,
     });
   }
 }
