@@ -33,6 +33,8 @@ export type PipelineProgress =
 export interface PipelineOptions {
   url: string;
   onProgress?: (p: PipelineProgress) => void;
+  /** Called as soon as the Refresh row is created, so callers can reference it on timeout. */
+  onRefreshCreated?: (refreshId: string) => void;
 }
 
 function extractInlineCss(html: string): string {
@@ -44,6 +46,81 @@ function extractInlineCss(html: string): string {
       return m ? m[1] : "";
     })
     .join("\n");
+}
+
+/** Build loader "structure" checks from screenshot + SEO output for 5-card UX */
+function buildStructureChecks(
+  screenshot: Awaited<ReturnType<typeof runScreenshotAnalysisAgent>>,
+  industrySeo: Awaited<ReturnType<typeof runIndustrySeoAgent>>
+): Array<{ label: string; status: "ok" | "warn" | "bad"; value: string }> {
+  const checks: Array<{ label: string; status: "ok" | "warn" | "bad"; value: string }> = [];
+  const layout = screenshot.layout;
+  if (layout?.heroType) {
+    checks.push({ label: "Hero section detected", status: "ok", value: layout.heroType });
+  }
+  if (layout?.sectionCount != null) {
+    checks.push({
+      label: "Page structure",
+      status: layout.sectionCount >= 2 ? "ok" : "warn",
+      value: `${layout.sectionCount} main section(s)`,
+    });
+  }
+  if (screenshot.brandAssets?.logoDetected != null) {
+    checks.push({
+      label: "Logo on page",
+      status: screenshot.brandAssets.logoDetected ? "ok" : "warn",
+      value: screenshot.brandAssets.logoDetected ? "Yes" : "Not found",
+    });
+  }
+  const issueCount = industrySeo.seo?.issues?.length ?? 0;
+  if (issueCount > 0) {
+    checks.push({
+      label: "SEO issues to address",
+      status: issueCount > 3 ? "bad" : "warn",
+      value: `${issueCount} found`,
+    });
+  }
+  if (checks.length === 0) {
+    checks.push({ label: "Site structure read", status: "ok", value: "Ready" });
+  }
+  return checks;
+}
+
+/** Build loader "seo" checks for 5-card UX */
+function buildSeoChecks(
+  industrySeo: Awaited<ReturnType<typeof runIndustrySeoAgent>>
+): Array<{ label: string; status: "ok" | "warn" | "bad"; value: string }> {
+  const checks: Array<{ label: string; status: "ok" | "warn" | "bad"; value: string }> = [];
+  const seo = industrySeo.seo;
+  const hasTitle = !!seo?.titleTag?.trim();
+  checks.push({
+    label: "Page title",
+    status: hasTitle ? "ok" : "bad",
+    value: hasTitle ? (seo!.titleTag!.length > 50 ? "Long" : "Set") : "Missing",
+  });
+  const hasDesc = !!seo?.metaDescription?.trim();
+  checks.push({
+    label: "Meta description",
+    status: hasDesc ? "ok" : "warn",
+    value: hasDesc ? "Set" : "Missing",
+  });
+  const score = seo?.score;
+  if (score != null) {
+    checks.push({
+      label: "SEO score",
+      status: score >= 70 ? "ok" : score >= 40 ? "warn" : "bad",
+      value: `${score}/100`,
+    });
+  }
+  const issues = seo?.issues ?? [];
+  if (issues.length > 0) {
+    checks.push({
+      label: "Issues found",
+      status: issues.length > 3 ? "bad" : "warn",
+      value: `${issues.length} to fix`,
+    });
+  }
+  return checks;
 }
 
 const DEFAULT_REFRESH_PLACEHOLDER = {
@@ -97,7 +174,7 @@ const DEFAULT_REFRESH_PLACEHOLDER = {
 };
 
 export async function runAnalysis(options: PipelineOptions): Promise<string> {
-  const { url, onProgress } = options;
+  const { url, onProgress, onRefreshCreated } = options;
   const startTime = Date.now();
   const rawUrl = url.startsWith("http") ? url : `https://${url}`;
   console.log("[pipeline] starting", { url: rawUrl });
@@ -145,6 +222,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     },
   });
   const refreshId = refresh.id;
+  onRefreshCreated?.(refreshId);
   const skills = await getAllActiveSkills();
   const skillVersions: Record<string, number> = {};
   skills.forEach((s: AgentSkill) => {
@@ -204,28 +282,24 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     },
   });
 
-  // Emit tokens — lightweight signals for frontend
-  const topColors = assetResult.assets.colors
+  // Emit loader tokens in staged order (structure → seo → colors → fonts) for 5-card UX
+  const ROLE_ORDER = ["Primary", "Background", "Text", "Accent", "Secondary"] as const;
+  const structureChecks = buildStructureChecks(screenshotAnalysis, industrySeo);
+  const seoChecks = buildSeoChecks(industrySeo);
+  const palette = assetResult.assets.colors
     .slice(0, 5)
-    .map((c) => ("hex" in c ? c.hex : String(c)));
-  const topFonts = assetResult.assets.fonts
-    .slice(0, 4)
-    .map((f) => ("family" in f ? f.family : String(f)));
+    .map((c, i) => ({ hex: "hex" in c ? c.hex : String(c), role: ROLE_ORDER[i] ?? "Accent" }));
+  const fontList = assetResult.assets.fonts.slice(0, 4).map((f, i) => {
+    const name = "family" in f ? f.family : String(f);
+    const role = i === 0 ? "Headings" : i === 1 ? "Body text" : "Accent";
+    return { name, role, cssFamily: `${name}, sans-serif` };
+  });
 
-  onProgress?.({ step: "token", key: "industry", data: {
-    name: industry,
-    confidence: industrySeo.industry?.confidence ?? 0,
-  }});
-  onProgress?.({ step: "token", key: "colors", data: { palette: topColors }});
-  onProgress?.({ step: "token", key: "fonts", data: { families: topFonts }});
-  onProgress?.({ step: "token", key: "seo", data: {
-    score: industrySeo.seo?.score ?? null,
-    issueCount: industrySeo.seo?.issues?.length ?? 0,
-  }});
-  onProgress?.({ step: "token", key: "structure", data: {
-    heroType: screenshotAnalysis.layout?.heroType ?? null,
-    sectionCount: screenshotAnalysis.layout?.sectionCount ?? null,
-  }});
+  onProgress?.({ step: "token", key: "structure", data: { checks: structureChecks } });
+  onProgress?.({ step: "token", key: "seo", data: { checks: seoChecks } });
+  onProgress?.({ step: "token", key: "colors", data: { palette } });
+  onProgress?.({ step: "token", key: "fonts", data: { detected: fontList } });
+  onProgress?.({ step: "token", key: "industry", data: { name: industry, confidence: industrySeo.industry?.confidence ?? 0 } });
 
   // --- Step 2: Score Agent ---
   onProgress?.({ step: "scoring", message: "Scoring against industry benchmarks..." });
@@ -339,49 +413,56 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     },
   };
 
-  // Run creative agents sequentially with a short delay to reduce rate-limit (429) failures.
-  // All 3 layouts are required for the product; sequential calls are more reliable than parallel.
-  // Send progress after each so the SSE stream doesn't hit Vercel's ~60s idle timeout.
+  // Run creative agents in parallel — each is an independent Claude API call with the same input.
+  // Individual agents still use withRetry for 429/5xx; parallel execution means retries don't stack.
   const creativeSlugs: CreativeSlug[] = ["creative-modern", "creative-classy", "creative-unique"];
   const creativeTemplateNames = ["Modern", "Classy", "Unique"];
-  const CREATIVE_DELAY_MS = 2000;
-  const layouts: (Awaited<ReturnType<typeof runCreativeAgent>> | null)[] = [];
-  for (let i = 0; i < creativeSlugs.length; i++) {
-    if (i > 0) await new Promise((r) => setTimeout(r, CREATIVE_DELAY_MS));
-    console.log("[pipeline] creative agent", i + 1, "of 3");
-    onProgress?.({ step: "generating", message: `Starting layout ${i + 1} of 3...` });
-    try {
-      const result = await runCreativeAgent({
+  const accentColor = creativeInput.brandAssets.colors[0] ?? "#2d5016";
+  let completedCount = 0;
+
+  const creativeResults = await Promise.allSettled(
+    creativeSlugs.map((slug, i) => {
+      console.log("[pipeline] creative agent", i + 1, "of 3 — starting");
+      return runCreativeAgent({
         skills,
-        slug: creativeSlugs[i],
+        slug,
         input: creativeInput,
         refreshId,
         onRetry,
+      }).then(async (result) => {
+        // Persist this layout immediately on completion
+        const templateName = result.html?.trim() ? creativeTemplateNames[i] : "pending";
+        const layoutNum = i + 1;
+        await prisma.refresh.update({
+          where: { id: refreshId },
+          data: {
+            [`layout${layoutNum}Html`]: result.html ?? "",
+            [`layout${layoutNum}Css`]: "",
+            [`layout${layoutNum}Template`]: templateName,
+            [`layout${layoutNum}CopyRefreshed`]: result.html ?? "",
+            [`layout${layoutNum}Rationale`]: result.rationale ?? "",
+          },
+        });
+        completedCount++;
+        console.log("[pipeline] creative agent", i + 1, "of 3 — done");
+        onProgress?.({
+          step: "token",
+          key: "layouts",
+          data: {
+            options: creativeTemplateNames.slice(0, completedCount).map((label) => ({ label, accentColor })),
+          },
+        });
+        onProgress?.({ step: "generating", message: `Generated ${completedCount} of 3 design options...` });
+        return result;
       });
-      layouts.push(result);
+    })
+  );
 
-      // Persist this layout immediately
-      const templateName = result.html?.trim() ? creativeTemplateNames[i] : "pending";
-      const layoutNum = i + 1;
-      await prisma.refresh.update({
-        where: { id: refreshId },
-        data: {
-          [`layout${layoutNum}Html`]: result.html ?? "",
-          [`layout${layoutNum}Css`]: "",
-          [`layout${layoutNum}Template`]: templateName,
-          [`layout${layoutNum}CopyRefreshed`]: result.html ?? "",
-          [`layout${layoutNum}Rationale`]: result.rationale ?? "",
-        },
-      });
-
-      onProgress?.({ step: "token", key: "layout", data: { index: layoutNum, template: creativeTemplateNames[i] }});
-      onProgress?.({ step: "generating", message: `Generated ${i + 1} of 3 design options...` });
-    } catch (err) {
-      console.error(`[pipeline] Creative agent ${creativeSlugs[i]} failed:`, err);
-      layouts.push(null);
-      onProgress?.({ step: "generating", message: `Layout ${i + 1} skipped. Continuing...` });
-    }
-  }
+  const layouts = creativeResults.map((r, i) => {
+    if (r.status === "fulfilled") return r.value;
+    console.error(`[pipeline] Creative agent ${creativeSlugs[i]} failed:`, r.reason);
+    return null;
+  });
   const successCount = layouts.filter(Boolean).length;
   if (successCount === 0) {
     console.error("[pipeline] All 3 Creative Agents failed. Saving scores/SEO/benchmarks without layouts.");

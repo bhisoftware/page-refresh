@@ -18,8 +18,8 @@ const EXPORT_PLATFORMS = [
 interface LayoutTabbedViewerProps {
   refreshId: string;
   viewToken: string;
-  /** Exactly 3 layouts (Option 1, 2, 3) */
-  layouts: [LayoutItem, LayoutItem, LayoutItem];
+  /** 1-3 layouts */
+  layouts: LayoutItem[];
 }
 
 export function LayoutTabbedViewer({ refreshId, viewToken, layouts }: LayoutTabbedViewerProps) {
@@ -30,8 +30,8 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts }: LayoutTabb
 
   const layoutByTab = useMemo(() => {
     const map: Record<string, LayoutItem> = {};
-    layouts.forEach((layout) => {
-      map[String(layout.layoutIndex)] = layout;
+    layouts.forEach((layout, i) => {
+      map[String(i + 1)] = layout;
     });
     return map;
   }, [layouts]);
@@ -50,11 +50,15 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts }: LayoutTabb
   return (
     <>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="mb-2">
-          <TabsTrigger value="1">Option 1</TabsTrigger>
-          <TabsTrigger value="2">Option 2</TabsTrigger>
-          <TabsTrigger value="3">Option 3</TabsTrigger>
-        </TabsList>
+        {layouts.length > 1 && (
+          <TabsList className="mb-2">
+            {layouts.map((_, i) => (
+              <TabsTrigger key={i + 1} value={String(i + 1)}>
+                Option {i + 1}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        )}
         <div className="mt-0">
           {/* Browser-style frame: rounded border, title bar, no horizontal scroll */}
           <div

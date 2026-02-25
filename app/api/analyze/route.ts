@@ -80,16 +80,18 @@ export async function POST(request: NextRequest) {
 
           const keepaliveId = setInterval(() => send({ type: "keepalive" }), KEEPALIVE_INTERVAL_MS);
 
-          const PIPELINE_TIMEOUT_MS = 240_000; // 4 min so we send error before Vercel maxDuration (300s)
+          const PIPELINE_TIMEOUT_MS = 280_000; // 4m40s — gives 20s buffer before Vercel maxDuration (300s)
+          let capturedRefreshId: string | null = null;
           try {
             const refreshId = await Promise.race([
               runAnalysis({
                 url: normalizedUrl,
                 onProgress: (p) => send({ type: "progress", ...p }),
+                onRefreshCreated: (id) => { capturedRefreshId = id; },
               }),
               new Promise<string>((_, reject) =>
                 setTimeout(
-                  () => reject(new Error("Analysis timed out. Please try again.")),
+                  () => reject(new Error("PIPELINE_TIMEOUT")),
                   PIPELINE_TIMEOUT_MS
                 )
               ),
@@ -106,9 +108,25 @@ export async function POST(request: NextRequest) {
           } catch (err) {
             clearInterval(keepaliveId);
             const message = err instanceof Error ? err.message : "Refresh failed";
-            console.error("[analyze] pipeline error (SSE):", message);
-            if (err instanceof Error && err.stack) console.error(err.stack);
-            send({ type: "error", message });
+
+            // On timeout, redirect to partial results if a refresh record exists
+            if (message === "PIPELINE_TIMEOUT" && capturedRefreshId) {
+              console.warn("[analyze] pipeline timed out — redirecting to partial results", { capturedRefreshId });
+              const { prisma } = await import("@/lib/prisma");
+              await prisma.refresh.update({
+                where: { id: capturedRefreshId },
+                data: { status: "complete" },
+              }).catch(() => {});
+              const row = await prisma.refresh.findUnique({
+                where: { id: capturedRefreshId },
+                select: { viewToken: true },
+              }).catch(() => null);
+              send({ type: "done", refreshId: capturedRefreshId, viewToken: row?.viewToken ?? "" });
+            } else {
+              console.error("[analyze] pipeline error (SSE):", message);
+              if (err instanceof Error && err.stack) console.error(err.stack);
+              send({ type: "error", message });
+            }
           } finally {
             controller.close();
           }
