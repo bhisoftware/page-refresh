@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "pagerefresh.ai - Refresh Your Homepage",
+  title: "PageRefresh - Refresh Your Homepage",
   description:
     "Paste your website and get a $50,000 quality refresh in 5 minutes.",
 };
