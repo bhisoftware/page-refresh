@@ -21,7 +21,7 @@ function getClientIp(request: NextRequest): string {
 export async function POST(request: NextRequest) {
   console.log("[analyze] POST received");
   const ip = getClientIp(request);
-  const rate = analysisRateLimiter.check(ip);
+  const rate = await analysisRateLimiter.check(ip);
   if (!rate.allowed) {
     const retryAfterSec = Math.ceil((rate.retryAfterMs ?? 60_000) / 1000);
     const accept = request.headers.get("accept") ?? "";
@@ -115,7 +115,11 @@ export async function POST(request: NextRequest) {
               const { prisma } = await import("@/lib/prisma");
               await prisma.refresh.update({
                 where: { id: capturedRefreshId },
-                data: { status: "complete" },
+                data: {
+                  status: "complete",
+                  errorStep: "generating",
+                  errorMessage: "Pipeline timed out — partial results saved",
+                },
               }).catch(() => {});
               const row = await prisma.refresh.findUnique({
                 where: { id: capturedRefreshId },

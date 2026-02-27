@@ -7,6 +7,8 @@
 import { NextRequest } from "next/server";
 import { normalizeWebsiteUrl } from "@/lib/utils";
 
+export const maxDuration = 30;
+
 const PREFLIGHT_TIMEOUT_MS = 12_000;
 const CHROME_USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -31,68 +33,94 @@ export async function POST(request: NextRequest) {
     return Response.json({ ok: false, error: "Please enter a valid URL." }, { status: 400 });
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), PREFLIGHT_TIMEOUT_MS);
-
-  try {
-    const res = await fetch(url, {
-      method: "GET",
-      signal: controller.signal,
-      headers: {
-        "User-Agent": CHROME_USER_AGENT,
-        Accept: ACCEPT_HEADER,
-      },
-      redirect: "follow",
-    });
-    clearTimeout(timeoutId);
-
-    if (res.status === 403 || res.status === 401) {
-      return Response.json({
-        ok: false,
-        error: "This website blocks automated access.",
-      });
-    }
-    if (res.status >= 500) {
-      return Response.json({
-        ok: false,
-        error: "This website is temporarily unavailable. Try again later.",
-      });
-    }
-    if (!res.ok) {
-      return Response.json({
-        ok: false,
-        error: `This URL returned an error (${res.status}). We can't analyze it.`,
-      });
-    }
-    const contentType = res.headers.get("content-type") ?? "";
-    if (!contentType.includes("text/html") && !contentType.includes("application/xhtml")) {
-      return Response.json({
-        ok: false,
-        error: "This URL did not return HTML. We can only analyze web pages.",
-      });
-    }
-    await res.text();
-    return Response.json({ ok: true });
-  } catch (e) {
-    clearTimeout(timeoutId);
-    const err = e instanceof Error ? e : new Error(String(e));
-    const msg = err.message;
-    const causeLower = err.cause != null ? String(err.cause).toLowerCase() : "";
-    const isTimeout =
-      msg.toLowerCase().includes("abort") ||
-      msg.toLowerCase().includes("timeout") ||
-      causeLower.includes("timeout") ||
-      causeLower.includes("connecttimeout");
-    if (isTimeout) {
-      return Response.json({
-        ok: false,
-        error: "This URL took too long to respond. Try again or use a simpler page.",
-      });
-    }
-    return Response.json({
-      ok: false,
-      error: "We couldn't reach this website. Check the URL or try again later.",
-      errorDetail: `${err.name}: ${msg}${err.cause != null ? ` (cause: ${String(err.cause)})` : ""}`,
-    });
+  // Try HTTPS first; if it times out or fails to connect, fall back to HTTP
+  const urlsToTry = [url];
+  if (url.startsWith("https://")) {
+    urlsToTry.push(url.replace("https://", "http://"));
   }
+
+  for (const tryUrl of urlsToTry) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), PREFLIGHT_TIMEOUT_MS);
+
+    try {
+      const res = await fetch(tryUrl, {
+        method: "GET",
+        signal: controller.signal,
+        headers: {
+          "User-Agent": CHROME_USER_AGENT,
+          Accept: ACCEPT_HEADER,
+        },
+        redirect: "follow",
+      });
+      clearTimeout(timeoutId);
+
+      if (res.status === 403 || res.status === 401) {
+        return Response.json({
+          ok: false,
+          error: "This website blocks automated access.",
+        });
+      }
+      if (res.status >= 500) {
+        return Response.json({
+          ok: false,
+          error: "This website is temporarily unavailable. Try again later.",
+        });
+      }
+      if (!res.ok) {
+        return Response.json({
+          ok: false,
+          error: `This URL returned an error (${res.status}). We can't analyze it.`,
+        });
+      }
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!contentType.includes("text/html") && !contentType.includes("application/xhtml")) {
+        return Response.json({
+          ok: false,
+          error: "This URL did not return HTML. We can only analyze web pages.",
+        });
+      }
+      await res.text();
+      // Return the URL that actually worked so the pipeline uses it
+      return Response.json({ ok: true, resolvedUrl: tryUrl });
+    } catch (e) {
+      clearTimeout(timeoutId);
+      const err = e instanceof Error ? e : new Error(String(e));
+      const msg = err.message;
+      const causeLower = err.cause != null ? String(err.cause).toLowerCase() : "";
+      const isTimeout =
+        msg.toLowerCase().includes("abort") ||
+        msg.toLowerCase().includes("timeout") ||
+        causeLower.includes("timeout") ||
+        causeLower.includes("connecttimeout");
+      const isConnectFailure =
+        isTimeout ||
+        msg.toLowerCase().includes("econnrefused") ||
+        msg.toLowerCase().includes("econnreset") ||
+        msg.toLowerCase().includes("fetch failed");
+
+      // If HTTPS failed and we have an HTTP fallback, try it
+      if (isConnectFailure && urlsToTry.indexOf(tryUrl) < urlsToTry.length - 1) {
+        console.log(`[preflight] HTTPS failed for ${tryUrl}, falling back to HTTP`);
+        continue;
+      }
+
+      if (isTimeout) {
+        return Response.json({
+          ok: false,
+          error: "This URL took too long to respond. Try again or use a simpler page.",
+        });
+      }
+      return Response.json({
+        ok: false,
+        error: "We couldn't reach this website. Check the URL or try again later.",
+        errorDetail: `${err.name}: ${msg}${err.cause != null ? ` (cause: ${String(err.cause)})` : ""}`,
+      });
+    }
+  }
+
+  return Response.json({
+    ok: false,
+    error: "We couldn't reach this website. Check the URL or try again later.",
+  });
 }

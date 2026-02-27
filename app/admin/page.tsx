@@ -34,6 +34,9 @@ export default async function AdminListPage({
         createdAt: true,
         quoteRequested: true,
         installRequested: true,
+        status: true,
+        errorMessage: true,
+        errorStep: true,
         _count: { select: { internalNotes: true } },
         urlProfile: { select: { id: true, analysisCount: true } },
       },
@@ -60,6 +63,7 @@ export default async function AdminListPage({
                     <th className="text-left p-3 font-medium">Profile</th>
                     <th className="text-left p-3 font-medium">Industry</th>
                     <th className="text-left p-3 font-medium">Score</th>
+                    <th className="text-left p-3 font-medium">Status</th>
                     <th className="text-left p-3 font-medium">Date</th>
                     <th className="text-left p-3 font-medium">Time</th>
                     <th className="text-left p-3 font-medium">Notes</th>
@@ -95,6 +99,25 @@ export default async function AdminListPage({
                         {a.industryDetected}
                       </td>
                       <td className="p-3">{a.overallScore}/100</td>
+                      <td className="p-3">
+                        {a.status === "failed" ? (
+                          <Badge variant="destructive" title={`${a.errorStep ?? "unknown"}: ${a.errorMessage ?? ""}`}>
+                            Failed
+                          </Badge>
+                        ) : a.status === "complete" && a.errorMessage ? (
+                          <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200" title={a.errorMessage}>
+                            Partial
+                          </Badge>
+                        ) : a.status === "complete" ? (
+                          <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                            Complete
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                            {a.status}
+                          </Badge>
+                        )}
+                      </td>
                       <td className="p-3 text-muted-foreground">
                         {new Date(a.createdAt).toLocaleDateString(undefined, {
                           timeZone: "America/New_York",

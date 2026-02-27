@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PageRefresh — Option A: Refined & Confident</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Merriweather:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary-50: #EBF5FF;
+    --primary-100: #D6EBFF;
+    --primary-200: #ADD6FF;
+    --primary-500: #0066CC;
+    --primary-600: #0052A3;
+    --primary-700: #003D7A;
+    --neutral-50: #F9FAFB;
+    --neutral-100: #F3F4F6;
+    --neutral-200: #E5E7EB;
+    --neutral-300: #D1D5DB;
+    --neutral-400: #9CA3AF;
+    --neutral-500: #6B7280;
+    --neutral-600: #4B5563;
+    --neutral-700: #374151;
+    --neutral-800: #1F2937;
+    --neutral-900: #111827;
+    --success: #10B981;
+    --warning: #F59E0B;
+    --error: #EF4444;
+    --info: #3B82F6;
+    --surface: #FFFFFF;
+    --radius: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+    --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+    --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', system-ui, sans-serif; color: var(--neutral-900); background: var(--neutral-50); -webkit-font-smoothing: antialiased; }
+
+  /* ============================
+     SECTION DIVIDER
+     ============================ */
+  .section-divider {
+    text-align: center;
+    padding: 32px 24px;
+    background: var(--neutral-800);
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* ============================
+     HOMEPAGE
+     ============================ */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(180deg, #FAFBFF 0%, #F0F4FF 50%, var(--neutral-50) 100%);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -200px;
+    right: -200px;
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,102,204,0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: -100px;
+    left: -150px;
+    width: 400px;
+    height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(16,185,129,0.05) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 48px;
+    position: relative;
+    z-index: 10;
+  }
+
+  .logo {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--neutral-900);
+    letter-spacing: -0.03em;
+  }
+
+  .logo span {
+    color: var(--primary-500);
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 32px;
+    align-items: center;
+  }
+
+  .nav-links a {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--neutral-500);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .nav-links a:hover { color: var(--neutral-900); }
+
+  .hero-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0 24px 80px;
+    position: relative;
+    z-index: 10;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    background: var(--primary-50);
+    border: 1px solid var(--primary-200);
+    border-radius: 9999px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary-600);
+    margin-bottom: 32px;
+  }
+
+  .badge .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--success);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  h1 {
+    font-family: 'Inter', sans-serif;
+    font-size: 56px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    color: var(--neutral-900);
+    margin-bottom: 20px;
+    max-width: 700px;
+  }
+
+  h1 .accent {
+    background: linear-gradient(135deg, var(--primary-500), #4F46E5);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    font-size: 19px;
+    line-height: 1.6;
+    color: var(--neutral-500);
+    max-width: 520px;
+    margin-bottom: 48px;
+  }
+
+  .input-group {
+    display: flex;
+    gap: 0;
+    width: 100%;
+    max-width: 560px;
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl), 0 0 0 1px rgba(0,0,0,0.04);
+    overflow: hidden;
+    transition: box-shadow 0.3s;
+  }
+
+  .input-group:focus-within {
+    box-shadow: var(--shadow-xl), 0 0 0 2px var(--primary-500);
+  }
+
+  .input-group input {
+    flex: 1;
+    padding: 18px 24px;
+    border: none;
+    outline: none;
+    font-size: 16px;
+    font-family: 'Inter', sans-serif;
+    color: var(--neutral-900);
+    background: transparent;
+  }
+
+  .input-group input::placeholder { color: var(--neutral-400); }
+
+  .btn-primary {
+    padding: 18px 32px;
+    background: var(--primary-500);
+    color: white;
+    border: none;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s;
+  }
+
+  .btn-primary:hover { background: var(--primary-600); }
+
+  .social-proof {
+    margin-top: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .avatars {
+    display: flex;
+  }
+
+  .avatars .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid white;
+    margin-left: -8px;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+  }
+
+  .avatars .avatar:first-child { margin-left: 0; }
+
+  .social-proof p {
+    font-size: 13px;
+    color: var(--neutral-400);
+  }
+
+  .social-proof p strong {
+    color: var(--neutral-600);
+    font-weight: 600;
+  }
+
+  /* Value props strip */
+  .value-strip {
+    display: flex;
+    justify-content: center;
+    gap: 48px;
+    padding: 48px 24px;
+    border-top: 1px solid var(--neutral-200);
+    background: var(--surface);
+  }
+
+  .value-item {
+    text-align: center;
+    max-width: 200px;
+  }
+
+  .value-item .icon-wrap {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 12px;
+    font-size: 20px;
+  }
+
+  .value-item h3 {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    color: var(--neutral-800);
+  }
+
+  .value-item p {
+    font-size: 13px;
+    color: var(--neutral-500);
+    line-height: 1.5;
+  }
+
+  /* ============================
+     ANALYSIS PROGRESS VIEW
+     ============================ */
+  .analysis-section {
+    min-height: 100vh;
+    background: var(--neutral-50);
+    padding: 48px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .analysis-header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .analysis-header h2 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--neutral-900);
+    margin-bottom: 8px;
+  }
+
+  .analysis-header p {
+    font-size: 15px;
+    color: var(--neutral-500);
+  }
+
+  .analyzing-url {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--surface);
+    border: 1px solid var(--neutral-200);
+    border-radius: 9999px;
+    font-size: 14px;
+    color: var(--neutral-700);
+    font-weight: 500;
+    margin-bottom: 24px;
+  }
+
+  .analyzing-url .spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--neutral-200);
+    border-top-color: var(--primary-500);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .progress-container {
+    width: 100%;
+    max-width: 700px;
+  }
+
+  /* Overall progress bar */
+  .overall-progress {
+    margin-bottom: 32px;
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    padding: 20px 24px;
+    box-shadow: var(--shadow-md);
+  }
+
+  .overall-progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .overall-progress-header span {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--neutral-700);
+  }
+
+  .countdown {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--neutral-900);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .progress-track {
+    height: 6px;
+    background: var(--neutral-100);
+    border-radius: 9999px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, var(--primary-500), #4F46E5);
+    transition: width 0.5s ease;
+  }
+
+  /* Step cards */
+  .step-card {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    padding: 20px 24px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    border: 1px solid var(--neutral-100);
+    transition: all 0.3s ease;
+  }
+
+  .step-card.active {
+    border-color: var(--primary-200);
+    box-shadow: var(--shadow-md), 0 0 0 1px var(--primary-100);
+  }
+
+  .step-card.done {
+    border-color: rgba(16,185,129,0.2);
+    background: linear-gradient(135deg, rgba(16,185,129,0.02), transparent);
+  }
+
+  .step-card.upcoming {
+    opacity: 0.5;
+  }
+
+  .step-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .step-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .step-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .step-card.done .step-icon {
+    background: rgba(16,185,129,0.1);
+  }
+
+  .step-card.active .step-icon {
+    background: var(--primary-50);
+  }
+
+  .step-card.upcoming .step-icon {
+    background: var(--neutral-100);
+  }
+
+  .step-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--neutral-800);
+  }
+
+  .step-desc {
+    font-size: 13px;
+    color: var(--neutral-400);
+    margin-top: 2px;
+  }
+
+  .step-status {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    white-space: nowrap;
+  }
+
+  .step-status.done {
+    background: rgba(16,185,129,0.1);
+    color: #059669;
+  }
+
+  .step-status.active {
+    background: var(--primary-50);
+    color: var(--primary-600);
+    animation: pulse 1.5s infinite;
+  }
+
+  .step-status.upcoming {
+    background: var(--neutral-100);
+    color: var(--neutral-400);
+  }
+
+  /* Step detail panels (shown when active or done) */
+  .step-details {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--neutral-100);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+  }
+
+  .detail-chip {
+    padding: 10px 14px;
+    background: var(--neutral-50);
+    border-radius: var(--radius);
+    font-size: 12px;
+  }
+
+  .detail-chip .label {
+    color: var(--neutral-400);
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+
+  .detail-chip .value {
+    color: var(--neutral-800);
+    font-weight: 600;
+    font-size: 13px;
+  }
+
+  /* Color swatches */
+  .color-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  .swatch {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    border: 1px solid rgba(0,0,0,0.08);
+  }
+
+  /* Font preview */
+  .font-preview {
+    margin-top: 6px;
+  }
+
+  .font-sample {
+    font-size: 14px;
+    color: var(--neutral-700);
+    line-height: 1.4;
+  }
+
+  /* Layout thumbnails */
+  .layout-thumbs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--neutral-100);
+  }
+
+  .layout-thumb {
+    aspect-ratio: 16/10;
+    border-radius: var(--radius);
+    border: 1px solid var(--neutral-200);
+    overflow: hidden;
+    position: relative;
+    background: var(--neutral-50);
+  }
+
+  .layout-thumb .thumb-inner {
+    padding: 10px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .thumb-bar {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--neutral-200);
+  }
+
+  .thumb-block {
+    flex: 1;
+    border-radius: 4px;
+    background: var(--neutral-100);
+  }
+
+  .layout-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--neutral-500);
+    text-align: center;
+    margin-top: 6px;
+  }
+
+  /* ============================
+     RESULTS PREVIEW
+     ============================ */
+  .results-section {
+    background: var(--surface);
+    padding: 64px 24px;
+  }
+
+  .results-container {
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  .results-header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .results-header h2 {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+
+  .overall-score {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 48px;
+  }
+
+  .score-ring {
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    background: conic-gradient(var(--warning) 0deg, var(--warning) 216deg, var(--neutral-100) 216deg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .score-ring-inner {
+    width: 128px;
+    height: 128px;
+    border-radius: 50%;
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .score-number {
+    font-size: 42px;
+    font-weight: 800;
+    color: var(--neutral-900);
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  .score-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--neutral-400);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* Dimension scores */
+  .dimensions {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+
+  .dim-card {
+    padding: 16px 20px;
+    background: var(--neutral-50);
+    border-radius: var(--radius);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .dim-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .dim-icon {
+    font-size: 18px;
+  }
+
+  .dim-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--neutral-700);
+  }
+
+  .dim-score {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+
+  .dim-score.high { color: var(--success); }
+  .dim-score.mid { color: var(--warning); }
+  .dim-score.low { color: var(--error); }
+
+  /* CTA */
+  .results-cta {
+    text-align: center;
+    padding: 40px;
+    background: linear-gradient(135deg, var(--primary-50), #EEF2FF);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--primary-100);
+  }
+
+  .results-cta h3 {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--neutral-900);
+  }
+
+  .results-cta p {
+    font-size: 15px;
+    color: var(--neutral-500);
+    margin-bottom: 24px;
+  }
+
+  .btn-cta {
+    display: inline-flex;
+    padding: 14px 32px;
+    background: var(--primary-500);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 15px;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.2s;
+  }
+
+  .btn-cta:hover { background: var(--primary-600); }
+</style>
+</head>
+<body>
+
+<!-- =============================================
+     OPTION A: REFINED & CONFIDENT
+     Clean lines, subtle gradients, calm authority.
+     ============================================= -->
+
+<!-- ===== HOMEPAGE ===== -->
+<section class="hero">
+  <nav class="nav">
+    <div class="logo">Page<span>Refresh</span></div>
+    <div class="nav-links">
+      <a href="#">How it works</a>
+      <a href="#">Pricing</a>
+      <a href="#">Examples</a>
+    </div>
+  </nav>
+
+  <div class="hero-content">
+    <div class="badge">
+      <span class="dot"></span>
+      AI-Powered Design Analysis
+    </div>
+
+    <h1>Your homepage, <span class="accent">scored and redesigned</span> in 5 minutes</h1>
+
+    <p class="subtitle">Get an expert-level audit across 8 design dimensions plus 3 fresh layout concepts — all generated by AI, instantly.</p>
+
+    <div class="input-group">
+      <input type="text" placeholder="Enter your website URL..." value="https://acme.com">
+      <button class="btn-primary">Analyze Now</button>
+    </div>
+
+    <div class="social-proof">
+      <div class="avatars">
+        <div class="avatar" style="background:#6366F1">JK</div>
+        <div class="avatar" style="background:#EC4899">SM</div>
+        <div class="avatar" style="background:#F59E0B">RA</div>
+        <div class="avatar" style="background:#10B981">TL</div>
+        <div class="avatar" style="background:#8B5CF6">DP</div>
+      </div>
+      <p><strong>2,400+</strong> websites analyzed this month</p>
+    </div>
+  </div>
+</section>
+
+<div class="value-strip">
+  <div class="value-item">
+    <div class="icon-wrap" style="background:rgba(59,130,246,0.1); color:#3B82F6;">
+      <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+    </div>
+    <h3>5-Minute Delivery</h3>
+    <p>Full analysis with 3 layout options, ready to review.</p>
+  </div>
+  <div class="value-item">
+    <div class="icon-wrap" style="background:rgba(16,185,129,0.1); color:#10B981;">
+      <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></svg>
+    </div>
+    <h3>8 Dimensions</h3>
+    <p>Clarity, visual, hierarchy, trust, conversion & more.</p>
+  </div>
+  <div class="value-item">
+    <div class="icon-wrap" style="background:rgba(139,92,246,0.1); color:#8B5CF6;">
+      <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+    </div>
+    <h3>3 Redesigns</h3>
+    <p>Modern, Classy, and Unique — HTML & CSS included.</p>
+  </div>
+</div>
+
+<!-- ===== SECTION DIVIDER ===== -->
+<div class="section-divider">Analysis In Progress View</div>
+
+<!-- ===== ANALYSIS PROGRESS ===== -->
+<section class="analysis-section">
+  <div class="analysis-header">
+    <div class="analyzing-url">
+      <span class="spinner"></span>
+      Analyzing acme.com
+    </div>
+    <h2>We're building your refresh</h2>
+    <p>Sit tight — our AI agents are working through your homepage now.</p>
+  </div>
+
+  <div class="progress-container">
+    <!-- Overall progress -->
+    <div class="overall-progress">
+      <div class="overall-progress-header">
+        <span>Overall Progress</span>
+        <div class="countdown">3:42</div>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" style="width: 55%"></div>
+      </div>
+    </div>
+
+    <!-- Step 1: Structure — Done -->
+    <div class="step-card done">
+      <div class="step-header">
+        <div class="step-left">
+          <div class="step-icon">
+            <svg width="20" height="20" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+          </div>
+          <div>
+            <div class="step-name">Structure</div>
+            <div class="step-desc">Page layout & hero analysis</div>
+          </div>
+        </div>
+        <span class="step-status done">Done</span>
+      </div>
+      <div class="step-details">
+        <div class="detail-chip">
+          <div class="label">Hero</div>
+          <div class="value">Detected</div>
+        </div>
+        <div class="detail-chip">
+          <div class="label">Sections</div>
+          <div class="value">7 found</div>
+        </div>
+        <div class="detail-chip">
+          <div class="label">Logo</div>
+          <div class="value">SVG, top-left</div>
+        </div>
+        <div class="detail-chip">
+          <div class="label">CTA</div>
+          <div class="value">2 primary</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: SEO — Done -->
+    <div class="step-card done">
+      <div class="step-header">
+        <div class="step-left">
+          <div class="step-icon">
+            <svg width="20" height="20" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+          </div>
+          <div>
+            <div class="step-name">SEO</div>
+            <div class="step-desc">Search engine optimization check</div>
+          </div>
+        </div>
+        <span class="step-status done">Done</span>
+      </div>
+      <div class="step-details">
+        <div class="detail-chip">
+          <div class="label">Title Tag</div>
+          <div class="value">Present, 52 chars</div>
+        </div>
+        <div class="detail-chip">
+          <div class="label">Meta Desc</div>
+          <div class="value">Present, 148 chars</div>
+        </div>
+        <div class="detail-chip">
+          <div class="label">SEO Score</div>
+          <div class="value" style="color: var(--success);">82 / 100</div>
+        </div>
+        <div class="detail-chip">
+          <div class="label">Issues</div>
+          <div class="value" style="color: var(--warning);">3 minor</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: Colors — Active -->
+    <div class="step-card active">
+      <div class="step-header">
+        <div class="step-left">
+          <div class="step-icon">
+            <svg width="20" height="20" fill="none" stroke="var(--primary-500)" stroke-width="2" stroke-linecap="round"><circle cx="10" cy="10" r="7"/><circle cx="10" cy="10" r="3"/></svg>
+          </div>
+          <div>
+            <div class="step-name">Colors</div>
+            <div class="step-desc">Extracting color palette</div>
+          </div>
+        </div>
+        <span class="step-status active">Working...</span>
+      </div>
+      <div class="step-details">
+        <div class="detail-chip" style="grid-column: span 2;">
+          <div class="label">Palette detected</div>
+          <div class="color-row">
+            <div class="swatch" style="background:#1E3A5F"></div>
+            <div class="swatch" style="background:#3B82F6"></div>
+            <div class="swatch" style="background:#F8FAFC"></div>
+            <div class="swatch" style="background:#F59E0B"></div>
+            <div class="swatch" style="background:#1F2937"></div>
+            <div class="swatch" style="background:#E5E7EB; opacity:0.4"></div>
+          </div>
+        </div>
+        <div class="detail-chip">
+          <div class="label">Primary</div>
+          <div class="value">#1E3A5F</div>
+        </div>
+        <div class="detail-chip">
+          <div class="label">Accent</div>
+          <div class="value">#F59E0B</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 4: Fonts — Upcoming -->
+    <div class="step-card upcoming">
+      <div class="step-header">
+        <div class="step-left">
+          <div class="step-icon">
+            <svg width="20" height="20" fill="none" stroke="var(--neutral-400)" stroke-width="2" stroke-linecap="round"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+          </div>
+          <div>
+            <div class="step-name">Fonts</div>
+            <div class="step-desc">Typography detection</div>
+          </div>
+        </div>
+        <span class="step-status upcoming">Up next</span>
+      </div>
+    </div>
+
+    <!-- Step 5: Layouts — Upcoming -->
+    <div class="step-card upcoming">
+      <div class="step-header">
+        <div class="step-left">
+          <div class="step-icon">
+            <svg width="20" height="20" fill="none" stroke="var(--neutral-400)" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="14" height="14" rx="2"/><path d="M3 9h14"/><path d="M9 17V9"/></svg>
+          </div>
+          <div>
+            <div class="step-name">Layouts</div>
+            <div class="step-desc">Generating 3 design alternatives</div>
+          </div>
+        </div>
+        <span class="step-status upcoming">Up next</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SECTION DIVIDER ===== -->
+<div class="section-divider">Results Preview</div>
+
+<!-- ===== RESULTS ===== -->
+<section class="results-section">
+  <div class="results-container">
+    <div class="results-header">
+      <h2>Your PageRefresh is ready</h2>
+      <p style="color: var(--neutral-500); font-size: 15px;">Here's how acme.com scored across 8 design dimensions.</p>
+    </div>
+
+    <div class="overall-score">
+      <div class="score-ring">
+        <div class="score-ring-inner">
+          <div class="score-number">60</div>
+          <div class="score-label">Overall</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dimensions">
+      <div class="dim-card">
+        <div class="dim-left"><span class="dim-icon">&#9678;</span><span class="dim-name">Clarity</span></div>
+        <span class="dim-score mid">58</span>
+      </div>
+      <div class="dim-card">
+        <div class="dim-left"><span class="dim-icon">&#9733;</span><span class="dim-name">Visual</span></div>
+        <span class="dim-score mid">62</span>
+      </div>
+      <div class="dim-card">
+        <div class="dim-left"><span class="dim-icon">&#9776;</span><span class="dim-name">Hierarchy</span></div>
+        <span class="dim-score high">74</span>
+      </div>
+      <div class="dim-card">
+        <div class="dim-left"><span class="dim-icon">&#9889;</span><span class="dim-name">Trust</span></div>
+        <span class="dim-score mid">55</span>
+      </div>
+      <div class="dim-card">
+        <div class="dim-left"><span class="dim-icon">&#10148;</span><span class="dim-name">Conversion</span></div>
+        <span class="dim-score low">42</span>
+      </div>
+      <div class="dim-card">
+        <div class="dim-left"><span class="dim-icon">&#9998;</span><span class="dim-name">Content</span></div>
+        <span class="dim-score high">71</span>
+      </div>
+      <div class="dim-card">
+        <div class="dim-left"><span class="dim-icon">&#9743;</span><span class="dim-name">Mobile</span></div>
+        <span class="dim-score mid">65</span>
+      </div>
+      <div class="dim-card">
+        <div class="dim-left"><span class="dim-icon">&#9889;</span><span class="dim-name">Performance</span></div>
+        <span class="dim-score mid">53</span>
+      </div>
+    </div>
+
+    <div class="results-cta">
+      <h3>Ready to bring these designs to life?</h3>
+      <p>Get a quote for full implementation of any layout option.</p>
+      <a href="#" class="btn-cta">Get a Quote</a>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

@@ -74,6 +74,7 @@ export default function Home() {
     setError("");
     setUrlFieldHint(false);
     setIsPreflightInProgress(true);
+    let analyzeUrl = normalized;
 
     // Pre-flight: server checks URL is reachable and not bot-blocked. No progress UI until this succeeds.
     try {
@@ -86,6 +87,7 @@ export default function Home() {
         ok?: boolean;
         error?: string;
         errorDetail?: string;
+        resolvedUrl?: string;
       };
       if (!preflightData.ok) {
         const main = preflightData.error ?? "We couldn't reach this website. Check the URL and try again.";
@@ -93,6 +95,8 @@ export default function Home() {
         setError(main + detail);
         return;
       }
+      // Use the URL that preflight successfully reached (may be HTTP fallback)
+      analyzeUrl = preflightData.resolvedUrl ?? normalized;
     } catch {
       setError("Pre-flight check failed. Please try again.");
       return;
@@ -116,7 +120,7 @@ export default function Home() {
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-        body: JSON.stringify({ url: normalized }),
+        body: JSON.stringify({ url: analyzeUrl }),
       });
 
       if (!res.ok) {

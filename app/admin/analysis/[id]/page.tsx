@@ -100,6 +100,22 @@ export default async function AdminAnalysisPage({
           </CardContent>
         </Card>
 
+        {/* Error details (only shown when errors exist) */}
+        {refresh.errorMessage && (
+          <Card className="mb-6 border-destructive/50">
+            <CardHeader>
+              <CardTitle className="text-base text-destructive">Error Details</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm space-y-1">
+              {refresh.errorStep && (
+                <p><span className="text-muted-foreground">Step:</span> {refresh.errorStep}</p>
+              )}
+              <p><span className="text-muted-foreground">Message:</span> {refresh.errorMessage}</p>
+              <p><span className="text-muted-foreground">Status:</span> {refresh.status}</p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Overall score */}
         <Card className="mb-6">
           <CardHeader>

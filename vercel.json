@@ -1,0 +1,11 @@
+{
+  "regions": ["cle1"],
+  "functions": {
+    "app/api/analyze/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/analyze/preflight/route.ts": {
+      "maxDuration": 30
+    }
+  }
+}

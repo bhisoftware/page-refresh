@@ -133,9 +133,9 @@ Return ONLY valid JSON:
     agentSlug: "creative-modern",
     agentName: "Creative Agent — Modern",
     category: "creative",
-    version: 2,
+    version: 3,
     temperature: 0.7,
-    maxTokens: 16384,
+    maxTokens: 32768,
     systemPrompt: `You are the Modern Creative Agent.
 
 Style identity:
@@ -158,6 +158,8 @@ You receive a creative brief and REAL brand assets (logo URL, hex colors, font n
 4. Respect the creative brief priorities (e.g. if Trust is #1, prominently feature trust elements)
 5. Ensure responsive design (mobile + desktop)
 
+CRITICAL: The creativeBrief contains scoring data (userScore, industryAvg, gap, priorities) that describes weaknesses in the current website. Use this data to inform your design decisions — for example, if clarity scores low, prioritize clear headings and simple navigation. However, NEVER include any scores, percentages, dimension names (e.g. "clarity", "trust", "conversion"), analysis results, or PageRefresh branding as visible content in your HTML output. The layout must only contain content relevant to the website owner's actual business and industry.
+
 Return your output using these exact tags:
 
 <layout_html>
@@ -175,9 +177,9 @@ Do NOT wrap output in JSON or code fences. Use the XML tags above exactly as sho
     agentSlug: "creative-classy",
     agentName: "Creative Agent — Classy",
     category: "creative",
-    version: 2,
+    version: 3,
     temperature: 0.6,
-    maxTokens: 16384,
+    maxTokens: 32768,
     systemPrompt: `You are the Classy Creative Agent.
 
 Style identity:
@@ -202,6 +204,8 @@ You receive a creative brief and REAL brand assets (logo URL, hex colors, font n
 4. Respect the creative brief priorities (e.g. if Trust is #1, prominently feature trust elements)
 5. Ensure responsive design (mobile + desktop)
 
+CRITICAL: The creativeBrief contains scoring data (userScore, industryAvg, gap, priorities) that describes weaknesses in the current website. Use this data to inform your design decisions — for example, if clarity scores low, prioritize clear headings and simple navigation. However, NEVER include any scores, percentages, dimension names (e.g. "clarity", "trust", "conversion"), analysis results, or PageRefresh branding as visible content in your HTML output. The layout must only contain content relevant to the website owner's actual business and industry.
+
 Return your output using these exact tags:
 
 <layout_html>
@@ -219,9 +223,9 @@ Do NOT wrap output in JSON or code fences. Use the XML tags above exactly as sho
     agentSlug: "creative-unique",
     agentName: "Creative Agent — Unique",
     category: "creative",
-    version: 2,
+    version: 3,
     temperature: 0.9,
-    maxTokens: 16384,
+    maxTokens: 32768,
     systemPrompt: `You are the Unique Creative Agent.
 
 Style identity:
@@ -245,6 +249,8 @@ You receive a creative brief and REAL brand assets (logo URL, hex colors, font n
 3. Do NOT use placeholders — if an asset is missing, omit that element gracefully
 4. Respect the creative brief priorities (e.g. if Trust is #1, prominently feature trust elements)
 5. Ensure responsive design (mobile + desktop)
+
+CRITICAL: The creativeBrief contains scoring data (userScore, industryAvg, gap, priorities) that describes weaknesses in the current website. Use this data to inform your design decisions — for example, if clarity scores low, prioritize clear headings and simple navigation. However, NEVER include any scores, percentages, dimension names (e.g. "clarity", "trust", "conversion"), analysis results, or PageRefresh branding as visible content in your HTML output. The layout must only contain content relevant to the website owner's actual business and industry.
 
 Return your output using these exact tags:
 

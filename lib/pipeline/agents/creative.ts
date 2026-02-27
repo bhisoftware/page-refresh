@@ -57,7 +57,7 @@ export async function runCreativeAgent(
   const apiKey = await getApiKey("anthropic");
   const client = new Anthropic({ apiKey });
   const model = skill.modelOverride ?? "claude-sonnet-4-20250514";
-  const maxTokens = skill.maxTokens ?? 16384;
+  const maxTokens = skill.maxTokens ?? 32768;
   const temperature = skill.temperature ?? 0.7;
 
   const userContent = JSON.stringify(input, null, 2);
@@ -74,6 +74,13 @@ export async function runCreativeAgent(
       }),
     { onRetry }
   );
+
+  if (response.stop_reason === "max_tokens") {
+    console.warn(
+      `[creative] ${slug} hit max_tokens (${maxTokens}). Output likely truncated. ` +
+      `Tokens used: ${response.usage?.output_tokens ?? "unknown"}`
+    );
+  }
 
   const text = extractText(response);
   const stepName = slug.replace(/-/g, "_") as "creative_modern" | "creative_classy" | "creative_unique";
