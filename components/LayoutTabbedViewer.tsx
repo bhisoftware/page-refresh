@@ -18,7 +18,6 @@ const EXPORT_PLATFORMS = [
 interface LayoutTabbedViewerProps {
   refreshId: string;
   viewToken: string;
-  /** 1-3 layouts */
   layouts: LayoutItem[];
 }
 
@@ -51,10 +50,10 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts }: LayoutTabb
     <>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         {layouts.length > 1 && (
-          <TabsList className="mb-2">
+          <TabsList className="mb-2 mx-auto flex w-fit">
             {layouts.map((_, i) => (
-              <TabsTrigger key={i + 1} value={String(i + 1)}>
-                Option {i + 1}
+              <TabsTrigger key={i + 1} value={String(i + 1)} className="px-8">
+                Layout {i + 1}
               </TabsTrigger>
             ))}
           </TabsList>
