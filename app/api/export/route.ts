@@ -1,7 +1,7 @@
 /**
  * POST /api/export
- * Body: { refreshId, layoutIndex (1-6, optional), platform, token }
- * Returns: ZIP file as binary download (full page = all 6 sections combined).
+ * Body: { refreshId, layoutIndex (1-3, optional), platform, token }
+ * Returns: ZIP file as binary download (full page = all 3 sections combined).
  * Auth: viewToken (same as results page).
  */
 
@@ -35,12 +35,6 @@ export async function POST(request: Request) {
         layout2Css: true,
         layout3Html: true,
         layout3Css: true,
-        layout4Html: true,
-        layout4Css: true,
-        layout5Html: true,
-        layout5Css: true,
-        layout6Html: true,
-        layout6Css: true,
       },
     });
 
@@ -48,11 +42,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const htmlKeys = ["layout1Html", "layout2Html", "layout3Html", "layout4Html", "layout5Html", "layout6Html"] as const;
-    const cssKeys = ["layout1Css", "layout2Css", "layout3Css", "layout4Css", "layout5Css", "layout6Css"] as const;
+    const htmlKeys = ["layout1Html", "layout2Html", "layout3Html"] as const;
+    const cssKeys = ["layout1Css", "layout2Css", "layout3Css"] as const;
     const fullPageParts: string[] = [];
     const fullPageCssParts: string[] = [];
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 3; i++) {
       const html = (refresh[htmlKeys[i]] ?? "") as string;
       if (!html?.trim()) continue;
       fullPageParts.push(html.trim());

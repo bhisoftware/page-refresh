@@ -16,7 +16,7 @@ const EXPORT_PLATFORMS = [
 ] as const;
 
 interface LayoutCardProps {
-  layoutIndex: 1 | 2 | 3 | 4 | 5 | 6;
+  layoutIndex: 1 | 2 | 3;
   templateName: string;
   layoutHtml: string;
   layoutCss: string;

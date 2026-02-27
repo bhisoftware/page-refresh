@@ -46,27 +46,12 @@ export type PublicRefresh = Pick<
   | "layout3Template"
   | "layout3CopyRefreshed"
   | "layout3Rationale"
-  | "layout4Html"
-  | "layout4Css"
-  | "layout4Template"
-  | "layout4CopyRefreshed"
-  | "layout5Html"
-  | "layout5Css"
-  | "layout5Template"
-  | "layout5CopyRefreshed"
-  | "layout6Html"
-  | "layout6Css"
-  | "layout6Template"
-  | "layout6CopyRefreshed"
   | "selectedLayout"
   | "quoteRequested"
   | "installRequested"
   | "createdAt"
   | "processingTime"
   | "benchmarkComparison"
-  | "layout1Rationale"
-  | "layout2Rationale"
-  | "layout3Rationale"
 >;
 
 /**
@@ -114,18 +99,6 @@ export function serializeRefreshForPublic(refresh: Refresh): PublicRefresh {
     layout3Template: refresh.layout3Template,
     layout3CopyRefreshed: refresh.layout3CopyRefreshed,
     layout3Rationale: refresh.layout3Rationale,
-    layout4Html: refresh.layout4Html,
-    layout4Css: refresh.layout4Css,
-    layout4Template: refresh.layout4Template,
-    layout4CopyRefreshed: refresh.layout4CopyRefreshed,
-    layout5Html: refresh.layout5Html,
-    layout5Css: refresh.layout5Css,
-    layout5Template: refresh.layout5Template,
-    layout5CopyRefreshed: refresh.layout5CopyRefreshed,
-    layout6Html: refresh.layout6Html,
-    layout6Css: refresh.layout6Css,
-    layout6Template: refresh.layout6Template,
-    layout6CopyRefreshed: refresh.layout6CopyRefreshed,
     selectedLayout: refresh.selectedLayout,
     quoteRequested: refresh.quoteRequested,
     installRequested: refresh.installRequested,

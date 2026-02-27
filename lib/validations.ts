@@ -14,7 +14,7 @@ export const analyzeSchema = z
 
 export const requestQuoteSchema = z.object({
   refreshId: z.string().cuid("Invalid analysis ID"),
-  layoutIndex: z.number().int().min(1).max(6).optional(),
+  layoutIndex: z.number().int().min(1).max(3).optional(),
   email: z.string().email("Invalid email").max(255),
   phone: z.string().max(20).optional(),
   notes: z.string().max(5000).optional(),
@@ -23,7 +23,7 @@ export const requestQuoteSchema = z.object({
 
 export const requestInstallSchema = z.object({
   refreshId: z.string().cuid("Invalid analysis ID"),
-  layoutIndex: z.number().int().min(1).max(6).optional(),
+  layoutIndex: z.number().int().min(1).max(3).optional(),
   email: z.string().email("Invalid email").max(255),
   phone: z.string().max(20),
   hostingPlatform: z.string().max(50).optional(),
@@ -34,7 +34,7 @@ export const requestInstallSchema = z.object({
 
 export const exportSchema = z.object({
   refreshId: z.string().cuid("Invalid analysis ID"),
-  layoutIndex: z.number().int().min(1).max(6).optional(),
+  layoutIndex: z.number().int().min(1).max(3).optional(),
   platform: z.enum(["html", "wordpress", "squarespace", "wix"]),
   token: z.string().min(1, "Token is required"),
 });

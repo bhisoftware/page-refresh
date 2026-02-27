@@ -63,21 +63,8 @@ model Refresh {
   layout3Template   String
   layout3CopyRefreshed String @db.Text
 
-  layout4Html       String   @db.Text  @default("")
-  layout4Css        String   @db.Text  @default("")
-  layout4Template   String   @default("")
-  layout4CopyRefreshed String @db.Text @default("")
-  layout5Html       String   @db.Text  @default("")
-  layout5Css        String   @db.Text  @default("")
-  layout5Template   String   @default("")
-  layout5CopyRefreshed String @db.Text @default("")
-  layout6Html       String   @db.Text  @default("")
-  layout6Css        String   @db.Text  @default("")
-  layout6Template   String   @default("")
-  layout6CopyRefreshed String @db.Text @default("")
-
   // Lead Capture
-  selectedLayout    Int?     // 1-6 (if user selected one)
+  selectedLayout    Int?     // 1-3 (if user selected one)
   quoteRequested    Boolean  @default(false)
   installRequested  Boolean  @default(false)
   contactEmail      String?
@@ -87,6 +74,8 @@ model Refresh {
 
   // Pipeline status
   status            String   @default("pending")  // pending | fetching | analyzing | scoring | generating | complete | failed
+  errorMessage      String?  @db.Text  // Last error message from pipeline
+  errorStep         String?             // Which step failed: preflight | fetching | analyzing | scoring | generating
 
   // Metadata
   createdAt         DateTime @default(now())

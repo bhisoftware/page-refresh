@@ -159,18 +159,6 @@ const DEFAULT_REFRESH_PLACEHOLDER = {
   layout3Css: "",
   layout3Template: "pending",
   layout3CopyRefreshed: "",
-  layout4Html: "",
-  layout4Css: "",
-  layout4Template: "",
-  layout4CopyRefreshed: "",
-  layout5Html: "",
-  layout5Css: "",
-  layout5Template: "",
-  layout5CopyRefreshed: "",
-  layout6Html: "",
-  layout6Css: "",
-  layout6Template: "",
-  layout6CopyRefreshed: "",
 };
 
 export async function runAnalysis(options: PipelineOptions): Promise<string> {
@@ -179,6 +167,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   const rawUrl = url.startsWith("http") ? url : `https://${url}`;
   console.log("[pipeline] starting", { url: rawUrl });
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const onRetry = (_delayMs: number) =>
     onProgress?.({ step: "generating", message: "Still working on your designs..." });
 
@@ -259,7 +248,10 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[pipeline] Step 1 failed:", msg);
     onProgress?.({ step: "error", message: msg });
-    await prisma.refresh.update({ where: { id: refreshId }, data: { status: "failed" } }).catch(() => {});
+    await prisma.refresh.update({
+      where: { id: refreshId },
+      data: { status: "failed", errorStep: "analyzing", errorMessage: msg.slice(0, 2000) },
+    }).catch(() => {});
     throw err;
   }
 
@@ -468,7 +460,22 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   const successCount = layouts.filter(Boolean).length;
   if (successCount === 0) {
     console.error("[pipeline] All 3 Creative Agents failed. Saving scores/SEO/benchmarks without layouts.");
+    await prisma.refresh.update({
+      where: { id: refreshId },
+      data: { errorStep: "generating", errorMessage: "All 3 creative agents failed" },
+    }).catch(() => {});
     onProgress?.({ step: "error", message: "Layout generation was unable to complete. Your scores and audit are still saved below." });
+  } else if (successCount < 3) {
+    const failedSlugs = creativeSlugs.filter((_, i) => creativeResults[i].status === "rejected");
+    const failedCount = 3 - successCount;
+    console.warn(`[pipeline] ${failedCount} of 3 creative agents failed: ${failedSlugs.join(", ")}`);
+    await prisma.refresh.update({
+      where: { id: refreshId },
+      data: {
+        errorStep: "generating",
+        errorMessage: `${failedCount} of 3 creative agents failed: ${failedSlugs.join(", ")}`,
+      },
+    }).catch(() => {});
   }
 
   // --- Step 4: Finalize ---
