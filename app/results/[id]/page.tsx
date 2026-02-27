@@ -1,6 +1,5 @@
 import { notFound, forbidden } from "next/navigation";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LayoutSection } from "@/components/LayoutSection";
 import { LayoutSectionErrorBoundary } from "@/components/LayoutSectionErrorBoundary";
 import { ScoreBreakdown, type DimensionDetail } from "@/components/ScoreBreakdown";
@@ -8,7 +7,6 @@ import { SeoAuditSection, type SeoCheckItem, type SeoRecommendation } from "@/co
 import { BenchmarkComparison, type BenchmarkComparisonData } from "@/components/BenchmarkComparison";
 import { InstallCtaCard } from "@/components/InstallCtaCard";
 import { ArrowLeft } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
 
 async function getRefresh(id: string) {
@@ -64,18 +62,39 @@ async function getRefresh(id: string) {
   });
 }
 
-function scoreTagline(score: number): string {
-  if (score <= 40) return "Your homepage has significant room for improvement.";
-  if (score <= 60) return "Your homepage is okay but could be stronger.";
-  if (score <= 80) return "Your homepage is in good shape with some room to grow.";
-  return "Your homepage is in great shape.";
+const DIMENSION_LABELS: Record<string, string> = {
+  clarity: "clarity",
+  visual: "visual quality",
+  hierarchy: "information hierarchy",
+  trust: "trust & credibility",
+  conversion: "conversion & actionability",
+  content: "content quality",
+  mobile: "mobile experience",
+  performance: "performance & technical",
+};
+
+function scoreHeadline(score: number): string {
+  if (score <= 40) return "Needs work";
+  if (score <= 60) return "Room to grow";
+  if (score <= 80) return "Looking strong";
+  return "Excellent";
 }
 
-function scoreColorClass(score: number): string {
-  if (score <= 40) return "text-destructive";
-  if (score <= 60) return "text-amber-600 dark:text-amber-400";
-  if (score <= 80) return "text-green-600 dark:text-green-400";
-  return "text-blue-600 dark:text-blue-400";
+function buildSummaryText(
+  score: number,
+  details: DimensionDetail[]
+): string {
+  if (!details.length) {
+    if (score <= 40) return "Your homepage has significant room for improvement.";
+    if (score <= 60) return "Your homepage is okay but could be stronger.";
+    if (score <= 80) return "Your homepage is in good shape with some room to grow.";
+    return "Your homepage is in great shape.";
+  }
+  const sorted = [...details].sort((a, b) => a.score - b.score);
+  const lowest = sorted.slice(0, 2).map(
+    (d) => DIMENSION_LABELS[d.dimension] ?? d.dimension
+  );
+  return `Your homepage has a solid foundation but underperforms in ${lowest[0]} and ${lowest[1]}. Our layout alternatives address these gaps directly.`;
 }
 
 export default async function ResultsPage({
@@ -130,9 +149,11 @@ export default async function ResultsPage({
   const layoutsWithContent = layoutRows.filter((r) => r.layoutHtml?.trim());
   const hasLayouts = layoutsWithContent.length > 0;
 
+  const summaryText = buildSummaryText(overallScore, scoringDetails);
+
   return (
-    <main className="min-h-screen bg-background">
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-slate-50">
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
         <Link
           href="/"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8"
@@ -141,48 +162,66 @@ export default async function ResultsPage({
           Back to home
         </Link>
 
-        {/* Overall Score */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="text-lg text-muted-foreground">
-              Overall score
-            </CardTitle>
-            {(refresh.url ?? refresh.targetWebsite) && (
-              <p className="text-sm text-muted-foreground font-normal mt-1 break-all">
-                {refresh.url ?? refresh.targetWebsite}
-              </p>
-            )}
-          </CardHeader>
-          <CardContent>
-            <p
-              className={cn(
-                "text-5xl font-bold tabular-nums",
-                scoreColorClass(overallScore)
-              )}
-            >
-              {overallScore}/100
-            </p>
-            <p className="mt-2 text-muted-foreground">
-              {scoreTagline(overallScore)}
-            </p>
-          </CardContent>
-        </Card>
+        {/* Score Hero Card */}
+        <div className="bg-white rounded-2xl shadow-sm p-10 mb-8 flex flex-col sm:flex-row items-center gap-10">
+          {/* Score Ring */}
+          <div
+            className="w-40 h-40 rounded-full flex items-center justify-center flex-shrink-0"
+            style={{
+              background: `conic-gradient(
+                #4F46E5 0deg,
+                #06B6D4 ${(overallScore / 100) * 240}deg,
+                #F59E0B ${(overallScore / 100) * 360}deg,
+                #E2E8F0 ${(overallScore / 100) * 360}deg
+              )`,
+            }}
+          >
+            <div className="w-32 h-32 rounded-full bg-white flex flex-col items-center justify-center">
+              <span className="text-5xl font-black tracking-tighter leading-none text-slate-900">
+                {overallScore}
+              </span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                Overall
+              </span>
+            </div>
+          </div>
 
-        {/* Summary message */}
-        <Card className="mb-8">
-          <CardContent className="pt-6">
-            <p className="text-foreground leading-relaxed text-center">
-              Your homepage design scores {overallScore}/100.
-              {hasLayouts
-                ? " Compared to web standards, here are 3 homepage refresh directions that address the gaps we found:"
-                : " Layout generation was unable to complete for this run; your scores and audit below are still valid. You can try another refresh or use the options above."}
+          {/* Summary */}
+          <div className="flex-1 text-center sm:text-left">
+            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight mb-2">
+              {scoreHeadline(overallScore)}
+            </h2>
+            <p className="text-sm text-slate-500 leading-relaxed mb-4">
+              {summaryText}
             </p>
-          </CardContent>
-        </Card>
+            {refresh.benchmarkComparison != null && (
+              <span className="inline-block bg-indigo-50 text-indigo-700 rounded-lg px-3 py-1.5 text-sm font-semibold">
+                Top {((refresh.benchmarkComparison as { percentile?: number })?.percentile) ?? 50}th percentile in {refresh.industryDetected ?? "your industry"}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Layout cards */}
+        {hasLayouts ? (
+          <LayoutSectionErrorBoundary>
+            <LayoutSection refreshId={id} viewToken={token!} layouts={layoutsWithContent} />
+          </LayoutSectionErrorBoundary>
+        ) : (
+          <section className="mb-10 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 p-6">
+            <h2 className="text-xl font-semibold mb-4">Choose a layout</h2>
+            <p className="text-muted-foreground">
+              Layout generation was unable to complete for this refresh. Your
+              scores, benchmark comparison, and SEO audit above are still
+              valid. Try running another refresh, or check that the creative
+              agents (AgentSkill records) are seeded and active.
+            </p>
+          </section>
+        )}
 
         {/* Score breakdown */}
         <section className="mb-10">
-          <h2 className="text-xl font-semibold mb-4">Score by dimension</h2>
+          <h2 className="text-lg font-bold text-slate-900 tracking-tight mb-4">Score by dimension</h2>
           <ScoreBreakdown details={scoringDetails} />
         </section>
 
@@ -209,23 +248,6 @@ export default async function ResultsPage({
           checks={((refresh.seoAudit as { checks?: SeoCheckItem[] })?.checks ?? []) as SeoCheckItem[]}
           recommendations={((refresh.seoAudit as { recommendations?: SeoRecommendation[] })?.recommendations ?? []) as SeoRecommendation[]}
         />
-
-        {/* Layout cards */}
-        {hasLayouts ? (
-          <LayoutSectionErrorBoundary>
-            <LayoutSection refreshId={id} viewToken={token!} layouts={layoutsWithContent} />
-          </LayoutSectionErrorBoundary>
-        ) : (
-          <section className="mb-10 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 p-6">
-            <h2 className="text-xl font-semibold mb-4">Choose a layout</h2>
-            <p className="text-muted-foreground">
-              Layout generation was unable to complete for this refresh. Your
-              scores, benchmark comparison, and SEO audit above are still
-              valid. Try running another refresh, or check that the creative
-              agents (AgentSkill records) are seeded and active.
-            </p>
-          </section>
-        )}
 
         {/* Install CTA */}
         <InstallCtaCard refreshId={id} />

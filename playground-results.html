@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PageRefresh Results Page — Playground</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --page-bg: #f8fafc;
+    --card-bg: #ffffff;
+    --card-border: #e2e8f0;
+    --fg: #0f172a;
+    --fg-secondary: #334155;
+    --muted: #64748b;
+    --muted-light: #94a3b8;
+    --red: #ef4444;
+    --amber: #f59e0b;
+    --emerald: #10b981;
+    --blue: #3b82f6;
+    --indigo: #4f46e5;
+    --cyan: #06b6d4;
+    --radius: 16px;
+    --radius-sm: 8px;
+    /* sidebar stays dark */
+    --sb-bg: #0d0d0f;
+    --sb-border: #27272a;
+    --sb-fg: #fafafa;
+    --sb-muted: #a1a1aa;
+    --accent: #4f46e5;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--sb-bg);
+    color: var(--fg);
+    line-height: 1.5;
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* ── Sidebar Controls ── */
+  .sidebar {
+    width: 280px;
+    min-width: 280px;
+    background: var(--sb-bg);
+    border-right: 1px solid var(--sb-border);
+    padding: 20px 16px;
+    overflow-y: auto;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    color: var(--sb-fg);
+  }
+  .sidebar h2 {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--sb-muted);
+    margin-bottom: 16px;
+  }
+  .control-group { margin-bottom: 20px; }
+  .control-group label {
+    display: block;
+    font-size: 12px;
+    color: var(--sb-muted);
+    margin-bottom: 6px;
+  }
+  .control-group .value {
+    float: right;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    color: var(--sb-fg);
+  }
+  input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+  }
+  .toggle-row span { font-size: 13px; color: var(--sb-fg); }
+  .toggle {
+    position: relative; width: 40px; height: 22px;
+    background: #333; border-radius: 11px; cursor: pointer; transition: background 0.2s;
+  }
+  .toggle.on { background: var(--accent); }
+  .toggle::after {
+    content: ''; position: absolute; top: 2px; left: 2px;
+    width: 18px; height: 18px; background: white; border-radius: 50%; transition: transform 0.2s;
+  }
+  .toggle.on::after { transform: translateX(18px); }
+  .divider { border: none; border-top: 1px solid var(--sb-border); margin: 16px 0; }
+
+  .prompt-label {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--sb-muted); margin-bottom: 8px;
+  }
+  .prompt-box {
+    background: #18181b; border: 1px solid var(--sb-border); border-radius: var(--radius-sm);
+    padding: 16px; font-size: 12px; color: var(--sb-fg);
+    line-height: 1.6; white-space: pre-wrap; min-height: 80px; position: relative;
+  }
+  .copy-btn {
+    position: absolute; top: 8px; right: 8px; padding: 4px 12px; font-size: 12px;
+    background: var(--sb-bg); border: 1px solid var(--sb-border); border-radius: var(--radius-sm);
+    color: var(--sb-muted); cursor: pointer;
+  }
+  .copy-btn:hover { color: var(--sb-fg); border-color: #555; }
+
+  /* ── Preview Area ── */
+  .preview-area {
+    flex: 1;
+    overflow-y: auto;
+    height: 100vh;
+    background: var(--page-bg);
+  }
+
+  .results-page {
+    max-width: 896px;
+    margin: 0 auto;
+    padding: 32px 24px 64px;
+  }
+
+  /* ── Back Link ── */
+  .back-link {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 14px; color: var(--muted); text-decoration: none;
+    margin-bottom: 32px; cursor: pointer;
+  }
+  .back-link:hover { color: var(--fg); }
+  .back-link svg { width: 16px; height: 16px; }
+
+  /* ── Score Hero Card ── */
+  .hero-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    padding: 40px;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: center;
+    gap: 40px;
+  }
+  .score-ring-outer {
+    width: 160px; height: 160px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .score-ring-inner {
+    width: 128px; height: 128px; border-radius: 50%;
+    background: white;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .score-ring-number {
+    font-size: 48px; font-weight: 900; letter-spacing: -2px;
+    line-height: 1; color: var(--fg);
+  }
+  .score-ring-label {
+    font-size: 11px; font-weight: 700; color: var(--muted-light);
+    text-transform: uppercase; letter-spacing: 2px; margin-top: 2px;
+  }
+  .hero-body { flex: 1; }
+  .hero-headline {
+    font-size: 24px; font-weight: 800; color: var(--fg);
+    letter-spacing: -0.5px; margin-bottom: 8px;
+  }
+  .hero-summary {
+    font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 16px;
+  }
+  .percentile-badge {
+    display: inline-block; background: #eef2ff; color: #4338ca;
+    border-radius: var(--radius-sm); padding: 6px 12px;
+    font-size: 14px; font-weight: 600;
+  }
+
+  /* ── Score Breakdown Grid ── */
+  .section-heading {
+    font-size: 18px; font-weight: 700; color: var(--fg);
+    letter-spacing: -0.3px; margin-bottom: 16px;
+  }
+  .dimension-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 40px;
+  }
+  .dim-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .dim-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .dim-score {
+    font-size: 30px; font-weight: 900; letter-spacing: -1px;
+    line-height: 1; margin-bottom: 6px;
+  }
+  .dim-label {
+    font-size: 11px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;
+  }
+  .dim-bar-track {
+    height: 4px; background: #f1f5f9; border-radius: 2px; overflow: hidden;
+  }
+  .dim-bar-fill { height: 100%; border-radius: 2px; }
+
+  .c-red { color: var(--red); }
+  .c-amber { color: var(--amber); }
+  .c-emerald { color: var(--emerald); }
+  .c-blue { color: var(--blue); }
+  .bg-red { background: var(--red); }
+  .bg-amber { background: var(--amber); }
+  .bg-emerald { background: var(--emerald); }
+  .bg-blue { background: var(--blue); }
+
+  /* ── Collapsible Sections ── */
+  .collapsible-header {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 18px; font-weight: 700; color: var(--fg);
+    letter-spacing: -0.3px; margin-bottom: 16px;
+    cursor: pointer; background: none; border: none; width: 100%;
+    text-align: left; padding: 0;
+  }
+  .collapsible-header:hover { color: var(--fg-secondary); }
+  .collapsible-header svg { width: 20px; height: 20px; color: var(--muted); }
+  .collapsible-body {
+    border: 1px solid var(--card-border); border-radius: var(--radius-sm);
+    background: var(--card-bg); padding: 16px; margin-bottom: 40px;
+  }
+  .collapsible-body.hidden { display: none; }
+
+  /* Benchmark */
+  .benchmark-summary { margin-bottom: 16px; color: var(--fg); }
+  .benchmark-summary strong { color: var(--fg); }
+  .benchmark-hint { font-size: 14px; color: var(--muted); margin-bottom: 16px; }
+  .benchmark-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+    margin-bottom: 16px; font-size: 14px;
+  }
+  .benchmark-grid .label { color: var(--muted); }
+  .benchmark-grid .val { font-weight: 500; color: var(--fg); }
+  .bench-dim-heading { font-size: 14px; font-weight: 500; color: var(--muted); margin-bottom: 8px; }
+  .bench-dim-row {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 16px;
+    font-size: 14px; padding: 4px 0; color: var(--fg);
+  }
+  .bench-dim-row .dim-name { font-weight: 500; text-transform: capitalize; width: 96px; }
+  .bench-dim-row .below { font-size: 12px; color: var(--red); }
+  .bench-dim-row.is-below {
+    background: rgba(239,68,68,0.06); border-radius: 4px;
+    padding: 4px 8px; margin: 0 -8px;
+  }
+  .bench-dim-row span:nth-child(n+3) { color: var(--muted); }
+
+  /* SEO */
+  .seo-subheading { font-size: 14px; font-weight: 500; color: var(--muted); margin-bottom: 8px; }
+  .seo-check {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 14px; padding: 4px 0; color: var(--fg);
+  }
+  .seo-check .icon { width: 16px; height: 16px; flex-shrink: 0; }
+  .seo-check .icon.pass { color: var(--emerald); }
+  .seo-check .icon.fail { color: var(--red); }
+  .seo-check .msg { color: var(--muted); margin-left: 4px; }
+  .seo-rec {
+    font-size: 14px; padding: 4px 0 4px 12px;
+    border-left: 2px solid; margin-bottom: 4px;
+  }
+  .seo-rec.critical { border-color: var(--red); color: var(--red); }
+  .seo-rec.warning { border-color: var(--amber); color: #b45309; }
+  .seo-rec.info { border-color: var(--muted); color: var(--muted); }
+  .seo-rec .sev { font-weight: 500; text-transform: capitalize; margin-right: 4px; }
+
+  /* ── Layout Tabs ── */
+  .layout-section { margin-bottom: 40px; margin-left: -16px; margin-right: -16px; }
+  .tabs-row { display: flex; justify-content: center; gap: 4px; margin-bottom: 8px; }
+  .tab-btn {
+    padding: 8px 32px; font-size: 14px; font-weight: 500;
+    background: rgba(0,0,0,0.04); border: 1px solid transparent;
+    border-radius: var(--radius-sm); color: var(--muted); cursor: pointer; transition: all 0.15s;
+  }
+  .tab-btn:hover { color: var(--fg); }
+  .tab-btn.active {
+    background: var(--card-bg); border-color: var(--card-border);
+    color: var(--fg); box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  /* Browser frame */
+  .browser-frame {
+    border: 1px solid var(--card-border); border-radius: var(--radius-sm);
+    overflow: hidden; background: var(--card-bg);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08); margin: 0 16px;
+  }
+  .browser-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; border-bottom: 1px solid var(--card-border);
+    background: #f8fafc;
+  }
+  .browser-dots { display: flex; gap: 6px; }
+  .browser-dots span { width: 12px; height: 12px; border-radius: 50%; }
+  .dot-red { background: rgba(239,68,68,0.7); }
+  .dot-amber { background: rgba(245,158,11,0.7); }
+  .dot-green { background: rgba(34,197,94,0.7); }
+  .browser-title { flex: 1; text-align: center; font-size: 12px; color: var(--muted); }
+  .browser-content {
+    height: 70vh; overflow-y: auto; overflow-x: hidden; background: #fafafa;
+  }
+  .browser-content iframe { width: 100%; height: 100%; border: none; }
+
+  /* Action row */
+  .action-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 16px 0; }
+  .action-row select {
+    height: 40px; width: 140px; border-radius: var(--radius-sm);
+    border: 1px solid var(--card-border); background: var(--card-bg);
+    color: var(--fg); padding: 0 12px; font-size: 14px; outline: none;
+  }
+  .action-row select:focus { border-color: var(--indigo); }
+  .btn {
+    height: 40px; padding: 0 16px; border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 500; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid var(--card-border); transition: all 0.15s;
+  }
+  .btn-outline {
+    background: transparent; color: var(--fg); flex: 1;
+  }
+  .btn-outline:hover { background: rgba(0,0,0,0.04); }
+  .btn-primary {
+    background: var(--fg); color: white; border-color: var(--fg);
+  }
+  .btn-primary:hover { opacity: 0.9; }
+
+  /* Install CTA */
+  .install-cta {
+    border: 1px dashed var(--card-border); border-radius: var(--radius-sm);
+    background: var(--card-bg); padding: 24px; margin-bottom: 0;
+  }
+  .install-cta p { color: var(--muted); margin-bottom: 16px; }
+  .install-cta .btn { border-style: solid; }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.15s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: auto; }
+  .modal-box {
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: var(--radius); padding: 24px;
+    max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+  }
+  .modal-title { font-size: 18px; font-weight: 600; color: var(--fg); margin-bottom: 4px; }
+  .modal-score { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .modal-section-label { font-weight: 500; color: var(--muted); margin: 16px 0 4px; font-size: 14px; }
+  .modal-list { list-style: disc; padding-left: 20px; font-size: 14px; color: var(--fg); }
+  .modal-list li { margin-bottom: 2px; }
+  .modal-close {
+    float: right; background: none; border: none; color: var(--muted);
+    font-size: 20px; cursor: pointer; line-height: 1;
+  }
+  .modal-close:hover { color: var(--fg); }
+  .modal-badge {
+    font-size: 12px; background: #f1f5f9; color: var(--muted);
+    padding: 2px 8px; border-radius: 9999px; margin-left: 8px;
+  }
+
+  @media (max-width: 768px) {
+    .hero-card { flex-direction: column; text-align: center; padding: 24px; gap: 24px; }
+    .dimension-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ SIDEBAR ═══════════ -->
+<aside class="sidebar">
+  <h2>Controls</h2>
+
+  <div class="control-group">
+    <label>Overall Score <span class="value" id="scoreVal">72</span></label>
+    <input type="range" id="scoreSlider" min="0" max="100" value="72">
+  </div>
+
+  <hr class="divider">
+
+  <div class="toggle-row">
+    <span>Show Layouts</span>
+    <div class="toggle on" id="toggleLayouts" onclick="toggleControl('layouts')"></div>
+  </div>
+  <div class="toggle-row">
+    <span>Expand Benchmark</span>
+    <div class="toggle" id="toggleBenchmark" onclick="toggleControl('benchmark')"></div>
+  </div>
+  <div class="toggle-row">
+    <span>Expand SEO Audit</span>
+    <div class="toggle" id="toggleSeo" onclick="toggleControl('seo')"></div>
+  </div>
+
+  <hr class="divider">
+
+  <div>
+    <div class="prompt-label">Prompt Output</div>
+    <div class="prompt-box" id="promptOutput">
+      <button class="copy-btn" onclick="copyPrompt()">Copy</button>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══════════ PREVIEW ═══════════ -->
+<main class="preview-area">
+<div class="results-page">
+
+  <!-- Back link -->
+  <a class="back-link">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+    Back to home
+  </a>
+
+  <!-- Score Hero Card -->
+  <div class="hero-card" id="heroCard">
+    <div class="score-ring-outer" id="scoreRing">
+      <div class="score-ring-inner">
+        <span class="score-ring-number" id="scoreNumber">72</span>
+        <span class="score-ring-label">Overall</span>
+      </div>
+    </div>
+    <div class="hero-body">
+      <h2 class="hero-headline" id="heroHeadline">Looking strong</h2>
+      <p class="hero-summary" id="heroSummary">Your homepage has a solid foundation but underperforms in conversion &amp; actionability and information hierarchy. Our layout alternatives address these gaps directly.</p>
+      <span class="percentile-badge" id="percentileBadge">Top 30th percentile in SaaS</span>
+    </div>
+  </div>
+
+  <!-- Layout Preview -->
+  <section class="layout-section" id="layoutSection">
+    <div class="tabs-row" id="tabsRow"></div>
+    <div class="browser-frame">
+      <div class="browser-bar">
+        <div class="browser-dots">
+          <span class="dot-red"></span>
+          <span class="dot-amber"></span>
+          <span class="dot-green"></span>
+        </div>
+        <div class="browser-title">Layout preview</div>
+      </div>
+      <div class="browser-content">
+        <iframe id="layoutIframe" sandbox="allow-scripts" title="Layout preview"></iframe>
+      </div>
+    </div>
+    <div class="action-row">
+      <select>
+        <option>HTML/CSS</option>
+        <option>WordPress</option>
+        <option>Squarespace</option>
+        <option>Wix</option>
+      </select>
+      <button class="btn btn-outline">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </button>
+      <button class="btn btn-primary">Select This Layout</button>
+    </div>
+  </section>
+
+  <!-- Score by Dimension -->
+  <section>
+    <h2 class="section-heading">Score by dimension</h2>
+    <div class="dimension-grid" id="dimensionGrid"></div>
+  </section>
+
+  <!-- Industry Benchmark -->
+  <section style="margin-bottom:40px;">
+    <button class="collapsible-header" onclick="toggleSection('benchmark')">
+      <svg id="benchChevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      Industry benchmark
+    </button>
+    <div class="collapsible-body hidden" id="benchmarkBody">
+      <p class="benchmark-summary">Your site ranks in the <strong>top 30%</strong> for SaaS.</p>
+      <p class="benchmark-hint">Based on 47 SaaS websites.</p>
+      <div class="benchmark-grid">
+        <div><span class="label">Your overall</span><p class="val" id="benchYou">72/100</p></div>
+        <div><span class="label">Industry avg</span><p class="val">58/100</p></div>
+        <div><span class="label">Top 10%</span><p class="val">89/100</p></div>
+      </div>
+      <div class="bench-dim-heading">By dimension</div>
+      <div id="benchDimList"></div>
+    </div>
+  </section>
+
+  <!-- SEO Audit -->
+  <section style="margin-bottom:40px;">
+    <button class="collapsible-header" onclick="toggleSection('seo')">
+      <svg id="seoChevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      SEO Audit
+    </button>
+    <div class="collapsible-body hidden" id="seoBody">
+      <div class="seo-subheading">Checklist</div>
+      <div id="seoChecks" style="margin-bottom:16px;"></div>
+      <div class="seo-subheading">Recommendations</div>
+      <div id="seoRecs"></div>
+    </div>
+  </section>
+
+  <!-- Install CTA -->
+  <div class="install-cta">
+    <p>Want us to install your chosen layout? +$250 — we'll handle the setup and you get a 15-minute install call.</p>
+    <button class="btn btn-outline" style="flex:none;">Request installation</button>
+  </div>
+
+</div>
+</main>
+
+<!-- ═══════════ MODAL ═══════════ -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal()">&times;</button>
+    <div class="modal-title" id="modalTitle"></div>
+    <div id="modalScoreRow" style="margin-bottom:8px;"></div>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script>
+// ── State ──
+const state = {
+  overallScore: 72,
+  showLayouts: true,
+  benchmarkOpen: false,
+  seoOpen: false,
+  activeTab: 1,
+};
+
+const DEFAULTS = { overallScore: 72, showLayouts: true, benchmarkOpen: false, seoOpen: false };
+
+// ── Mock Data ──
+const dimensions = [
+  { key: 'clarity', short: 'Clarity', full: 'Clarity', score: 78, weight: null,
+    issues: ['Hero headline is vague — doesn\'t communicate the core value proposition', 'Three competing CTAs above the fold create decision paralysis'],
+    recs: ['Lead with a specific, benefit-driven headline', 'Consolidate to a single primary CTA above the fold'] },
+  { key: 'visual', short: 'Visual', full: 'Visual Quality', score: 65, weight: null,
+    issues: ['Inconsistent spacing between sections (ranges from 24px to 80px)', 'Stock photography feels generic and disconnected from brand'],
+    recs: ['Standardize section spacing to 48-64px rhythm', 'Replace stock photos with product screenshots or custom illustrations'] },
+  { key: 'hierarchy', short: 'Hierarchy', full: 'Information Hierarchy', score: 58, weight: 2,
+    issues: ['Feature grid uses identical card sizes — nothing stands out as primary', 'Testimonials section is buried below pricing'],
+    recs: ['Use a featured/highlighted card pattern to elevate the primary feature', 'Move social proof higher in the page — directly after hero'] },
+  { key: 'trust', short: 'Trust', full: 'Trust & Credibility', score: 82, weight: null,
+    issues: ['No customer logos or trust badges visible above the fold'],
+    recs: ['Add a logo bar of 4-6 recognizable customer brands beneath the hero'] },
+  { key: 'conversion', short: 'Conversion', full: 'Conversion & Actionability', score: 55, weight: 2,
+    issues: ['CTA button uses low-contrast colors and generic "Learn More" text', 'No urgency or scarcity signals near pricing'],
+    recs: ['Use high-contrast button with action-specific copy like "Start Free Trial"', 'Add a subtle urgency element near the primary CTA'] },
+  { key: 'content', short: 'Content', full: 'Content Quality', score: 80, weight: null,
+    issues: ['Some body text blocks exceed 4 lines — too dense for scanning'],
+    recs: ['Break long paragraphs into bullet points or short 2-line chunks'] },
+  { key: 'mobile', short: 'Mobile', full: 'Mobile Experience', score: 71, weight: null,
+    issues: ['Horizontal scrolling on screens below 375px', 'Touch targets in the nav are smaller than 44px'],
+    recs: ['Ensure all content fits within viewport at 320px', 'Increase nav link tap targets to minimum 44×44px'] },
+  { key: 'performance', short: 'Performance', full: 'Performance & Technical', score: 68, weight: null,
+    issues: ['Largest Contentful Paint is 3.8s (should be <2.5s)', 'Unoptimized hero image at 2.4MB'],
+    recs: ['Serve hero image as WebP with srcset for responsive sizes', 'Lazy-load below-fold images and defer non-critical JS'] },
+];
+
+const DIMENSION_LABELS = {
+  clarity: 'clarity', visual: 'visual quality', hierarchy: 'information hierarchy',
+  trust: 'trust & credibility', conversion: 'conversion & actionability',
+  content: 'content quality', mobile: 'mobile experience', performance: 'performance & technical',
+};
+
+const benchDims = [
+  { dimension: 'clarity', industryAvg: 62, top10: 88 },
+  { dimension: 'visual', industryAvg: 55, top10: 85 },
+  { dimension: 'hierarchy', industryAvg: 50, top10: 82 },
+  { dimension: 'trust', industryAvg: 60, top10: 90 },
+  { dimension: 'conversion', industryAvg: 48, top10: 80 },
+  { dimension: 'content', industryAvg: 58, top10: 86 },
+  { dimension: 'mobile', industryAvg: 54, top10: 84 },
+  { dimension: 'performance', industryAvg: 52, top10: 81 },
+];
+
+const seoChecks = [
+  { check: 'Title tag', pass: true, message: 'Present, 58 characters' },
+  { check: 'Meta description', pass: true, message: 'Present, 142 characters' },
+  { check: 'H1 tag', pass: true, message: '1 H1 found' },
+  { check: 'Open Graph tags', pass: false, message: 'og:image missing' },
+  { check: 'Canonical URL', pass: true, message: 'Self-referencing canonical set' },
+  { check: 'Mobile viewport', pass: true, message: 'Viewport meta tag present' },
+  { check: 'Structured data', pass: false, message: 'No JSON-LD or microdata found' },
+  { check: 'HTTPS', pass: true, message: 'Site served over HTTPS' },
+];
+
+const seoRecs = [
+  { severity: 'critical', message: 'Add og:image meta tag — shared links have no preview image on social platforms.' },
+  { severity: 'warning', message: 'Add JSON-LD structured data (Organization + WebPage) to improve rich snippet eligibility.' },
+  { severity: 'info', message: 'Consider adding hreflang tags if serving multiple locales.' },
+];
+
+const layoutHtmls = [
+  `<div style="font-family:Inter,system-ui,sans-serif;background:#fff;color:#1a1a2e;min-height:100vh">
+    <nav style="display:flex;justify-content:space-between;align-items:center;padding:20px 40px;border-bottom:1px solid #eee"><b style="font-size:20px;color:#2563eb">AcmeCorp</b><div style="display:flex;gap:24px;font-size:14px;color:#666"><span>Features</span><span>Pricing</span><span>About</span><button style="background:#2563eb;color:white;border:none;padding:8px 20px;border-radius:6px;font-size:14px;cursor:pointer">Get Started</button></div></nav>
+    <section style="text-align:center;padding:80px 40px 60px;max-width:720px;margin:0 auto"><h1 style="font-size:48px;font-weight:700;line-height:1.1;margin-bottom:20px">Ship faster with<br><span style="color:#2563eb">modern tooling</span></h1><p style="font-size:18px;color:#666;margin-bottom:32px;max-width:520px;margin-left:auto;margin-right:auto">The all-in-one platform that helps teams build, test, and deploy 10x faster.</p><button style="background:#2563eb;color:white;border:none;padding:14px 36px;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer">Start Free Trial</button></section>
+    <section style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px;padding:40px;max-width:960px;margin:0 auto"><div style="padding:32px;border:1px solid #eee;border-radius:12px"><div style="width:40px;height:40px;background:#eff6ff;border-radius:8px;margin-bottom:16px;display:flex;align-items:center;justify-content:center;color:#2563eb;font-size:20px">⚡</div><h3 style="font-size:18px;font-weight:600;margin-bottom:8px">Lightning Fast</h3><p style="font-size:14px;color:#666;line-height:1.6">Designed for teams that need reliability and speed at every scale.</p></div><div style="padding:32px;border:1px solid #eee;border-radius:12px"><div style="width:40px;height:40px;background:#eff6ff;border-radius:8px;margin-bottom:16px;display:flex;align-items:center;justify-content:center;color:#2563eb;font-size:20px">🔒</div><h3 style="font-size:18px;font-weight:600;margin-bottom:8px">Enterprise Secure</h3><p style="font-size:14px;color:#666;line-height:1.6">Designed for teams that need reliability and speed at every scale.</p></div><div style="padding:32px;border:1px solid #eee;border-radius:12px"><div style="width:40px;height:40px;background:#eff6ff;border-radius:8px;margin-bottom:16px;display:flex;align-items:center;justify-content:center;color:#2563eb;font-size:20px">🌐</div><h3 style="font-size:18px;font-weight:600;margin-bottom:8px">Always Available</h3><p style="font-size:14px;color:#666;line-height:1.6">Designed for teams that need reliability and speed at every scale.</p></div></section>
+  </div>`,
+  `<div style="font-family:Georgia,'Times New Roman',serif;background:#faf9f6;color:#2c2c2c;min-height:100vh">
+    <nav style="display:flex;justify-content:space-between;align-items:center;padding:24px 48px;border-bottom:1px solid #e8e4de"><b style="font-size:22px;letter-spacing:-0.5px">ACME</b><div style="display:flex;gap:28px;font-size:14px;letter-spacing:0.5px;color:#888"><span>SERVICES</span><span>WORK</span><span>CONTACT</span></div></nav>
+    <section style="display:grid;grid-template-columns:1fr 1fr;min-height:80vh;align-items:center;padding:0 48px;gap:64px"><div><p style="font-size:13px;letter-spacing:2px;color:#999;margin-bottom:16px">SINCE 2019</p><h1 style="font-size:52px;font-weight:400;line-height:1.15;margin-bottom:24px">Elegant solutions for modern businesses</h1><p style="font-size:17px;color:#777;line-height:1.7;margin-bottom:36px;max-width:440px">We craft premium digital experiences that elevate your brand and drive meaningful results.</p><button style="background:#2c2c2c;color:#faf9f6;border:none;padding:14px 40px;font-size:14px;letter-spacing:1px;cursor:pointer">EXPLORE OUR WORK</button></div><div style="background:#e8e4de;height:480px;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#999;font-size:14px">Hero Image</div></section>
+  </div>`,
+  `<div style="font-family:system-ui,sans-serif;background:#0f0f23;color:#e0e0ff;min-height:100vh;overflow:hidden">
+    <nav style="display:flex;justify-content:space-between;align-items:center;padding:20px 40px"><b style="font-size:20px;background:linear-gradient(135deg,#6366f1,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent">AcmeCorp</b><div style="display:flex;gap:24px;font-size:14px;color:#888"><span>Product</span><span>Docs</span><span>Pricing</span><button style="background:linear-gradient(135deg,#6366f1,#a855f7);color:white;border:none;padding:8px 20px;border-radius:20px;font-size:14px;cursor:pointer">Launch App</button></div></nav>
+    <section style="text-align:center;padding:100px 40px 60px;position:relative"><div style="position:absolute;top:20%;left:50%;transform:translate(-50%,-50%);width:600px;height:600px;background:radial-gradient(circle,rgba(99,102,241,0.15),transparent 70%);pointer-events:none"></div><h1 style="font-size:56px;font-weight:700;line-height:1.1;margin-bottom:20px;position:relative">Build the<br><span style="background:linear-gradient(135deg,#6366f1,#a855f7,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent">impossible</span></h1><p style="font-size:18px;color:#888;margin-bottom:36px;max-width:500px;margin-left:auto;margin-right:auto;position:relative">Next-gen infrastructure for teams pushing the boundaries of what software can do.</p><div style="display:flex;gap:12px;justify-content:center;position:relative"><button style="background:linear-gradient(135deg,#6366f1,#a855f7);color:white;border:none;padding:14px 32px;border-radius:24px;font-size:16px;font-weight:600;cursor:pointer">Get Started Free</button><button style="background:rgba(255,255,255,0.05);color:#e0e0ff;border:1px solid rgba(255,255,255,0.1);padding:14px 32px;border-radius:24px;font-size:16px;cursor:pointer">View Demo</button></div></section>
+  </div>`,
+];
+
+// ── Helpers ──
+function scoreColorClass(s) {
+  if (s <= 40) return 'c-red';
+  if (s <= 60) return 'c-amber';
+  if (s <= 80) return 'c-emerald';
+  return 'c-blue';
+}
+function barColorClass(s) {
+  if (s <= 40) return 'bg-red';
+  if (s <= 60) return 'bg-amber';
+  if (s <= 80) return 'bg-emerald';
+  return 'bg-blue';
+}
+
+function scoreHeadline(s) {
+  if (s <= 40) return 'Needs work';
+  if (s <= 60) return 'Room to grow';
+  if (s <= 80) return 'Looking strong';
+  return 'Excellent';
+}
+
+function buildSummary(s) {
+  const sorted = [...dimensions].sort((a, b) => a.score - b.score);
+  const lowest = sorted.slice(0, 2).map(d => DIMENSION_LABELS[d.key]);
+  return `Your homepage has a solid foundation but underperforms in ${lowest[0]} and ${lowest[1]}. Our layout alternatives address these gaps directly.`;
+}
+
+function conicGradient(s) {
+  const pct = s / 100;
+  return `conic-gradient(#4F46E5 0deg, #06B6D4 ${pct * 240}deg, #F59E0B ${pct * 360}deg, #E2E8F0 ${pct * 360}deg)`;
+}
+
+const checkSvg = `<svg class="icon pass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+const xSvg = `<svg class="icon fail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+const chevronRight = `<path d="m9 18 6-6-6-6"/>`;
+const chevronDown = `<path d="m6 9 6 6 6-6"/>`;
+
+// ── Render ──
+function renderAll() {
+  const s = state.overallScore;
+
+  // Score ring
+  document.getElementById('scoreRing').style.background = conicGradient(s);
+  document.getElementById('scoreNumber').textContent = s;
+  document.getElementById('scoreVal').textContent = s;
+
+  // Hero text
+  document.getElementById('heroHeadline').textContent = scoreHeadline(s);
+  document.getElementById('heroSummary').textContent = buildSummary(s);
+  document.getElementById('percentileBadge').textContent = `Top 30th percentile in SaaS`;
+
+  // Benchmark your-score
+  document.getElementById('benchYou').textContent = s + '/100';
+
+  // Layout section visibility
+  document.getElementById('layoutSection').style.display = state.showLayouts ? '' : 'none';
+
+  updatePrompt();
+}
+
+function renderDimensions() {
+  const grid = document.getElementById('dimensionGrid');
+  grid.innerHTML = dimensions.map(d => `
+    <button class="dim-card" onclick="openModal('${d.key}')">
+      <div class="dim-score ${scoreColorClass(d.score)}">${d.score}</div>
+      <div class="dim-label">${d.short}</div>
+      <div class="dim-bar-track">
+        <div class="dim-bar-fill ${barColorClass(d.score)}" style="width:${d.score}%"></div>
+      </div>
+    </button>
+  `).join('');
+}
+
+function renderBenchmarkDims() {
+  document.getElementById('benchDimList').innerHTML = benchDims.map(d => {
+    const dim = dimensions.find(x => x.key === d.dimension);
+    const uv = dim ? dim.score : null;
+    const below = uv !== null && uv < d.industryAvg - 20;
+    return `<div class="bench-dim-row ${below ? 'is-below' : ''}">
+      <span class="dim-name">${d.dimension}</span>
+      <span>You: ${uv ?? '—'}</span>
+      <span>Avg: ${d.industryAvg}</span>
+      <span>Top 10%: ${d.top10}</span>
+      ${below ? '<span class="below">Below average</span>' : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderSeo() {
+  document.getElementById('seoChecks').innerHTML = seoChecks.map(c =>
+    `<div class="seo-check">${c.pass ? checkSvg : xSvg}<span>${c.check}</span><span class="msg">${c.message}</span></div>`
+  ).join('');
+  document.getElementById('seoRecs').innerHTML = seoRecs.map(r =>
+    `<div class="seo-rec ${r.severity}"><span class="sev">${r.severity}:</span>${r.message}</div>`
+  ).join('');
+}
+
+function renderTabs() {
+  document.getElementById('tabsRow').innerHTML = [1,2,3].map(i =>
+    `<button class="tab-btn ${state.activeTab === i ? 'active' : ''}" onclick="setTab(${i})">Layout ${i}</button>`
+  ).join('');
+  updateIframe();
+}
+
+function updateIframe() {
+  document.getElementById('layoutIframe').srcdoc = layoutHtmls[state.activeTab - 1];
+}
+
+function setTab(n) { state.activeTab = n; renderTabs(); }
+
+// ── Sections Toggle ──
+function toggleSection(name) {
+  if (name === 'benchmark') {
+    state.benchmarkOpen = !state.benchmarkOpen;
+    document.getElementById('benchmarkBody').classList.toggle('hidden', !state.benchmarkOpen);
+    document.getElementById('benchChevron').innerHTML = state.benchmarkOpen ? chevronDown : chevronRight;
+    document.getElementById('toggleBenchmark').classList.toggle('on', state.benchmarkOpen);
+  } else if (name === 'seo') {
+    state.seoOpen = !state.seoOpen;
+    document.getElementById('seoBody').classList.toggle('hidden', !state.seoOpen);
+    document.getElementById('seoChevron').innerHTML = state.seoOpen ? chevronDown : chevronRight;
+    document.getElementById('toggleSeo').classList.toggle('on', state.seoOpen);
+  }
+  updatePrompt();
+}
+
+function toggleControl(name) {
+  if (name === 'layouts') {
+    state.showLayouts = !state.showLayouts;
+    document.getElementById('toggleLayouts').classList.toggle('on', state.showLayouts);
+    renderAll();
+  } else {
+    toggleSection(name);
+  }
+}
+
+// ── Modal ──
+function openModal(key) {
+  const d = dimensions.find(x => x.key === key);
+  if (!d) return;
+  document.getElementById('modalTitle').textContent = d.full;
+  document.getElementById('modalScoreRow').innerHTML =
+    `<span class="modal-score ${scoreColorClass(d.score)}">${d.score}/100</span>` +
+    (d.weight ? `<span class="modal-badge">${d.weight}× weight</span>` : '');
+  let html = '';
+  if (d.issues.length) html += `<p class="modal-section-label">Issues</p><ul class="modal-list">${d.issues.map(i => `<li>${i}</li>`).join('')}</ul>`;
+  if (d.recs.length) html += `<p class="modal-section-label">Recommendations</p><ul class="modal-list">${d.recs.map(r => `<li>${r}</li>`).join('')}</ul>`;
+  document.getElementById('modalContent').innerHTML = html;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+
+// ── Prompt ──
+function updatePrompt() {
+  const parts = [];
+  if (state.overallScore !== DEFAULTS.overallScore)
+    parts.push(`overall score set to ${state.overallScore}/100 ("${scoreHeadline(state.overallScore)}")`);
+  if (!state.showLayouts) parts.push('layout preview section is hidden');
+  if (state.benchmarkOpen) parts.push('benchmark section is expanded showing SaaS industry comparison');
+  if (state.seoOpen) parts.push('SEO audit section is expanded showing checklist and recommendations');
+
+  const el = document.getElementById('promptOutput');
+  const textNode = el.childNodes[0]?.nodeType === 3 ? el.childNodes[0] : null;
+  const newText = parts.length
+    ? `Update the PageRefresh results page with: ${parts.join('; ')}.`
+    : 'The PageRefresh results page is shown with default settings: score 72/100, conic-gradient score ring, 2×4 dimension card grid with progress bars, layout tabs centered with "Layout 1/2/3", browser-chrome preview frame, benchmark and SEO collapsed.';
+  if (textNode) textNode.textContent = newText;
+  else el.insertBefore(document.createTextNode(newText), el.firstChild);
+}
+
+function copyPrompt() {
+  const el = document.getElementById('promptOutput');
+  const text = el.textContent.replace('Copy', '').replace('Copied!', '').trim();
+  navigator.clipboard.writeText(text);
+  const btn = el.querySelector('.copy-btn');
+  btn.textContent = 'Copied!';
+  setTimeout(() => btn.textContent = 'Copy', 1500);
+}
+
+// ── Events ──
+document.getElementById('scoreSlider').addEventListener('input', e => {
+  state.overallScore = Number(e.target.value);
+  renderAll();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// ── Init ──
+renderDimensions();
+renderBenchmarkDims();
+renderSeo();
+renderTabs();
+renderAll();
+</script>
+</body>
+</html>

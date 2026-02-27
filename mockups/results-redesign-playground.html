@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Results Page Redesign — Implementation Spec Playground</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ui-bg: #111114;
+    --ui-surface: #1a1a1f;
+    --ui-border: #2a2a30;
+    --ui-text: #e0e0e6;
+    --ui-muted: #888892;
+    --ui-accent: #6366f1;
+    --ui-accent-dim: rgba(99,102,241,0.15);
+    /* Design tokens */
+    --slate-50: #F8FAFC;
+    --slate-100: #F1F5F9;
+    --slate-200: #E2E8F0;
+    --slate-400: #94A3B8;
+    --slate-500: #64748B;
+    --slate-900: #0F172A;
+    --indigo-50: #EEF2FF;
+    --indigo-600: #4F46E5;
+    --indigo-700: #4338CA;
+    --cyan-500: #06B6D4;
+    --amber-500: #F59E0B;
+    --red-500: #EF4444;
+    --emerald-500: #10B981;
+    --blue-500: #3B82F6;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--ui-bg);
+    color: var(--ui-text);
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Layout */
+  .app {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    grid-template-rows: auto 1fr auto;
+    height: 100vh;
+  }
+
+  .header {
+    grid-column: 1 / -1;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--ui-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--ui-surface);
+  }
+  .header h1 { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
+  .header .badge {
+    font-size: 11px; background: var(--ui-accent-dim); color: var(--ui-accent);
+    padding: 3px 10px; border-radius: 999px; font-weight: 600;
+  }
+
+  .controls {
+    grid-row: 2 / 4;
+    overflow-y: auto;
+    border-right: 1px solid var(--ui-border);
+    padding: 16px;
+    background: var(--ui-surface);
+  }
+
+  .preview-area {
+    overflow-y: auto;
+    padding: 24px;
+    background: #222228;
+  }
+
+  .output-area {
+    border-top: 1px solid var(--ui-border);
+    background: var(--ui-surface);
+    padding: 16px 20px;
+    max-height: 260px;
+    overflow-y: auto;
+  }
+
+  /* Controls */
+  .ctrl-group {
+    margin-bottom: 20px;
+  }
+  .ctrl-group-title {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--ui-muted); margin-bottom: 10px;
+  }
+  .ctrl-row {
+    margin-bottom: 12px;
+  }
+  .ctrl-label {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 12px; margin-bottom: 4px; color: var(--ui-text);
+  }
+  .ctrl-value {
+    font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px;
+    color: var(--ui-accent); font-weight: 600;
+  }
+  input[type="range"] {
+    width: 100%; height: 4px; -webkit-appearance: none; appearance: none;
+    background: var(--ui-border); border-radius: 2px; outline: none; cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 14px; height: 14px;
+    background: var(--ui-accent); border-radius: 50%; cursor: pointer;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 14px; height: 14px; background: var(--ui-accent);
+    border-radius: 50%; border: none; cursor: pointer;
+  }
+
+  .preset-row {
+    display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px;
+  }
+  .preset-btn {
+    font-size: 11px; padding: 4px 10px; border-radius: 6px;
+    border: 1px solid var(--ui-border); background: transparent;
+    color: var(--ui-text); cursor: pointer; font-weight: 500;
+    transition: all 0.15s;
+  }
+  .preset-btn:hover { border-color: var(--ui-accent); color: var(--ui-accent); }
+  .preset-btn.active { background: var(--ui-accent-dim); border-color: var(--ui-accent); color: var(--ui-accent); }
+
+  .toggle-row {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+  }
+  .toggle-switch {
+    position: relative; width: 36px; height: 20px; background: var(--ui-border);
+    border-radius: 10px; cursor: pointer; transition: background 0.2s; flex-shrink: 0;
+  }
+  .toggle-switch.on { background: var(--ui-accent); }
+  .toggle-switch::after {
+    content: ''; position: absolute; top: 2px; left: 2px;
+    width: 16px; height: 16px; background: white; border-radius: 50%;
+    transition: transform 0.2s;
+  }
+  .toggle-switch.on::after { transform: translateX(16px); }
+  .toggle-label { font-size: 12px; }
+
+  /* View switcher */
+  .view-tabs {
+    display: flex; gap: 2px; background: var(--ui-border); border-radius: 8px;
+    padding: 2px; margin-bottom: 16px;
+  }
+  .view-tab {
+    flex: 1; font-size: 11px; font-weight: 600; padding: 6px 0;
+    border: none; background: transparent; color: var(--ui-muted);
+    border-radius: 6px; cursor: pointer; transition: all 0.15s;
+  }
+  .view-tab.active { background: var(--ui-accent); color: white; }
+
+  /* Preview container */
+  .preview-frame {
+    border-radius: 12px;
+    overflow: hidden;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  /* ===== NEW DESIGN PREVIEW STYLES ===== */
+  .new-page { background: var(--slate-50); padding: 32px 24px; font-family: Inter, -apple-system, sans-serif; }
+
+  .new-hero {
+    background: #fff; border-radius: 16px; padding: 40px;
+    display: flex; align-items: center; gap: 40px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04); margin-bottom: 32px;
+  }
+  .score-ring {
+    width: 160px; height: 160px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .score-ring-inner {
+    width: 128px; height: 128px; border-radius: 50%; background: #fff;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .score-ring-number {
+    font-size: 48px; font-weight: 900; letter-spacing: -0.04em;
+    line-height: 1; color: var(--slate-900);
+  }
+  .score-ring-label {
+    font-size: 10px; font-weight: 700; color: var(--slate-400);
+    text-transform: uppercase; letter-spacing: 0.12em; margin-top: 4px;
+  }
+  .hero-text { flex: 1; }
+  .hero-headline {
+    font-size: 24px; font-weight: 800; color: var(--slate-900);
+    letter-spacing: -0.02em; margin-bottom: 8px;
+  }
+  .hero-body {
+    font-size: 14px; color: var(--slate-500); line-height: 1.6; margin-bottom: 16px;
+  }
+  .hero-badge {
+    display: inline-block; background: var(--indigo-50); color: var(--indigo-700);
+    border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 600;
+  }
+
+  /* Dimension grid */
+  .dim-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 40px;
+  }
+  .dim-tile {
+    background: #fff; border-radius: 16px; padding: 20px; text-align: center;
+    transition: transform 0.15s, box-shadow 0.15s; cursor: pointer;
+  }
+  .dim-tile:hover { transform: translateY(-2px); box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .dim-score {
+    font-size: 28px; font-weight: 900; letter-spacing: -0.03em;
+    line-height: 1; margin-bottom: 6px;
+  }
+  .dim-label {
+    font-size: 10px; font-weight: 700; color: var(--slate-500);
+    text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px;
+  }
+  .dim-bar { height: 4px; background: var(--slate-100); border-radius: 2px; overflow: hidden; }
+  .dim-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+
+  /* ===== CURRENT DESIGN PREVIEW STYLES ===== */
+  .old-page { background: #fff; padding: 32px 24px; font-family: Inter, -apple-system, sans-serif; }
+
+  .old-card {
+    border: 1px solid #e5e7eb; border-radius: 8px; padding: 24px;
+    margin-bottom: 24px; background: #fff;
+  }
+  .old-card-title {
+    font-size: 14px; color: #6b7280; font-weight: 500; margin-bottom: 12px;
+  }
+  .old-score {
+    font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  .old-tagline { font-size: 14px; color: #6b7280; margin-top: 8px; }
+  .old-summary {
+    border: 1px solid #e5e7eb; border-radius: 8px; padding: 24px;
+    margin-bottom: 24px; text-align: center; font-size: 14px;
+    color: #374151; line-height: 1.6;
+  }
+  .old-dim-heading { font-size: 18px; font-weight: 600; margin-bottom: 16px; color: #111; }
+  .old-dim-row {
+    border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px;
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px; cursor: pointer; transition: background 0.15s;
+  }
+  .old-dim-row:hover { background: #f9fafb; }
+  .old-dim-name { font-weight: 500; font-size: 14px; color: #111; }
+  .old-dim-score { font-weight: 600; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .old-cta {
+    border: 2px dashed #e5e7eb; border-radius: 8px; padding: 24px;
+  }
+  .old-cta p { color: #6b7280; font-size: 14px; margin-bottom: 16px; }
+  .old-cta-btn {
+    display: inline-block; padding: 8px 16px; border: 1px solid #d1d5db;
+    border-radius: 6px; font-size: 14px; color: #374151; cursor: pointer;
+    background: transparent; font-weight: 500;
+  }
+
+  /* Output area */
+  .output-header {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
+  }
+  .output-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ui-muted); }
+
+  .tab-row { display: flex; gap: 2px; background: var(--ui-border); border-radius: 6px; padding: 2px; }
+  .tab-btn {
+    font-size: 10px; font-weight: 600; padding: 4px 10px; border: none;
+    background: transparent; color: var(--ui-muted); border-radius: 4px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .tab-btn.active { background: var(--ui-accent); color: white; }
+
+  .copy-btn {
+    font-size: 11px; padding: 4px 12px; border-radius: 6px;
+    border: 1px solid var(--ui-border); background: transparent;
+    color: var(--ui-text); cursor: pointer; font-weight: 600;
+    transition: all 0.15s;
+  }
+  .copy-btn:hover { border-color: var(--ui-accent); color: var(--ui-accent); }
+  .copy-btn.copied { background: var(--ui-accent-dim); border-color: var(--ui-accent); color: var(--ui-accent); }
+
+  .output-content {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 12px; line-height: 1.7; color: var(--ui-text);
+    white-space: pre-wrap; word-break: break-word;
+  }
+
+  /* Spec notes */
+  .spec-notes {
+    margin-top: 24px; padding: 16px; background: rgba(99,102,241,0.06);
+    border: 1px solid rgba(99,102,241,0.15); border-radius: 10px;
+  }
+  .spec-notes h4 {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--ui-accent); margin-bottom: 8px;
+  }
+  .spec-notes ul { list-style: none; }
+  .spec-notes li {
+    font-size: 12px; color: var(--ui-muted); padding: 2px 0;
+    padding-left: 14px; position: relative;
+  }
+  .spec-notes li::before {
+    content: ''; position: absolute; left: 0; top: 9px;
+    width: 5px; height: 5px; border-radius: 50%;
+    background: rgba(99,102,241,0.4);
+  }
+
+  /* Dimension detail modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: auto; }
+  .modal-dialog {
+    background: #fff; border-radius: 12px; padding: 28px; width: 90%; max-width: 480px;
+    max-height: 80vh; overflow-y: auto; position: relative;
+    font-family: Inter, -apple-system, sans-serif; color: #111;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    transform: scale(0.95); transition: transform 0.2s;
+  }
+  .modal-overlay.open .modal-dialog { transform: scale(1); }
+  .modal-close {
+    position: absolute; top: 16px; right: 16px; width: 28px; height: 28px;
+    border: 1px solid #e5e7eb; border-radius: 50%; background: #fff;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 14px; color: #6b7280; transition: all 0.15s;
+  }
+  .modal-close:hover { background: #f3f4f6; color: #111; }
+  .modal-title { font-size: 18px; font-weight: 600; margin-bottom: 4px; color: #111; }
+  .modal-score { font-weight: 600; font-variant-numeric: tabular-nums; margin-bottom: 20px; }
+  .modal-section-label {
+    font-size: 13px; font-weight: 500; color: #6b7280; margin-bottom: 8px;
+  }
+  .modal-list {
+    list-style: disc; padding-left: 20px; margin-bottom: 20px;
+    font-size: 14px; line-height: 1.6; color: #374151;
+  }
+  .modal-list li { margin-bottom: 2px; }
+
+  /* Old design modal (same style but triggered from old rows) */
+  .old-dim-row[data-clickable] { cursor: pointer; }
+
+  /* Responsive preview hint */
+  @media (max-width: 1000px) {
+    .dim-grid { grid-template-columns: repeat(2, 1fr); }
+    .new-hero { flex-direction: column; text-align: center; padding: 24px; gap: 20px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Header -->
+  <div class="header">
+    <h1>Results Page Redesign — Option B "Bold & Dynamic"</h1>
+    <span class="badge">Implementation Spec</span>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <!-- View toggle -->
+    <div class="ctrl-group">
+      <div class="ctrl-group-title">View</div>
+      <div class="view-tabs">
+        <button class="view-tab active" data-view="new" onclick="setView('new')">New Design</button>
+        <button class="view-tab" data-view="old" onclick="setView('old')">Current</button>
+        <button class="view-tab" data-view="split" onclick="setView('split')">Compare</button>
+      </div>
+    </div>
+
+    <!-- Presets -->
+    <div class="ctrl-group">
+      <div class="ctrl-group-title">Presets</div>
+      <div class="preset-row">
+        <button class="preset-btn" onclick="applyPreset('struggling')">Struggling</button>
+        <button class="preset-btn active" onclick="applyPreset('mixed')">Mixed</button>
+        <button class="preset-btn" onclick="applyPreset('strong')">Strong</button>
+        <button class="preset-btn" onclick="applyPreset('excellent')">Excellent</button>
+      </div>
+    </div>
+
+    <!-- Overall Score -->
+    <div class="ctrl-group">
+      <div class="ctrl-group-title">Overall Score</div>
+      <div class="ctrl-row">
+        <div class="ctrl-label">
+          <span>Score</span>
+          <span class="ctrl-value" id="val-overall">62</span>
+        </div>
+        <input type="range" min="0" max="100" value="62" id="slider-overall" oninput="updateScore('overall', this.value)">
+      </div>
+    </div>
+
+    <!-- Dimension Scores -->
+    <div class="ctrl-group">
+      <div class="ctrl-group-title">Dimension Scores</div>
+      <div id="dimension-controls"></div>
+    </div>
+
+    <!-- Options -->
+    <div class="ctrl-group">
+      <div class="ctrl-group-title">Options</div>
+      <div class="toggle-row">
+        <div class="toggle-switch on" id="toggle-badge" onclick="toggleBadge()"></div>
+        <span class="toggle-label">Show percentile badge</span>
+      </div>
+    </div>
+
+    <!-- Spec notes -->
+    <div class="spec-notes">
+      <h4>Do Not Change</h4>
+      <ul>
+        <li>Data fetching in getRefresh()</li>
+        <li>Token / auth validation</li>
+        <li>Layout section (tabs, iframes)</li>
+        <li>SEO audit section</li>
+        <li>API routes / server logic</li>
+        <li>Dialog in ScoreBreakdown</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Preview -->
+  <div class="preview-area">
+    <div class="preview-frame" id="preview"></div>
+  </div>
+
+  <!-- Dimension detail modal (shared across views) -->
+  <div class="modal-overlay" id="dim-modal-overlay" onclick="if(event.target===this)closeDimensionModal()">
+    <div class="modal-dialog">
+      <button class="modal-close" onclick="closeDimensionModal()">&times;</button>
+      <div class="modal-title" id="dim-modal-title"></div>
+      <div class="modal-score" id="dim-modal-score"></div>
+      <div id="dim-modal-issues-section">
+        <div class="modal-section-label">Issues</div>
+        <ul class="modal-list" id="dim-modal-issues"></ul>
+      </div>
+      <div id="dim-modal-recs-section">
+        <div class="modal-section-label">Recommendations</div>
+        <ul class="modal-list" id="dim-modal-recs"></ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Output -->
+  <div class="output-area">
+    <div class="output-header">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span class="output-title">Spec Output</span>
+        <div class="tab-row">
+          <button class="tab-btn active" data-tab="prompt" onclick="setOutputTab('prompt')">Prompt</button>
+          <button class="tab-btn" data-tab="hero" onclick="setOutputTab('hero')">Hero JSX</button>
+          <button class="tab-btn" data-tab="grid" onclick="setOutputTab('grid')">Grid JSX</button>
+          <button class="tab-btn" data-tab="helpers" onclick="setOutputTab('helpers')">Helpers</button>
+        </div>
+      </div>
+      <button class="copy-btn" id="copy-btn" onclick="copyOutput()">Copy</button>
+    </div>
+    <div class="output-content" id="output"></div>
+  </div>
+</div>
+
+<script>
+// ===== STATE =====
+const DIMENSIONS = [
+  { key: 'clarity', label: 'Clarity', fullLabel: 'Clarity' },
+  { key: 'visual', label: 'Visual', fullLabel: 'Visual Quality' },
+  { key: 'hierarchy', label: 'Hierarchy', fullLabel: 'Information Hierarchy' },
+  { key: 'trust', label: 'Trust', fullLabel: 'Trust & Credibility' },
+  { key: 'conversion', label: 'Conversion', fullLabel: 'Conversion & Actionability' },
+  { key: 'content', label: 'Content', fullLabel: 'Content Quality' },
+  { key: 'mobile', label: 'Mobile', fullLabel: 'Mobile Experience' },
+  { key: 'performance', label: 'Performance', fullLabel: 'Performance & Technical' },
+];
+
+const PRESETS = {
+  struggling: { overall: 32, clarity: 25, visual: 38, hierarchy: 30, trust: 28, conversion: 22, content: 35, mobile: 40, performance: 33 },
+  mixed:      { overall: 62, clarity: 70, visual: 55, hierarchy: 48, trust: 72, conversion: 45, content: 68, mobile: 60, performance: 58 },
+  strong:     { overall: 76, clarity: 82, visual: 74, hierarchy: 78, trust: 80, conversion: 65, content: 76, mobile: 72, performance: 70 },
+  excellent:  { overall: 91, clarity: 94, visual: 88, hierarchy: 90, trust: 92, conversion: 85, content: 90, mobile: 88, performance: 95 },
+};
+
+const state = {
+  view: 'new',
+  outputTab: 'prompt',
+  overall: 62,
+  showBadge: true,
+  dims: { clarity: 70, visual: 55, hierarchy: 48, trust: 72, conversion: 45, content: 68, mobile: 60, performance: 58 },
+  activePreset: 'mixed',
+};
+
+// ===== HELPERS =====
+function scoreHeadline(score) {
+  if (score <= 40) return 'Needs work';
+  if (score <= 60) return 'Room to grow';
+  if (score <= 80) return 'Looking strong';
+  return 'Excellent';
+}
+
+function scoreColor(score) {
+  if (score <= 40) return { text: '#EF4444', bar: '#EF4444', tw: 'red-500' };
+  if (score <= 60) return { text: '#F59E0B', bar: '#F59E0B', tw: 'amber-500' };
+  if (score <= 80) return { text: '#10B981', bar: '#10B981', tw: 'emerald-500' };
+  return { text: '#3B82F6', bar: '#3B82F6', tw: 'blue-500' };
+}
+
+function oldScoreColor(score) {
+  if (score <= 40) return '#DC2626';
+  if (score <= 60) return '#D97706';
+  if (score <= 80) return '#16A34A';
+  return '#2563EB';
+}
+
+function scoreTagline(score) {
+  if (score <= 40) return 'Your homepage has significant room for improvement.';
+  if (score <= 60) return 'Your homepage is okay but could be stronger.';
+  if (score <= 80) return 'Your homepage is in good shape with some room to grow.';
+  return 'Your homepage is in great shape.';
+}
+
+function buildSummaryText() {
+  const entries = DIMENSIONS.map(d => ({ label: d.label, score: state.dims[d.key] }));
+  const sorted = [...entries].sort((a, b) => a.score - b.score);
+  const low1 = sorted[0].label.toLowerCase();
+  const low2 = sorted[1].label.toLowerCase();
+  return `Your homepage has a solid foundation but underperforms in ${low1} and ${low2}. Our layout alternatives address these gaps directly.`;
+}
+
+function conicGradient(score) {
+  const deg = (score / 100) * 360;
+  return `conic-gradient(#4F46E5 0deg, #06B6D4 ${deg * 0.67}deg, #F59E0B ${deg}deg, #E2E8F0 ${deg}deg)`;
+}
+
+// ===== MOCK DETAIL DATA =====
+const MOCK_DETAILS = {
+  clarity: {
+    issues: [
+      'No H1 tags found — critical for content hierarchy',
+      'Minimal navigation labels detected',
+      'Unclear primary message hierarchy',
+    ],
+    recommendations: [
+      'Add clear H1 tags to establish content hierarchy',
+      'Improve navigation structure with descriptive labels',
+      'Create clearer value proposition messaging',
+    ],
+  },
+  visual: {
+    issues: [
+      'Inconsistent color palette across sections',
+      'Low contrast between text and background in hero',
+      'Images lack consistent aspect ratios',
+    ],
+    recommendations: [
+      'Establish a unified color system with 3-5 brand colors',
+      'Ensure all text meets WCAG AA contrast ratios',
+      'Standardize image dimensions and aspect ratios',
+    ],
+  },
+  hierarchy: {
+    issues: [
+      'Multiple competing calls-to-action above the fold',
+      'Content sections lack visual separation',
+      'Footer contains critical navigation links buried in text',
+    ],
+    recommendations: [
+      'Prioritize a single primary CTA above the fold',
+      'Add spacing and visual dividers between sections',
+      'Move key links to the main navigation',
+    ],
+  },
+  trust: {
+    issues: [
+      'No visible social proof or testimonials',
+      'Missing SSL badge or trust indicators',
+      'Contact information hard to locate',
+    ],
+    recommendations: [
+      'Add testimonials or client logos near the CTA',
+      'Display security badges and certifications prominently',
+      'Place contact info in the header or a sticky bar',
+    ],
+  },
+  conversion: {
+    issues: [
+      'CTA button blends into surrounding content',
+      'No urgency or scarcity elements present',
+      'Form requires too many fields before submission',
+    ],
+    recommendations: [
+      'Use high-contrast, larger CTA buttons with action verbs',
+      'Add time-sensitive offers or limited availability badges',
+      'Reduce form to name and email for initial capture',
+    ],
+  },
+  content: {
+    issues: [
+      'Body copy is too long and lacks scannable structure',
+      'Headline does not communicate core benefit',
+      'Missing alt text on key images',
+    ],
+    recommendations: [
+      'Break body text into bullet points and short paragraphs',
+      'Rewrite headline to lead with customer benefit',
+      'Add descriptive alt text to all images',
+    ],
+  },
+  mobile: {
+    issues: [
+      'Tap targets are too small on mobile viewports',
+      'Horizontal scroll detected on screens < 375px',
+      'Font sizes below 14px on mobile',
+    ],
+    recommendations: [
+      'Ensure all tap targets are at least 44×44px',
+      'Fix overflow causing horizontal scroll on small screens',
+      'Set minimum body font size to 16px on mobile',
+    ],
+  },
+  performance: {
+    issues: [
+      'Largest Contentful Paint above 4 seconds',
+      'Unoptimized images account for 2.5 MB of page weight',
+      'Render-blocking CSS in the document head',
+    ],
+    recommendations: [
+      'Optimize hero image and lazy-load below-fold images',
+      'Convert images to WebP and serve responsive sizes',
+      'Inline critical CSS and defer non-critical stylesheets',
+    ],
+  },
+};
+
+// ===== MODAL STATE =====
+let openModal = null; // dimension key or null
+
+function openDimensionModal(key) {
+  openModal = key;
+  renderModal();
+}
+
+function closeDimensionModal() {
+  openModal = null;
+  renderModal();
+}
+
+function renderModal() {
+  const overlay = document.getElementById('dim-modal-overlay');
+  if (!openModal) {
+    overlay.classList.remove('open');
+    return;
+  }
+  const dim = DIMENSIONS.find(d => d.key === openModal);
+  const details = MOCK_DETAILS[openModal];
+  const sc = state.dims[openModal];
+  const c = scoreColor(sc);
+
+  document.getElementById('dim-modal-title').textContent = dim.fullLabel;
+  const scoreEl = document.getElementById('dim-modal-score');
+  scoreEl.textContent = `${sc}/100`;
+  scoreEl.style.color = c.text;
+
+  const issuesList = document.getElementById('dim-modal-issues');
+  const recsList = document.getElementById('dim-modal-recs');
+  const issuesSection = document.getElementById('dim-modal-issues-section');
+  const recsSection = document.getElementById('dim-modal-recs-section');
+
+  if (details.issues.length) {
+    issuesSection.style.display = '';
+    issuesList.innerHTML = details.issues.map(i => `<li>${i}</li>`).join('');
+  } else {
+    issuesSection.style.display = 'none';
+  }
+
+  if (details.recommendations.length) {
+    recsSection.style.display = '';
+    recsList.innerHTML = details.recommendations.map(r => `<li>${r}</li>`).join('');
+  } else {
+    recsSection.style.display = 'none';
+  }
+
+  overlay.classList.add('open');
+}
+
+// ===== INIT CONTROLS =====
+function initDimensionControls() {
+  const container = document.getElementById('dimension-controls');
+  container.innerHTML = DIMENSIONS.map(d => `
+    <div class="ctrl-row">
+      <div class="ctrl-label">
+        <span>${d.label}</span>
+        <span class="ctrl-value" id="val-${d.key}">${state.dims[d.key]}</span>
+      </div>
+      <input type="range" min="0" max="100" value="${state.dims[d.key]}" id="slider-${d.key}" oninput="updateScore('${d.key}', this.value)">
+    </div>
+  `).join('');
+}
+
+// ===== UPDATE =====
+function updateScore(key, val) {
+  val = parseInt(val);
+  if (key === 'overall') {
+    state.overall = val;
+    document.getElementById('val-overall').textContent = val;
+  } else {
+    state.dims[key] = val;
+    document.getElementById(`val-${key}`).textContent = val;
+  }
+  state.activePreset = null;
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  renderAll();
+}
+
+function setView(v) {
+  state.view = v;
+  document.querySelectorAll('.view-tab').forEach(t => t.classList.toggle('active', t.dataset.view === v));
+  renderAll();
+}
+
+function setOutputTab(tab) {
+  state.outputTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  updateOutput();
+}
+
+function toggleBadge() {
+  state.showBadge = !state.showBadge;
+  document.getElementById('toggle-badge').classList.toggle('on', state.showBadge);
+  renderAll();
+}
+
+function applyPreset(name) {
+  const p = PRESETS[name];
+  state.overall = p.overall;
+  state.activePreset = name;
+  document.getElementById('slider-overall').value = p.overall;
+  document.getElementById('val-overall').textContent = p.overall;
+  for (const d of DIMENSIONS) {
+    state.dims[d.key] = p[d.key];
+    document.getElementById(`slider-${d.key}`).value = p[d.key];
+    document.getElementById(`val-${d.key}`).textContent = p[d.key];
+  }
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.toggle('active', b.textContent.toLowerCase() === name));
+  renderAll();
+}
+
+// ===== RENDER =====
+function renderNew() {
+  const s = state.overall;
+  const badge = state.showBadge
+    ? `<span class="hero-badge">Top 35th percentile in your industry</span>` : '';
+
+  const dimTiles = DIMENSIONS.map(d => {
+    const sc = state.dims[d.key];
+    const c = scoreColor(sc);
+    return `
+      <div class="dim-tile" onclick="openDimensionModal('${d.key}')">
+        <div class="dim-score" style="color:${c.text}">${sc}</div>
+        <div class="dim-label">${d.label}</div>
+        <div class="dim-bar"><div class="dim-bar-fill" style="width:${sc}%;background:${c.bar}"></div></div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="new-page">
+      <div class="new-hero">
+        <div class="score-ring" style="background:${conicGradient(s)}">
+          <div class="score-ring-inner">
+            <div class="score-ring-number">${s}</div>
+            <div class="score-ring-label">Overall</div>
+          </div>
+        </div>
+        <div class="hero-text">
+          <div class="hero-headline">${scoreHeadline(s)}</div>
+          <div class="hero-body">${buildSummaryText()}</div>
+          ${badge}
+        </div>
+      </div>
+      <div class="dim-grid">${dimTiles}</div>
+    </div>`;
+}
+
+function renderOld() {
+  const s = state.overall;
+  const dimRows = DIMENSIONS.map(d => {
+    const sc = state.dims[d.key];
+    return `
+      <div class="old-dim-row" onclick="openDimensionModal('${d.key}')">
+        <span class="old-dim-name">${d.fullLabel}</span>
+        <span class="old-dim-score" style="color:${oldScoreColor(sc)}">${sc}/100</span>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="old-page">
+      <div class="old-card">
+        <div class="old-card-title">Overall score</div>
+        <div class="old-score" style="color:${oldScoreColor(s)}">${s}/100</div>
+        <div class="old-tagline">${scoreTagline(s)}</div>
+      </div>
+      <div class="old-summary">
+        Your homepage design scores ${s}/100.
+        Compared to web standards, here are 3 homepage refresh directions that address the gaps we found:
+      </div>
+      <div class="old-dim-heading">Score by dimension</div>
+      ${dimRows}
+    </div>`;
+}
+
+function renderPreview() {
+  const el = document.getElementById('preview');
+  if (state.view === 'new') {
+    el.innerHTML = renderNew();
+  } else if (state.view === 'old') {
+    el.innerHTML = renderOld();
+  } else {
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#888;margin-bottom:8px;text-align:center;">Current</div>
+          ${renderOld()}
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#888;margin-bottom:8px;text-align:center;">New (Option B)</div>
+          ${renderNew()}
+        </div>
+      </div>`;
+  }
+}
+
+// ===== OUTPUT =====
+function getPromptOutput() {
+  const s = state.overall;
+  const lowestTwo = [...DIMENSIONS]
+    .map(d => ({ ...d, score: state.dims[d.key] }))
+    .sort((a, b) => a.score - b.score)
+    .slice(0, 2);
+
+  const lines = [
+    `Implement the "Bold & Dynamic" redesign for app/results/[id]/page.tsx and components/ScoreBreakdown.tsx.`,
+    ``,
+    `## Page Background`,
+    `Change bg-background → bg-slate-50, max-w-7xl → max-w-5xl.`,
+    ``,
+    `## Score Hero Card`,
+    `Replace the plain score Card with a horizontal hero layout: 160px conic-gradient ring on the left (indigo→cyan→amber sweeping to (score/100)*360 degrees, remainder slate-200), inner 128px white circle showing the score in 48px font-weight-900. Right side shows a dynamic headline from scoreHeadline(), a summary from buildSummaryText() that mentions the 2 lowest dimensions, and an optional percentile badge (bg-indigo-50 text-indigo-700).`,
+    ``,
+    `Remove the separate "Summary message" Card — merge its content into the hero.`,
+    ``,
+    `At score ${s}, the headline reads "${scoreHeadline(s)}" and the summary highlights ${lowestTwo.map(d => d.label.toLowerCase()).join(' and ')}.`,
+    ``,
+    `## Dimension Grid`,
+    `Replace the stacked list in ScoreBreakdown.tsx with a 4×2 grid (grid-cols-2 sm:grid-cols-4 gap-3). Each tile is a white rounded-2xl card with: large color-coded score (text-3xl font-black), uppercase label (text-xs font-bold text-slate-500), and a thin progress bar (h-1). Color thresholds: ≤40 red-500, 41-60 amber-500, 61-80 emerald-500, >80 blue-500. Keep the existing Dialog for click-to-expand.`,
+    ``,
+    `## Do NOT change`,
+    `- Data fetching in getRefresh()`,
+    `- Token/auth validation`,
+    `- Layout section (tabs, iframe previews)`,
+    `- SEO audit section`,
+    `- API routes or server logic`,
+    `- The Dialog in ScoreBreakdown`,
+  ];
+  return lines.join('\n');
+}
+
+function getHeroJsx() {
+  return `{/* Score Hero Card */}
+<div className="bg-white rounded-2xl shadow-sm p-10 mb-8 flex items-center gap-10">
+  {/* Score Ring */}
+  <div
+    className="w-40 h-40 rounded-full flex items-center justify-center flex-shrink-0"
+    style={{
+      background: \`conic-gradient(
+        #4F46E5 0deg,
+        #06B6D4 \${(overallScore / 100) * 240}deg,
+        #F59E0B \${(overallScore / 100) * 360}deg,
+        #E2E8F0 \${(overallScore / 100) * 360}deg
+      )\`
+    }}
+  >
+    <div className="w-32 h-32 rounded-full bg-white flex flex-col items-center justify-center">
+      <span className="text-5xl font-black tracking-tighter leading-none text-slate-900">
+        {overallScore}
+      </span>
+      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+        Overall
+      </span>
+    </div>
+  </div>
+
+  {/* Summary */}
+  <div className="flex-1">
+    <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight mb-2">
+      {scoreHeadline(overallScore)}
+    </h2>
+    <p className="text-sm text-slate-500 leading-relaxed mb-4">
+      {buildSummaryText(overallScore, scoringDetails)}
+    </p>
+    {percentileBadge && (
+      <span className="inline-block bg-indigo-50 text-indigo-700 rounded-lg px-3 py-1.5 text-sm font-semibold">
+        {percentileBadge}
+      </span>
+    )}
+  </div>
+</div>`;
+}
+
+function getGridJsx() {
+  return `{/* Dimension Score Grid */}
+<div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-10">
+  {details.map((d) => (
+    <button
+      key={d.dimension}
+      onClick={() => setOpenDimension(d.dimension)}
+      className="bg-white rounded-2xl p-5 text-center shadow-sm
+                 hover:-translate-y-0.5 hover:shadow-md transition-all cursor-pointer"
+    >
+      <div className={cn("text-3xl font-black tracking-tight leading-none mb-1.5", colorClass(d.score))}>
+        {d.score}
+      </div>
+      <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+        {SHORT_LABELS[d.dimension] ?? d.dimension}
+      </div>
+      <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+        <div
+          className={cn("h-full rounded-full", barColorClass(d.score))}
+          style={{ width: \`\${d.score}%\` }}
+        />
+      </div>
+    </button>
+  ))}
+</div>
+
+{/* Color helper functions */}
+function colorClass(score: number): string {
+  if (score <= 40) return "text-red-500";
+  if (score <= 60) return "text-amber-500";
+  if (score <= 80) return "text-emerald-500";
+  return "text-blue-500";
+}
+
+function barColorClass(score: number): string {
+  if (score <= 40) return "bg-red-500";
+  if (score <= 60) return "bg-amber-500";
+  if (score <= 80) return "bg-emerald-500";
+  return "bg-blue-500";
+}
+
+const SHORT_LABELS: Record<string, string> = {
+  clarity: "Clarity",
+  visual: "Visual",
+  hierarchy: "Hierarchy",
+  trust: "Trust",
+  conversion: "Conversion",
+  content: "Content",
+  mobile: "Mobile",
+  performance: "Performance",
+};`;
+}
+
+function getHelpersCode() {
+  return `// Helper functions — add to app/results/[id]/page.tsx
+
+function scoreHeadline(score: number): string {
+  if (score <= 40) return "Needs work";
+  if (score <= 60) return "Room to grow";
+  if (score <= 80) return "Looking strong";
+  return "Excellent";
+}
+
+function buildSummaryText(
+  score: number,
+  details: DimensionDetail[]
+): string {
+  if (!details.length) return scoreTagline(score);
+  const sorted = [...details].sort((a, b) => a.score - b.score);
+  const lowest = sorted.slice(0, 2).map(
+    (d) => DIMENSION_LABELS[d.dimension] ?? d.dimension
+  );
+  return \`Your homepage has a solid foundation but underperforms in \${lowest[0].toLowerCase()} and \${lowest[1].toLowerCase()}. Our layout alternatives address these gaps directly.\`;
+}
+
+// Color thresholds for ScoreBreakdown.tsx
+function colorClass(score: number): string {
+  if (score <= 40) return "text-red-500";
+  if (score <= 60) return "text-amber-500";
+  if (score <= 80) return "text-emerald-500";
+  return "text-blue-500";
+}
+
+function barColorClass(score: number): string {
+  if (score <= 40) return "bg-red-500";
+  if (score <= 60) return "bg-amber-500";
+  if (score <= 80) return "bg-emerald-500";
+  return "bg-blue-500";
+}
+
+// Conic gradient formula for score ring
+// style={{ background: \`conic-gradient(
+//   #4F46E5 0deg,
+//   #06B6D4 \${(overallScore / 100) * 240}deg,
+//   #F59E0B \${(overallScore / 100) * 360}deg,
+//   #E2E8F0 \${(overallScore / 100) * 360}deg
+// )\` }}`;
+}
+
+function updateOutput() {
+  const el = document.getElementById('output');
+  switch (state.outputTab) {
+    case 'prompt': el.textContent = getPromptOutput(); break;
+    case 'hero': el.textContent = getHeroJsx(); break;
+    case 'grid': el.textContent = getGridJsx(); break;
+    case 'helpers': el.textContent = getHelpersCode(); break;
+  }
+}
+
+function copyOutput() {
+  const el = document.getElementById('output');
+  navigator.clipboard.writeText(el.textContent).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+  });
+}
+
+function renderAll() {
+  renderPreview();
+  updateOutput();
+}
+
+// ===== INIT =====
+initDimensionControls();
+renderAll();
+</script>
+</body>
+</html>
