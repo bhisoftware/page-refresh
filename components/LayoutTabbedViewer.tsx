@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { RequestQuoteForm } from "@/components/RequestQuoteForm";
@@ -15,6 +15,47 @@ const EXPORT_PLATFORMS = [
   { value: "squarespace", label: "Squarespace" },
   { value: "wix", label: "Wix" },
 ] as const;
+
+/** Icy "Install This Layout" button injected at the end of each iframe's content flow. */
+const INSTALL_BUTTON_HTML = `
+<div style="padding:48px 24px;text-align:center;">
+  <style>
+    .pr-install-btn{
+      display:inline-block;
+      background:linear-gradient(135deg,#e0f7fa 0%,#80deea 50%,#4dd0e1 100%);
+      color:#006064;border:2px solid #80deea;
+      box-shadow:0 4px 14px rgba(77,208,225,.4),0 0 20px rgba(128,222,234,.3);
+      padding:16px 36px;border-radius:14px;
+      font-weight:700;font-size:17px;
+      font-family:system-ui,-apple-system,sans-serif;
+      cursor:pointer;position:relative;overflow:hidden;
+      animation:prPulse 2s ease-in-out infinite;
+      transition:all .2s;text-decoration:none;
+    }
+    .pr-install-btn::before{
+      content:'';position:absolute;top:-50%;left:-50%;
+      width:200%;height:200%;
+      background:linear-gradient(45deg,transparent 30%,rgba(255,255,255,.4) 50%,transparent 70%);
+      transform:rotate(45deg);animation:prShimmer 3s ease-in-out infinite;
+    }
+    .pr-install-btn:hover{
+      background:linear-gradient(135deg,#b2ebf2 0%,#4dd0e1 50%,#26c6da 100%);
+      color:#004d40;transform:translateY(-2px);
+      box-shadow:0 6px 20px rgba(77,208,225,.5),0 0 30px rgba(128,222,234,.5);
+    }
+    @keyframes prPulse{
+      0%,100%{box-shadow:0 4px 14px rgba(77,208,225,.4),0 0 20px rgba(128,222,234,.3)}
+      50%{box-shadow:0 4px 20px rgba(77,208,225,.6),0 0 35px rgba(128,222,234,.5),0 0 50px rgba(224,247,250,.3)}
+    }
+    @keyframes prShimmer{
+      0%{transform:translateX(-100%) rotate(45deg)}
+      50%,100%{transform:translateX(100%) rotate(45deg)}
+    }
+  </style>
+  <button class="pr-install-btn" onclick="window.parent.postMessage({type:'installLayout'},'*')">
+    Install This Layout
+  </button>
+</div>`;
 
 interface LayoutTabbedViewerProps {
   refreshId: string;
@@ -39,16 +80,16 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts }: LayoutTabb
 
   const currentLayout = layoutByTab[activeTab] ?? layouts[0];
 
-  const srcdoc = useMemo(
-    () =>
-      wrapInDocument(currentLayout.layoutHtml, currentLayout.layoutCss ?? "", {
-        desktopViewport: true,
-        scaleToFit: 0.85,
-      }),
-    [currentLayout.layoutHtml, currentLayout.layoutCss]
-  );
+  const srcdoc = useMemo(() => {
+    const doc = wrapInDocument(currentLayout.layoutHtml, currentLayout.layoutCss ?? "", {
+      desktopViewport: true,
+      scaleToFit: 0.85,
+    });
+    // Inject install button at the end of the content flow (before </body>)
+    return doc.replace("</body>", INSTALL_BUTTON_HTML + "</body>");
+  }, [currentLayout.layoutHtml, currentLayout.layoutCss]);
 
-  const handleInstallClick = async () => {
+  const handleInstallClick = useCallback(async () => {
     setCheckoutLoading(true);
     try {
       const res = await fetch("/api/checkout", {
@@ -71,71 +112,21 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts }: LayoutTabb
     } finally {
       setCheckoutLoading(false);
     }
-  };
+  }, [refreshId, currentLayout.layoutIndex, viewToken]);
+
+  // Listen for install button clicks from inside the iframe
+  useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      if (e.data?.type === "installLayout") {
+        handleInstallClick();
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, [handleInstallClick]);
 
   return (
     <>
-      {/* Icy button keyframes */}
-      <style>{`
-        .icy-install-btn {
-          background: linear-gradient(135deg, #e0f7fa 0%, #80deea 50%, #4dd0e1 100%);
-          color: #006064;
-          border: 2px solid #80deea;
-          box-shadow:
-            0 4px 14px rgba(77, 208, 225, 0.4),
-            0 0 20px rgba(128, 222, 234, 0.3);
-          animation: icyPulse 2s ease-in-out infinite;
-          position: relative;
-          overflow: hidden;
-        }
-        .icy-install-btn::before {
-          content: '';
-          position: absolute;
-          top: -50%;
-          left: -50%;
-          width: 200%;
-          height: 200%;
-          background: linear-gradient(
-            45deg,
-            transparent 30%,
-            rgba(255, 255, 255, 0.4) 50%,
-            transparent 70%
-          );
-          transform: rotate(45deg);
-          animation: iceShimmer 3s ease-in-out infinite;
-        }
-        .icy-install-btn:hover {
-          background: linear-gradient(135deg, #b2ebf2 0%, #4dd0e1 50%, #26c6da 100%);
-          color: #004d40;
-          transform: translateY(-2px);
-          box-shadow:
-            0 6px 20px rgba(77, 208, 225, 0.5),
-            0 0 30px rgba(128, 222, 234, 0.5);
-        }
-        .icy-install-btn:disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
-          animation: none;
-        }
-        @keyframes icyPulse {
-          0%, 100% {
-            box-shadow:
-              0 4px 14px rgba(77, 208, 225, 0.4),
-              0 0 20px rgba(128, 222, 234, 0.3);
-          }
-          50% {
-            box-shadow:
-              0 4px 20px rgba(77, 208, 225, 0.6),
-              0 0 35px rgba(128, 222, 234, 0.5),
-              0 0 50px rgba(224, 247, 250, 0.3);
-          }
-        }
-        @keyframes iceShimmer {
-          0% { transform: translateX(-100%) rotate(45deg); }
-          50%, 100% { transform: translateX(100%) rotate(45deg); }
-        }
-      `}</style>
-
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         {layouts.length > 1 && (
           <TabsList className="mb-2 mx-auto flex w-fit">
@@ -147,7 +138,7 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts }: LayoutTabb
           </TabsList>
         )}
         <div className="mt-0">
-          {/* Browser-style frame with floating install button */}
+          {/* Browser-style frame */}
           <div className="relative">
             <div
               className="rounded-lg border border-border bg-muted/20 shadow-lg overflow-hidden"
@@ -173,17 +164,6 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts }: LayoutTabb
                 />
               </div>
             </div>
-
-            {/* Floating icy install button */}
-            <button
-              type="button"
-              onClick={handleInstallClick}
-              disabled={checkoutLoading}
-              className="icy-install-btn absolute bottom-6 right-6 z-10 px-6 py-3 rounded-xl
-                         font-bold text-sm cursor-pointer transition-all"
-            >
-              {checkoutLoading ? "Loading…" : "Install This Layout"}
-            </button>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 w-full mt-4">
             <select

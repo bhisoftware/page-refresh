@@ -166,6 +166,9 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   const startTime = Date.now();
   const rawUrl = url.startsWith("http") ? url : `https://${url}`;
   console.log("[pipeline] starting", { url: rawUrl });
+  // #region agent log
+  fetch("http://127.0.0.1:7245/ingest/44cb5644-87db-4ef0-a42f-a9477775a16b", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0cecf2" }, body: JSON.stringify({ sessionId: "0cecf2", location: "lib/pipeline/analyze.ts:runAnalysis", message: "runAnalysis entry", data: { url: rawUrl }, timestamp: Date.now(), hypothesisId: "A" }) }).catch(() => {});
+  // #endregion
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const onRetry = (_delayMs: number) =>
@@ -212,6 +215,9 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   });
   const refreshId = refresh.id;
   onRefreshCreated?.(refreshId);
+  // #region agent log
+  fetch("http://127.0.0.1:7245/ingest/44cb5644-87db-4ef0-a42f-a9477775a16b", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0cecf2" }, body: JSON.stringify({ sessionId: "0cecf2", location: "lib/pipeline/analyze.ts:refreshCreated", message: "refresh row created", data: { refreshId }, timestamp: Date.now(), hypothesisId: "A" }) }).catch(() => {});
+  // #endregion
   const skills = await getAllActiveSkills();
   const skillVersions: Record<string, number> = {};
   skills.forEach((s: AgentSkill) => {
@@ -246,6 +252,9 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     ]);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    // #region agent log
+    fetch("http://127.0.0.1:7245/ingest/44cb5644-87db-4ef0-a42f-a9477775a16b", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0cecf2" }, body: JSON.stringify({ sessionId: "0cecf2", location: "lib/pipeline/analyze.ts:step1Catch", message: "Step 1 failed", data: { refreshId, message: msg }, timestamp: Date.now(), hypothesisId: "A" }) }).catch(() => {});
+    // #endregion
     console.error("[pipeline] Step 1 failed:", msg);
     onProgress?.({ step: "error", message: msg });
     await prisma.refresh.update({
@@ -294,6 +303,9 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   onProgress?.({ step: "token", key: "industry", data: { name: industry, confidence: industrySeo.industry?.confidence ?? 0 } });
 
   // --- Step 2: Score Agent ---
+  // #region agent log
+  fetch("http://127.0.0.1:7245/ingest/44cb5644-87db-4ef0-a42f-a9477775a16b", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0cecf2" }, body: JSON.stringify({ sessionId: "0cecf2", location: "lib/pipeline/analyze.ts:step2Start", message: "Step 2 starting", data: { refreshId }, timestamp: Date.now(), hypothesisId: "B" }) }).catch(() => {});
+  // #endregion
   onProgress?.({ step: "scoring", message: "Scoring against industry benchmarks..." });
 
   const benchmarks = await prisma.benchmark.findMany({
@@ -382,6 +394,9 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   }});
 
   // --- Step 3: Creative Agents ---
+  // #region agent log
+  fetch("http://127.0.0.1:7245/ingest/44cb5644-87db-4ef0-a42f-a9477775a16b", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0cecf2" }, body: JSON.stringify({ sessionId: "0cecf2", location: "lib/pipeline/analyze.ts:step3Start", message: "Step 3 starting", data: { refreshId }, timestamp: Date.now(), hypothesisId: "C" }) }).catch(() => {});
+  // #endregion
   console.log("[pipeline] step 3: creative agents");
   onProgress?.({ step: "generating", message: "Generating 3 design options..." });
 
@@ -459,10 +474,14 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   });
   const successCount = layouts.filter(Boolean).length;
   if (successCount === 0) {
-    console.error("[pipeline] All 3 Creative Agents failed. Saving scores/SEO/benchmarks without layouts.");
+    const reasons = creativeResults
+      .map((r, i) => r.status === "rejected" ? `${creativeSlugs[i]}: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}` : null)
+      .filter(Boolean)
+      .join(" | ");
+    console.error("[pipeline] All 3 Creative Agents failed:", reasons);
     await prisma.refresh.update({
       where: { id: refreshId },
-      data: { errorStep: "generating", errorMessage: "All 3 creative agents failed" },
+      data: { errorStep: "generating", errorMessage: `All 3 creative agents failed — ${reasons}`.slice(0, 2000) },
     }).catch(() => {});
     onProgress?.({ step: "error", message: "Layout generation was unable to complete. Your scores and audit are still saved below." });
   } else if (successCount < 3) {
@@ -508,6 +527,9 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   });
 
   const elapsedSec = Math.round((Date.now() - startTime) / 1000);
+  // #region agent log
+  fetch("http://127.0.0.1:7245/ingest/44cb5644-87db-4ef0-a42f-a9477775a16b", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0cecf2" }, body: JSON.stringify({ sessionId: "0cecf2", location: "lib/pipeline/analyze.ts:runAnalysisReturn", message: "runAnalysis returning refreshId", data: { refreshId, elapsedSec }, timestamp: Date.now(), hypothesisId: "D" }) }).catch(() => {});
+  // #endregion
   console.log("[pipeline] completed", { refreshId, elapsedSec });
   return refreshId;
 }

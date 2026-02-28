@@ -103,11 +103,17 @@ export async function POST(request: NextRequest) {
               select: { viewToken: true },
             });
             const viewToken = row?.viewToken ?? "";
+            // #region agent log
+            fetch("http://127.0.0.1:7245/ingest/44cb5644-87db-4ef0-a42f-a9477775a16b", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0cecf2" }, body: JSON.stringify({ sessionId: "0cecf2", location: "app/api/analyze/route.ts:sendDone", message: "SSE sending done", data: { refreshId, hasViewToken: !!viewToken }, timestamp: Date.now(), hypothesisId: "D" }) }).catch(() => {});
+            // #endregion
             console.log("[analyze] pipeline completed, sending done", { refreshId });
             send({ type: "done", refreshId, viewToken });
           } catch (err) {
             clearInterval(keepaliveId);
             const message = err instanceof Error ? err.message : "Refresh failed";
+            // #region agent log
+            fetch("http://127.0.0.1:7245/ingest/44cb5644-87db-4ef0-a42f-a9477775a16b", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0cecf2" }, body: JSON.stringify({ sessionId: "0cecf2", location: "app/api/analyze/route.ts:catch", message: "pipeline catch", data: { message, capturedRefreshId }, timestamp: Date.now(), hypothesisId: "D" }) }).catch(() => {});
+            // #endregion
 
             // On timeout, redirect to partial results if a refresh record exists
             if (message === "PIPELINE_TIMEOUT" && capturedRefreshId) {
