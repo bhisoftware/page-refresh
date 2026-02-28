@@ -16,46 +16,60 @@ const EXPORT_PLATFORMS = [
   { value: "wix", label: "Wix" },
 ] as const;
 
-/** Icy "Install This Layout" button injected at the end of each iframe's content flow. */
-const INSTALL_BUTTON_HTML = `
-<div style="padding:48px 24px;text-align:center;">
-  <style>
-    .pr-install-btn{
-      display:inline-block;
-      background:linear-gradient(135deg,#e0f7fa 0%,#80deea 50%,#4dd0e1 100%);
-      color:#006064;border:2px solid #80deea;
-      box-shadow:0 4px 14px rgba(77,208,225,.4),0 0 20px rgba(128,222,234,.3);
-      padding:16px 36px;border-radius:14px;
-      font-weight:700;font-size:17px;
-      font-family:system-ui,-apple-system,sans-serif;
-      cursor:pointer;position:relative;overflow:hidden;
-      animation:prPulse 2s ease-in-out infinite;
-      transition:all .2s;text-decoration:none;
-    }
-    .pr-install-btn::before{
-      content:'';position:absolute;top:-50%;left:-50%;
-      width:200%;height:200%;
-      background:linear-gradient(45deg,transparent 30%,rgba(255,255,255,.4) 50%,transparent 70%);
-      transform:rotate(45deg);animation:prShimmer 3s ease-in-out infinite;
-    }
-    .pr-install-btn:hover{
-      background:linear-gradient(135deg,#b2ebf2 0%,#4dd0e1 50%,#26c6da 100%);
-      color:#004d40;transform:translateY(-2px);
-      box-shadow:0 6px 20px rgba(77,208,225,.5),0 0 30px rgba(128,222,234,.5);
-    }
-    @keyframes prPulse{
-      0%,100%{box-shadow:0 4px 14px rgba(77,208,225,.4),0 0 20px rgba(128,222,234,.3)}
-      50%{box-shadow:0 4px 20px rgba(77,208,225,.6),0 0 35px rgba(128,222,234,.5),0 0 50px rgba(224,247,250,.3)}
-    }
-    @keyframes prShimmer{
-      0%{transform:translateX(-100%) rotate(45deg)}
-      50%,100%{transform:translateX(100%) rotate(45deg)}
-    }
-  </style>
-  <button class="pr-install-btn" onclick="window.parent.postMessage({type:'installLayout'},'*')">
-    Install This Layout
-  </button>
-</div>`;
+/**
+ * Script + styles injected before </body> in each iframe.
+ * At runtime the script finds the layout's actual scrolling container
+ * (often a single wrapper div, not <body> itself) and appends the CTA
+ * inside it so the button scrolls naturally with the layout content.
+ */
+const INSTALL_BUTTON_SCRIPT = `
+<style>
+  .pr-install-wrap{padding:48px 24px;text-align:center}
+  .pr-install-btn{
+    display:inline-block;
+    background:linear-gradient(135deg,#e0f7fa 0%,#80deea 50%,#4dd0e1 100%);
+    color:#006064;border:2px solid #80deea;
+    box-shadow:0 4px 14px rgba(77,208,225,.4),0 0 20px rgba(128,222,234,.3);
+    padding:16px 36px;border-radius:14px;
+    font-weight:700;font-size:17px;
+    font-family:system-ui,-apple-system,sans-serif;
+    cursor:pointer;position:relative;overflow:hidden;
+    animation:prPulse 2s ease-in-out infinite;
+    transition:all .2s;text-decoration:none;
+  }
+  .pr-install-btn::before{
+    content:'';position:absolute;top:-50%;left:-50%;
+    width:200%;height:200%;
+    background:linear-gradient(45deg,transparent 30%,rgba(255,255,255,.4) 50%,transparent 70%);
+    transform:rotate(45deg);animation:prShimmer 3s ease-in-out infinite;
+  }
+  .pr-install-btn:hover{
+    background:linear-gradient(135deg,#b2ebf2 0%,#4dd0e1 50%,#26c6da 100%);
+    color:#004d40;transform:translateY(-2px);
+    box-shadow:0 6px 20px rgba(77,208,225,.5),0 0 30px rgba(128,222,234,.5);
+  }
+  @keyframes prPulse{
+    0%,100%{box-shadow:0 4px 14px rgba(77,208,225,.4),0 0 20px rgba(128,222,234,.3)}
+    50%{box-shadow:0 4px 20px rgba(77,208,225,.6),0 0 35px rgba(128,222,234,.5),0 0 50px rgba(224,247,250,.3)}
+  }
+  @keyframes prShimmer{
+    0%{transform:translateX(-100%) rotate(45deg)}
+    50%,100%{transform:translateX(100%) rotate(45deg)}
+  }
+</style>
+<script>
+(function(){
+  var wrap=document.createElement('div');
+  wrap.className='pr-install-wrap';
+  wrap.innerHTML='<button class="pr-install-btn" onclick="window.parent.postMessage({type:\\'installLayout\\'},\\'*\\')">Install This Layout</button>';
+  // Find the content container: if body has one significant child, append inside it
+  var kids=Array.prototype.filter.call(document.body.children,function(c){
+    var t=c.tagName;return t!=='SCRIPT'&&t!=='STYLE'&&t!=='LINK';
+  });
+  var target=kids.length===1?kids[0]:document.body;
+  target.appendChild(wrap);
+})();
+</script>`;
 
 interface LayoutTabbedViewerProps {
   refreshId: string;
@@ -85,8 +99,9 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts }: LayoutTabb
       desktopViewport: true,
       scaleToFit: 0.85,
     });
-    // Inject install button at the end of the content flow (before </body>)
-    return doc.replace("</body>", INSTALL_BUTTON_HTML + "</body>");
+    // Inject install button script before </body> — the script finds the
+    // layout's scrolling container at runtime and appends the CTA inside it.
+    return doc.replace("</body>", INSTALL_BUTTON_SCRIPT + "</body>");
   }, [currentLayout.layoutHtml, currentLayout.layoutCss]);
 
   const handleInstallClick = useCallback(async () => {
