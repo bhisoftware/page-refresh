@@ -6,6 +6,7 @@ import { ScoreBreakdown, type DimensionDetail } from "@/components/ScoreBreakdow
 import { SeoAuditSection, type SeoCheckItem, type SeoRecommendation } from "@/components/SeoAuditSection";
 import { BenchmarkComparison, type BenchmarkComparisonData } from "@/components/BenchmarkComparison";
 import { InstallCtaCard } from "@/components/InstallCtaCard";
+import { EmailScoresCta } from "@/components/EmailScoresCta";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 
@@ -218,6 +219,9 @@ export default async function ResultsPage({
             </p>
           </section>
         )}
+
+        {/* Email CTA */}
+        <EmailScoresCta refreshId={id} />
 
         {/* Score breakdown */}
         <section className="mb-10">

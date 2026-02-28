@@ -76,8 +76,8 @@ export function ScoreBreakdown({ details, className }: ScoreBreakdownProps) {
             key={d.dimension}
             type="button"
             onClick={() => setOpenDimension(d.dimension)}
-            className="bg-white rounded-2xl p-5 text-center
-                       hover:-translate-y-0.5 hover:shadow-sm transition-all cursor-pointer"
+            className="bg-white rounded-2xl p-5 text-center shadow-sm
+                       hover:-translate-y-0.5 hover:shadow-md transition-all cursor-pointer"
             aria-haspopup="dialog"
             aria-expanded={openDimension === d.dimension}
           >
