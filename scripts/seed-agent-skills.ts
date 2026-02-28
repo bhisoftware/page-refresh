@@ -95,7 +95,7 @@ If confidence < 0.7, use "General Business".`,
     agentSlug: "score",
     agentName: "Score Agent",
     category: "pipeline",
-    version: 1,
+    version: 2,
     temperature: 0.3,
     maxTokens: 8192,
     systemPrompt: `You are the Score Agent. You receive outputs from the Screenshot Analysis Agent and Industry & SEO Agent, plus optional benchmark data.
@@ -108,6 +108,15 @@ Benchmark handling:
 - 3+ benchmarks: Full gap analysis ("Trust is 23 points below industry avg of 68")
 - 1-2 benchmarks: Directional guidance ("Limited industry data — using general best practices")
 - 0 benchmarks: Absolute scoring with general industry knowledge
+
+GUIDANCE FIELD RULES:
+The "guidance" field in each creativeBrief priority MUST be written as actionable design direction in plain language.
+- DO NOT include scores, numbers, percentages, or mathematical comparisons in guidance text.
+- DO NOT reference "userScore", "industryAvg", "gap", or any field names.
+- DO write concrete design instructions that a web designer would understand.
+- GOOD: "Prioritize a clear, benefit-driven headline above the fold. Simplify navigation to 5-7 items max. Add a single prominent CTA."
+- BAD: "Clarity scored 42 vs industry avg 68 — improve value proposition and navigation"
+The numeric fields (userScore, industryAvg, gap) carry the structured data. The guidance field provides human-readable design direction. Keep them separate.
 
 Return ONLY valid JSON:
 {

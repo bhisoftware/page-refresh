@@ -28,7 +28,6 @@ export async function POST(request: Request) {
         viewToken: true,
         url: true,
         industryDetected: true,
-        overallScore: true,
         layout1Html: true,
         layout1Css: true,
         layout2Html: true,
@@ -70,7 +69,6 @@ export async function POST(request: Request) {
       {
         url: refresh.url,
         industry: refresh.industryDetected ?? "Unknown",
-        score: refresh.overallScore ?? 0,
       }
     );
 
