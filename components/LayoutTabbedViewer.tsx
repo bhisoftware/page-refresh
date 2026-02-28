@@ -85,7 +85,6 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts }: LayoutTabb
             0 4px 14px rgba(77, 208, 225, 0.4),
             0 0 20px rgba(128, 222, 234, 0.3);
           animation: icyPulse 2s ease-in-out infinite;
-          position: relative;
           overflow: hidden;
         }
         .icy-install-btn::before {
@@ -179,7 +178,7 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts }: LayoutTabb
               type="button"
               onClick={handleInstallClick}
               disabled={checkoutLoading}
-              className="icy-install-btn absolute bottom-6 right-6 z-20 px-6 py-3 rounded-xl
+              className="icy-install-btn absolute bottom-6 right-0 z-20 px-6 py-3 rounded-xl
                          font-bold text-sm cursor-pointer transition-all"
             >
               {checkoutLoading ? "Loading…" : "Install This Layout"}
