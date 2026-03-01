@@ -5,7 +5,7 @@ import { LayoutSectionErrorBoundary } from "@/components/LayoutSectionErrorBound
 import { ScoreBreakdown, type DimensionDetail } from "@/components/ScoreBreakdown";
 import { SeoAuditSection, type SeoCheckItem, type SeoRecommendation } from "@/components/SeoAuditSection";
 import { BenchmarkComparison, type BenchmarkComparisonData } from "@/components/BenchmarkComparison";
-import { InstallCtaCard } from "@/components/InstallCtaCard";
+import { ScoreRingHero } from "@/components/ScoreRingHero";
 import { EmailScoresCta } from "@/components/EmailScoresCta";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
@@ -164,44 +164,16 @@ export default async function ResultsPage({
         </Link>
 
         {/* Score Hero Card */}
-        <div className="bg-white rounded-2xl shadow-sm p-10 mb-8 flex flex-col sm:flex-row items-center gap-10">
-          {/* Score Ring */}
-          <div
-            className="w-40 h-40 rounded-full flex items-center justify-center flex-shrink-0"
-            style={{
-              background: `conic-gradient(
-                #4F46E5 0deg,
-                #06B6D4 ${(overallScore / 100) * 240}deg,
-                #F59E0B ${(overallScore / 100) * 360}deg,
-                #E2E8F0 ${(overallScore / 100) * 360}deg
-              )`,
-            }}
-          >
-            <div className="w-32 h-32 rounded-full bg-white flex flex-col items-center justify-center">
-              <span className="text-5xl font-black tracking-tighter leading-none text-slate-900">
-                {overallScore}
-              </span>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                Overall
-              </span>
-            </div>
-          </div>
-
-          {/* Summary */}
-          <div className="flex-1 text-center sm:text-left">
-            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight mb-2">
-              {scoreHeadline(overallScore)}
-            </h2>
-            <p className="text-sm text-slate-500 leading-relaxed mb-4">
-              {summaryText}
-            </p>
-            {refresh.benchmarkComparison != null && (
-              <span className="inline-block bg-indigo-50 text-indigo-700 rounded-lg px-3 py-1.5 text-sm font-semibold">
-                Top {((refresh.benchmarkComparison as { percentile?: number })?.percentile) ?? 50}th percentile in {refresh.industryDetected ?? "your industry"}
-              </span>
-            )}
-          </div>
-        </div>
+        <ScoreRingHero
+          score={overallScore}
+          headline={scoreHeadline(overallScore)}
+          summary={summaryText}
+          benchmarkBadge={
+            refresh.benchmarkComparison != null
+              ? `Top ${((refresh.benchmarkComparison as { percentile?: number })?.percentile) ?? 50}th percentile in ${refresh.industryDetected ?? "your industry"}`
+              : null
+          }
+        />
 
         {/* Layout cards */}
         {hasLayouts ? (
@@ -253,8 +225,6 @@ export default async function ResultsPage({
           recommendations={((refresh.seoAudit as { recommendations?: SeoRecommendation[] })?.recommendations ?? []) as SeoRecommendation[]}
         />
 
-        {/* Install CTA */}
-        <InstallCtaCard refreshId={id} />
       </div>
     </main>
   );

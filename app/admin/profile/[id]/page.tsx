@@ -2,8 +2,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { ScoreRingHero } from "@/components/ScoreRingHero";
 import { BrandAssetsPanel } from "@/components/admin/BrandAssetsPanel";
+import { ProfileEditableFields } from "./ProfileEditableFields";
+
+function scoreHeadline(score: number): string {
+  if (score <= 40) return "Needs work";
+  if (score <= 60) return "Room to grow";
+  if (score <= 80) return "Looking strong";
+  return "Excellent";
+}
 
 export default async function AdminProfilePage({
   params,
@@ -40,6 +48,8 @@ export default async function AdminProfilePage({
     fonts?: unknown;
   } | null;
 
+  const latestScore = profile.latestScore ?? 0;
+
   return (
     <main className="min-h-screen bg-background p-6">
       <div className="mx-auto max-w-5xl space-y-6">
@@ -53,15 +63,35 @@ export default async function AdminProfilePage({
         </div>
         <div>
           <h1 className="text-2xl font-semibold break-all">{profile.url}</h1>
-          <div className="flex flex-wrap items-center gap-2 mt-1 text-sm text-muted-foreground">
-            <span>Domain: {profile.domain}</span>
-            <span>·</span>
-            <span>Industry: {profile.industry ?? "—"}</span>
-            {profile.industryLocked && (
-              <Badge variant="secondary" className="text-xs">Locked</Badge>
-            )}
-          </div>
+          <p className="text-sm text-muted-foreground mt-1">
+            Domain: {profile.domain} · {profile.analysisCount} analysis{profile.analysisCount !== 1 ? "es" : ""}
+          </p>
         </div>
+
+        {/* Score ring for latest score */}
+        {latestScore > 0 && (
+          <ScoreRingHero
+            score={latestScore}
+            headline={scoreHeadline(latestScore)}
+            summary={`Best score: ${profile.bestScore ?? "—"}/100`}
+            subtitle={profile.lastAnalyzedAt
+              ? `Last analyzed: ${new Date(profile.lastAnalyzedAt).toLocaleString(undefined, { timeZone: "America/New_York" })}`
+              : undefined
+            }
+          />
+        )}
+
+        {/* Editable CMS, Industry, Contact fields */}
+        <ProfileEditableFields
+          profileId={id}
+          initialCms={profile.cms}
+          initialCmsLocked={profile.cmsLocked}
+          initialIndustry={profile.industry}
+          initialIndustryLocked={profile.industryLocked}
+          initialEmail={profile.customerEmail}
+          initialPhone={profile.contactPhone}
+          initialHostingPlatform={profile.hostingPlatform}
+        />
 
         <div className="grid gap-6 md:grid-cols-2">
           <BrandAssetsPanel
@@ -82,7 +112,6 @@ export default async function AdminProfilePage({
               <p>Best score: {profile.bestScore ?? "—"}</p>
               <p>Latest score: {profile.latestScore ?? "—"}</p>
               <p>Last analyzed: {profile.lastAnalyzedAt ? new Date(profile.lastAnalyzedAt).toLocaleString(undefined, { timeZone: "America/New_York" }) : "—"}</p>
-              {profile.customerEmail && <p>Customer: {profile.customerEmail}</p>}
               {profile.expiresAt && <p>Expires: {new Date(profile.expiresAt).toLocaleDateString(undefined, { timeZone: "America/New_York" })}</p>}
               <p>Created: {new Date(profile.createdAt).toLocaleString(undefined, { timeZone: "America/New_York" })}</p>
             </CardContent>

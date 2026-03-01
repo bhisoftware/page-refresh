@@ -11,6 +11,7 @@ import { uploadBlob, screenshotKey } from "@/lib/storage/blobs";
 import { compressScreenshotToWebP } from "@/lib/scraping/screenshot-compress";
 import { fetchExternalCss } from "@/lib/scraping/fetch-external-css";
 import { findOrCreateUrlProfile } from "@/lib/pipeline/url-profile";
+import { detectCms } from "@/lib/pipeline/cms-detect";
 import { extractAndPersistAssets } from "@/lib/pipeline/asset-extraction";
 import { getAllActiveSkills } from "@/lib/config/agent-skills";
 import { runScreenshotAnalysisAgent } from "@/lib/pipeline/agents/screenshot-analysis";
@@ -201,6 +202,15 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   const inlineCss = extractInlineCss(html);
   const externalCss = await fetchExternalCss(html, rawUrl, 3);
   const css = [inlineCss, externalCss].filter(Boolean).join("\n");
+
+  // CMS auto-detection: write to UrlProfile unless admin-locked
+  const detectedCms = detectCms(html);
+  if (detectedCms && !urlProfile.cmsLocked) {
+    await prisma.urlProfile.update({
+      where: { id: urlProfile.id },
+      data: { cms: detectedCms },
+    });
+  }
 
   const refresh = await prisma.refresh.create({
     data: {

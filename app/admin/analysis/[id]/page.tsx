@@ -3,16 +3,17 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScoreBreakdown, type DimensionDetail } from "@/components/ScoreBreakdown";
+import { ScoreRingHero } from "@/components/ScoreRingHero";
+import { InstallCtaCard } from "@/components/InstallCtaCard";
 import { AdminNotesSection } from "./AdminNotesSection";
 import { AdminPromptLogs } from "./AdminPromptLogs";
 import { ArrowLeft } from "lucide-react";
-import { cn } from "@/lib/utils";
 
-function scoreColorClass(score: number): string {
-  if (score <= 40) return "text-destructive";
-  if (score <= 60) return "text-amber-600 dark:text-amber-400";
-  if (score <= 80) return "text-green-600 dark:text-green-400";
-  return "text-blue-600 dark:text-blue-400";
+function scoreHeadline(score: number): string {
+  if (score <= 40) return "Needs work";
+  if (score <= 60) return "Room to grow";
+  if (score <= 80) return "Looking strong";
+  return "Excellent";
 }
 
 export default async function AdminAnalysisPage({
@@ -117,35 +118,23 @@ export default async function AdminAnalysisPage({
         )}
 
         {/* Overall score */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="text-lg text-muted-foreground">
-              Overall score
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p
-              className={cn(
-                "text-4xl font-bold tabular-nums",
-                scoreColorClass(overallScore)
-              )}
-            >
-              {overallScore}/100
-            </p>
-            <p className="mt-1 text-muted-foreground text-sm">
-              {refresh.industryDetected} ·{" "}
-              {new Date(refresh.createdAt).toLocaleString(undefined, {
-                timeZone: "America/New_York",
-              })}
-            </p>
-          </CardContent>
-        </Card>
+        <ScoreRingHero
+          score={overallScore}
+          headline={scoreHeadline(overallScore)}
+          summary={`${refresh.industryDetected} analysis`}
+          subtitle={new Date(refresh.createdAt).toLocaleString(undefined, {
+            timeZone: "America/New_York",
+          })}
+        />
 
         {/* Score breakdown */}
         <section className="mb-8">
           <h2 className="text-xl font-semibold mb-4">Score by dimension</h2>
           <ScoreBreakdown details={scoringDetails} />
         </section>
+
+        {/* Install CTA */}
+        <InstallCtaCard refreshId={id} />
 
         {/* Internal notes */}
         <AdminNotesSection

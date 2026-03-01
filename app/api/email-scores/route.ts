@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
   const refresh = await prisma.refresh.findUnique({
     where: { id: refreshId },
-    select: { id: true },
+    select: { id: true, urlProfileId: true },
   });
 
   if (!refresh) {
@@ -37,6 +37,14 @@ export async function POST(request: NextRequest) {
     where: { id: refreshId },
     data: { contactEmail: email },
   });
+
+  // Promote contact email to UrlProfile
+  if (refresh.urlProfileId) {
+    await prisma.urlProfile.update({
+      where: { id: refresh.urlProfileId },
+      data: { customerEmail: email },
+    });
+  }
 
   // TODO: Send actual email with dimension breakdown once email infra is set up.
 

@@ -224,6 +224,12 @@ model UrlProfile {
   extractedCopy   Json?
   techStack       Json?
 
+  cms             String?
+  cmsLocked       Boolean   @default(false)
+
+  contactPhone    String?
+  hostingPlatform String?
+
   analysisCount   Int       @default(0)
   lastAnalyzedAt  DateTime?
   bestScore       Int?

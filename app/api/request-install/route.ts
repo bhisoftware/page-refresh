@@ -70,5 +70,17 @@ export async function POST(request: NextRequest) {
     },
   });
 
+  // Promote contact info to UrlProfile
+  if (refresh.urlProfileId) {
+    await prisma.urlProfile.update({
+      where: { id: refresh.urlProfileId },
+      data: {
+        customerEmail: email,
+        contactPhone: phone,
+        hostingPlatform: hostingPlatform ?? undefined,
+      },
+    });
+  }
+
   return Response.json({ success: true });
 }
