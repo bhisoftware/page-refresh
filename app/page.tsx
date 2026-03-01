@@ -40,6 +40,8 @@ function parseProgressStep(step: string): PipelineStep {
 export default function Home() {
   const router = useRouter();
   const urlInputRef = useRef<HTMLInputElement>(null);
+  const pendingRefreshRef = useRef<{ id: string; token: string } | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
   const [urlFieldHint, setUrlFieldHint] = useState(false);
@@ -51,6 +53,11 @@ export default function Home() {
       urlInputRef.current.focus();
     }
   }, [urlFieldHint]);
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
+  }, []);
   const [currentStep, setCurrentStep] = useState<PipelineStep>("started");
   const [progressMessage, setProgressMessage] = useState("");
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -108,6 +115,7 @@ export default function Home() {
     setCurrentStep("started");
     setProgressMessage("Starting analysis...");
     setTokens({});
+    pendingRefreshRef.current = null;
     const startTime = Date.now();
     const targetDuration = 50;
     const countdownInterval = window.setInterval(() => {
@@ -116,6 +124,7 @@ export default function Home() {
       setCountdown(remaining);
     }, 1000);
 
+    let isPolling = false;
     try {
       const res = await fetch("/api/analyze", {
         method: "POST",
@@ -151,7 +160,9 @@ export default function Home() {
                 refreshId?: string;
                 viewToken?: string;
               };
-              if (data.type === "progress" && data.step === "token" && data.key && data.data) {
+              if (data.type === "refresh_created" && data.refreshId && data.viewToken) {
+                pendingRefreshRef.current = { id: data.refreshId, token: data.viewToken };
+              } else if (data.type === "progress" && data.step === "token" && data.key && data.data) {
                 setTokens(prev => ({ ...prev, [data.key!]: data.data! }));
               } else if (data.type === "progress" && data.step) {
                 if (data.step === "retry") {
@@ -186,8 +197,46 @@ export default function Home() {
     } catch (err) {
       clearInterval(countdownInterval);
       setCountdown(null);
+
+      // If we have a refreshId, the server is still running — poll for completion
+      const pending = pendingRefreshRef.current;
+      if (pending) {
+        isPolling = true;
+        setProgressMessage("Reconnecting...");
+        const POLL_INTERVAL_MS = 3_000;
+        const POLL_TIMEOUT_MS = 90_000;
+        const pollStart = Date.now();
+        pollIntervalRef.current = setInterval(async () => {
+          if (Date.now() - pollStart > POLL_TIMEOUT_MS) {
+            clearInterval(pollIntervalRef.current!);
+            pollIntervalRef.current = null;
+            // Timed out — redirect to results anyway (may show partial data)
+            router.push(`/results/${pending.id}?token=${encodeURIComponent(pending.token)}`);
+            return;
+          }
+          try {
+            const res = await fetch(
+              `/api/analyze/${pending.id}/status?token=${encodeURIComponent(pending.token)}`
+            );
+            if (!res.ok) return; // retry next interval
+            const { status } = (await res.json()) as { status: string };
+            if (status === "complete" || status === "failed") {
+              clearInterval(pollIntervalRef.current!);
+              pollIntervalRef.current = null;
+              router.push(`/results/${pending.id}?token=${encodeURIComponent(pending.token)}`);
+            }
+          } catch {
+            // Network still down — retry next interval
+          }
+        }, POLL_INTERVAL_MS);
+        return; // keep isAnalyzing true while polling
+      }
+
       const rawMessage = err instanceof Error ? err.message : "Refresh failed";
-      if (isUnreachableWebsiteError(rawMessage)) {
+      // WebKit "Load failed" = our API connection dropped, not the user's website
+      if (rawMessage.toLowerCase().includes("load failed")) {
+        setError("Connection interrupted. Please try again.");
+      } else if (isUnreachableWebsiteError(rawMessage)) {
         setUrlFieldHint(true);
         setError("");
       } else {
@@ -197,7 +246,7 @@ export default function Home() {
         setError(isRawApiError ? "Our servers are busy. Please try again in a moment." : rawMessage);
       }
     } finally {
-      setIsAnalyzing(false);
+      if (!isPolling) setIsAnalyzing(false);
     }
   };
 

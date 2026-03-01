@@ -35,7 +35,7 @@ export interface PipelineOptions {
   url: string;
   onProgress?: (p: PipelineProgress) => void;
   /** Called as soon as the Refresh row is created, so callers can reference it on timeout. */
-  onRefreshCreated?: (refreshId: string) => void;
+  onRefreshCreated?: (refreshId: string, viewToken: string) => void;
 }
 
 function extractInlineCss(html: string): string {
@@ -224,7 +224,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     },
   });
   const refreshId = refresh.id;
-  onRefreshCreated?.(refreshId);
+  onRefreshCreated?.(refreshId, refresh.viewToken);
   // #region agent log
   fetch("http://127.0.0.1:7245/ingest/44cb5644-87db-4ef0-a42f-a9477775a16b", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0cecf2" }, body: JSON.stringify({ sessionId: "0cecf2", location: "lib/pipeline/analyze.ts:refreshCreated", message: "refresh row created", data: { refreshId }, timestamp: Date.now(), hypothesisId: "A" }) }).catch(() => {});
   // #endregion

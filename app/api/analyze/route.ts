@@ -87,7 +87,10 @@ export async function POST(request: NextRequest) {
               runAnalysis({
                 url: normalizedUrl,
                 onProgress: (p) => send({ type: "progress", ...p }),
-                onRefreshCreated: (id) => { capturedRefreshId = id; },
+                  onRefreshCreated: (id, viewToken) => {
+                  capturedRefreshId = id;
+                  send({ type: "refresh_created", refreshId: id, viewToken });
+                },
               }),
               new Promise<string>((_, reject) =>
                 setTimeout(
