@@ -16,7 +16,7 @@ export function ScoreRingHero({
   subtitle,
 }: ScoreRingHeroProps) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm p-10 mb-8 flex flex-col sm:flex-row items-center gap-10">
+    <div className="bg-card rounded-2xl shadow-sm p-10 mb-8 flex flex-col sm:flex-row items-center gap-10">
       {/* Score Ring */}
       <div
         className="w-40 h-40 rounded-full flex items-center justify-center flex-shrink-0"
@@ -29,11 +29,11 @@ export function ScoreRingHero({
           )`,
         }}
       >
-        <div className="w-32 h-32 rounded-full bg-white flex flex-col items-center justify-center">
-          <span className="text-5xl font-black tracking-tighter leading-none text-slate-900">
+        <div className="w-32 h-32 rounded-full bg-card flex flex-col items-center justify-center">
+          <span className="text-5xl font-black tracking-tighter leading-none text-foreground">
             {score}
           </span>
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+          <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
             Overall
           </span>
         </div>
@@ -41,14 +41,14 @@ export function ScoreRingHero({
 
       {/* Summary */}
       <div className="flex-1 text-center sm:text-left">
-        <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight mb-2">
+        <h2 className="text-2xl font-extrabold text-foreground tracking-tight mb-2">
           {headline}
         </h2>
-        <p className="text-sm text-slate-500 leading-relaxed mb-4">
+        <p className="text-sm text-muted-foreground leading-relaxed mb-4">
           {summary}
         </p>
         {subtitle && (
-          <p className="text-xs text-slate-400 mb-3">{subtitle}</p>
+          <p className="text-xs text-muted-foreground/70 mb-3">{subtitle}</p>
         )}
         {benchmarkBadge && (
           <span className="inline-block bg-indigo-50 text-indigo-700 rounded-lg px-3 py-1.5 text-sm font-semibold">

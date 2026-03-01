@@ -26,6 +26,7 @@ export default async function AdminAnalysisPage({
   const refresh = await prisma.refresh.findUnique({
     where: { id },
     include: {
+      urlProfile: true,
       internalNotes: { orderBy: { createdAt: "asc" } },
       promptHistory: { orderBy: { createdAt: "asc" } },
     },
@@ -36,6 +37,12 @@ export default async function AdminAnalysisPage({
   const overallScore = Number(refresh.overallScore) || 0;
   const scoringDetails = (refresh.scoringDetails ?? []) as unknown as DimensionDetail[];
   const resultsUrl = `/results/${id}?token=${encodeURIComponent(refresh.viewToken)}`;
+  const profile = refresh.urlProfile;
+  const industry = profile?.industry ?? refresh.industryDetected;
+  const cms = profile?.cms;
+  const contactEmail = refresh.contactEmail || profile?.customerEmail;
+  const contactPhone = refresh.contactPhone || profile?.contactPhone;
+  const hostingPlatform = refresh.hostingPlatform || profile?.hostingPlatform;
 
   return (
     <main className="min-h-screen bg-background">
@@ -60,7 +67,42 @@ export default async function AdminAnalysisPage({
           >
             Open results page →
           </Link>
+          {profile && (
+            <Link
+              href={`/admin/profile/${profile.id}`}
+              className="text-sm text-primary hover:underline"
+            >
+              View URL profile →
+            </Link>
+          )}
         </div>
+
+        {/* Site details */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-base">Site details</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div>
+                <span className="text-muted-foreground block">Industry</span>
+                <span>{industry}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground block">CMS</span>
+                <span>{cms || "—"}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground block">Analyses</span>
+                <span>{profile?.analysisCount ?? "—"}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground block">Best score</span>
+                <span>{profile?.bestScore ?? "—"}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Contact info (internal only) */}
         <Card className="mb-6">
@@ -68,18 +110,24 @@ export default async function AdminAnalysisPage({
             <CardTitle className="text-base">Contact (internal)</CardTitle>
           </CardHeader>
           <CardContent className="text-sm">
-            {(refresh.contactEmail || refresh.contactPhone) ? (
+            {(contactEmail || contactPhone) ? (
               <ul className="space-y-1">
-                {refresh.contactEmail && (
+                {contactEmail && (
                   <li>
                     <span className="text-muted-foreground">Email:</span>{" "}
-                    {refresh.contactEmail}
+                    {contactEmail}
+                    {!refresh.contactEmail && profile?.customerEmail && (
+                      <span className="text-xs text-muted-foreground ml-1">(from profile)</span>
+                    )}
                   </li>
                 )}
-                {refresh.contactPhone && (
+                {contactPhone && (
                   <li>
                     <span className="text-muted-foreground">Phone:</span>{" "}
-                    {refresh.contactPhone}
+                    {contactPhone}
+                    {!refresh.contactPhone && profile?.contactPhone && (
+                      <span className="text-xs text-muted-foreground ml-1">(from profile)</span>
+                    )}
                   </li>
                 )}
                 {refresh.quoteRequested && (
@@ -88,10 +136,10 @@ export default async function AdminAnalysisPage({
                 {refresh.installRequested && (
                   <li className="text-muted-foreground">Install requested</li>
                 )}
-                {refresh.hostingPlatform && (
+                {hostingPlatform && (
                   <li>
                     <span className="text-muted-foreground">Platform:</span>{" "}
-                    {refresh.hostingPlatform}
+                    {hostingPlatform}
                   </li>
                 )}
               </ul>
