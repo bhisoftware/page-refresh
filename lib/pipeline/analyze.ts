@@ -193,6 +193,20 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
 
   onProgress?.({ step: "started" });
 
+  // Create Refresh row immediately so the client has a refreshId for recovery
+  // if the SSE connection drops during the long-running fetch/analysis steps.
+  const refresh = await prisma.refresh.create({
+    data: {
+      ...DEFAULT_REFRESH_PLACEHOLDER,
+      status: "fetching",
+      url: rawUrl,
+      targetWebsite: rawUrl,
+      urlProfileId: urlProfile.id,
+    },
+  });
+  const refreshId = refresh.id;
+  onRefreshCreated?.(refreshId, refresh.viewToken);
+
   const [fetchResult, screenshotBuffer] = await Promise.all([
     fetchHtml(rawUrl).then((r) => r.html),
     captureScreenshotCloud(rawUrl).catch(() => null),
@@ -212,19 +226,11 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     });
   }
 
-  const refresh = await prisma.refresh.create({
-    data: {
-      ...DEFAULT_REFRESH_PLACEHOLDER,
-      status: "fetching",
-      url: rawUrl,
-      targetWebsite: rawUrl,
-      urlProfileId: urlProfile.id,
-      htmlSnapshot: html,
-      cssSnapshot: css,
-    },
+  // Backfill HTML/CSS snapshots now that fetch is complete
+  await prisma.refresh.update({
+    where: { id: refreshId },
+    data: { htmlSnapshot: html, cssSnapshot: css },
   });
-  const refreshId = refresh.id;
-  onRefreshCreated?.(refreshId, refresh.viewToken);
   // #region agent log
   fetch("http://127.0.0.1:7245/ingest/44cb5644-87db-4ef0-a42f-a9477775a16b", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0cecf2" }, body: JSON.stringify({ sessionId: "0cecf2", location: "lib/pipeline/analyze.ts:refreshCreated", message: "refresh row created", data: { refreshId }, timestamp: Date.now(), hypothesisId: "A" }) }).catch(() => {});
   // #endregion
