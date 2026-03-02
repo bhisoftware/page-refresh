@@ -7,6 +7,7 @@ import { ScoreRingHero } from "@/components/ScoreRingHero";
 import { InstallCtaCard } from "@/components/InstallCtaCard";
 import { AdminLayoutViewer } from "@/components/AdminLayoutViewer";
 import type { LayoutItem } from "@/components/LayoutSection";
+import { EmailScoresCta } from "@/components/EmailScoresCta";
 import { AdminNotesSection } from "./AdminNotesSection";
 import { AdminPromptLogs } from "./AdminPromptLogs";
 import { Badge } from "@/components/ui/badge";
@@ -291,6 +292,9 @@ export default async function AdminAnalysisPage({
           <h2 className="text-xl font-semibold mb-4">Score by dimension</h2>
           <ScoreBreakdown details={scoringDetails} />
         </section>
+
+        {/* Get your full scorecard */}
+        <EmailScoresCta refreshId={id} />
 
         {/* Install CTA */}
         <InstallCtaCard refreshId={id} />

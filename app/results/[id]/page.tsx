@@ -185,6 +185,7 @@ export default async function ResultsPage({
           score={overallScore}
           headline={scoreHeadline(overallScore)}
           summary={summaryText}
+          analysisUrl={refresh.targetWebsite || refresh.url}
           benchmarkBadge={
             refresh.benchmarkComparison != null
               ? `Top ${((refresh.benchmarkComparison as { percentile?: number })?.percentile) ?? 50}th percentile in ${refresh.industryDetected ?? "your industry"}`

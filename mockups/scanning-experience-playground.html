@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scanning Experience — Playground</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;1,9..144,300;1,9..144,400&family=Geist:wght@300;400;500&display=swap');
+
+  :root {
+    --bg: #f7f5f0;
+    --white: #ffffff;
+    --text: #1c1917;
+    --muted: #78716c;
+    --border: #e7e5e0;
+    --brand: #14532d;
+    --brand2: #166534;
+    --accent: #fbbf24;
+    --surface: #fffdf9;
+    --thinking: #f0fdf4;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Geist', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 72px 20px 40px;
+  }
+
+  .wrap { width: 100%; max-width: 600px; }
+
+  /* ─── Developer Control Bar ──────────────────────────── */
+  .controls {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 200;
+    background: rgba(12,14,15,0.97);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid #27272a;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .controls label {
+    font-size: 11px;
+    color: #a1a1aa;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .controls button {
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid #3f3f46;
+    background: #18181b;
+    color: #fafafa;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .controls button:hover { background: #27272a; border-color: #52525b; }
+  .controls button.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .controls button.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .controls button.primary:hover { background: var(--brand2); }
+  .controls input[type="range"] {
+    width: 80px;
+  }
+  .controls .group {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .controls .sep {
+    width: 1px;
+    height: 24px;
+    background: #27272a;
+    margin: 0 4px;
+  }
+  .speed-val {
+    font-size: 11px;
+    color: #a1a1aa;
+    min-width: 28px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ─── Logo Nav ──────────────────────────────────────── */
+  .nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 40px;
+  }
+  .nav-logo {
+    font-family: 'Fraunces', serif;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--brand);
+    letter-spacing: -0.5px;
+  }
+  .nav-url {
+    font-size: 13px;
+    color: var(--muted);
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    padding: 5px 14px;
+  }
+
+  /* ─── Thinking header ───────────────────────────────── */
+  .thinking-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .thinking-orb {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--brand);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .thinking-orb::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 2px solid var(--brand);
+    opacity: 0.3;
+    animation: orbRing 2s ease-in-out infinite;
+  }
+  .thinking-orb.done::after { animation: none; opacity: 0; }
+  @keyframes orbRing {
+    0%,100% { transform: scale(1); opacity: 0.3; }
+    50% { transform: scale(1.15); opacity: 0; }
+  }
+  .thinking-orb svg { display: block; }
+  .thinking-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .thinking-sublabel {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+
+  /* ─── Progress pills ────────────────────────────────── */
+  .pills {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border-radius: 99px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid var(--border);
+    background: var(--white);
+    color: var(--muted);
+    transition: all 0.4s ease;
+    opacity: 0.4;
+  }
+  .pill.active {
+    background: var(--thinking);
+    border-color: #86efac;
+    color: var(--brand2);
+    opacity: 1;
+  }
+  .pill.done {
+    background: var(--brand);
+    border-color: var(--brand);
+    color: #fff;
+    opacity: 0.9;
+  }
+  .pill-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.5;
+  }
+  .pill.active .pill-dot {
+    animation: pillPulse 1s ease-in-out infinite;
+  }
+  .pill.done .pill-dot { opacity: 1; }
+  @keyframes pillPulse {
+    0%,100%{ opacity:1; } 50%{ opacity:0.3; }
+  }
+
+  /* ─── Main insight area ─────────────────────────────── */
+  .insight-area {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  }
+
+  .insight-top {
+    padding: 28px 32px;
+    border-bottom: 1px solid var(--border);
+  }
+  .insight-eyebrow {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+  .insight-streaming {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 300;
+    line-height: 1.55;
+    color: var(--text);
+    min-height: 100px;
+  }
+  .stream-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 22px;
+    background: var(--brand);
+    margin-left: 2px;
+    vertical-align: middle;
+    animation: streamBlink 0.8s step-end infinite;
+    opacity: 0;
+  }
+  .stream-cursor.on { opacity: 1; }
+  @keyframes streamBlink { 0%,100%{opacity:1;} 50%{opacity:0;} }
+
+  /* ─── Finding cards ─────────────────────────────────── */
+  .findings {
+    padding: 20px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .finding {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.35s ease, transform 0.35s ease;
+  }
+  .finding.show { opacity: 1; transform: translateY(0); }
+  .finding-bullet {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .finding-bullet.ok { background: #dcfce7; color: #15803d; }
+  .finding-bullet.warn { background: #fef3c7; color: #92400e; }
+  .finding-bullet.bad { background: #fee2e2; color: #b91c1c; }
+  .finding-text { font-size: 13px; color: var(--text); line-height: 1.5; }
+  .finding-text strong { font-weight: 600; }
+  .finding-text span { color: var(--muted); }
+
+  /* ─── Score strip ───────────────────────────────────── */
+  .score-strip {
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    background: var(--brand);
+    border-radius: 0 0 15px 15px;
+  }
+  .score-strip.show { opacity: 1; }
+  .score-num {
+    font-family: 'Fraunces', serif;
+    font-size: 52px;
+    font-weight: 300;
+    color: #fff;
+    line-height: 1;
+    letter-spacing: -2px;
+  }
+  .score-right { flex: 1; }
+  .score-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 8px;
+  }
+  .score-tagline {
+    font-size: 14px;
+    color: rgba(255,255,255,0.85);
+    line-height: 1.5;
+  }
+  .score-tagline strong { color: #fff; font-weight: 600; }
+
+  /* ─── CTA ───────────────────────────────────────────── */
+  .cta-area {
+    margin-top: 24px;
+    text-align: center;
+  }
+  .cta-btn {
+    display: inline-block;
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: 'Geist', sans-serif;
+    font-size: 13px;
+    color: var(--muted);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /* ─── Mobile ────────────────────────────────────────── */
+  @media (max-width: 640px) {
+    body { padding-top: 60px; }
+    .controls { padding: 8px 10px; gap: 5px; }
+    .controls button { padding: 4px 7px; font-size: 10px; }
+    .controls .sep { display: none; }
+    .insight-top { padding: 20px 20px; }
+    .findings { padding: 16px 20px; }
+    .score-strip { padding: 16px 20px; }
+    .insight-streaming { font-size: 19px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Developer Control Bar -->
+<div class="controls">
+  <button class="primary" id="btn-start" onclick="startScan()">&#9654; Start</button>
+  <div class="sep"></div>
+  <div class="group" id="phase-group">
+    <label>Phase:</label>
+  </div>
+  <div class="sep"></div>
+  <div class="group">
+    <label>Speed:</label>
+    <input type="range" id="speed-slider" min="0.25" max="4" step="0.25" value="1" oninput="updateSpeed()">
+    <span class="speed-val" id="speed-val">1&times;</span>
+  </div>
+  <div class="sep"></div>
+  <div class="group">
+    <label>Score:</label>
+    <input type="range" id="score-input" min="0" max="100" oninput="document.getElementById('score-disp').textContent=this.value">
+    <span class="speed-val" id="score-disp"></span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <nav class="nav">
+    <div class="nav-logo">PageRefresh</div>
+    <div class="nav-url" id="nav-url"></div>
+  </nav>
+
+  <div class="thinking-header">
+    <div class="thinking-orb" id="thinking-orb">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="3" fill="white"/>
+        <path d="M8 2 L8 4 M8 12 L8 14 M2 8 L4 8 M12 8 L14 8" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+      </svg>
+    </div>
+    <div>
+      <div class="thinking-label" id="thinking-label"></div>
+      <div class="thinking-sublabel" id="thinking-sub"></div>
+    </div>
+  </div>
+
+  <div class="pills" id="pills"></div>
+
+  <div class="insight-area">
+
+    <div class="insight-top">
+      <div class="insight-eyebrow" id="ieyebrow"></div>
+      <div class="insight-streaming" id="istream"><span class="stream-cursor" id="icursor"></span></div>
+    </div>
+
+    <div class="findings" id="findings"></div>
+
+    <div class="score-strip" id="score-strip">
+      <div class="score-num" id="score-num">0</div>
+      <div class="score-right">
+        <div class="score-label">Overall score</div>
+        <div class="score-tagline" id="score-tagline"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="cta-area">
+    <button class="cta-btn" onclick="startScan()">&circlearrowleft; replay animation</button>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// MOCK DATA — all analysis content lives here.
+// Swap this block to simulate a different scanned site.
+// ═══════════════════════════════════════════════════════════════
+
+const SITE_URL = 'yoursite.com';
+const DEFAULT_SCORE = 58;
+const LAYOUTS = 3;
+
+const COMPETITORS = {
+  count: 14,
+  category: 'accounting',
+  location: 'Chicago',
+  ranking: 'bottom 40%',
+};
+
+const STRUCTURE_CHECKS = [
+  { severity: 'warn', label: 'Headline weakness:',    quote: 'Welcome to our firm', note: 'no value proposition in 5 seconds' },
+  { severity: 'bad',  label: 'No CTA above the fold', quote: null,                  note: 'visitors have no clear next step' },
+];
+
+const SEO_CHECKS = [
+  { severity: 'ok', label: 'Industry detected:', detail: 'Accounting &amp; Financial Services', note: 'consultation booking as primary goal' },
+];
+
+const COLORS = ['#14532d', '#166534', '#fbbf24', '#1c1917', '#f7f5f0'];
+
+const FONTS = ['Fraunces', 'Geist'];
+
+const FINDINGS = [
+  { severity: SEO_CHECKS[0].severity,      html: `<strong>${SEO_CHECKS[0].label}</strong> ${SEO_CHECKS[0].detail} <span>&mdash; ${SEO_CHECKS[0].note}</span>` },
+  { severity: STRUCTURE_CHECKS[0].severity, html: `<strong>${STRUCTURE_CHECKS[0].label}</strong> &ldquo;${STRUCTURE_CHECKS[0].quote}&rdquo; <span>&mdash; ${STRUCTURE_CHECKS[0].note}</span>` },
+  { severity: 'ok',                         html: `<strong>Brand extracted:</strong> ${COLORS.length} colors, ${FONTS.length} fonts <span>&mdash; consistent identity detected</span>` },
+  { severity: 'warn',                       html: `<strong>${COMPETITORS.count} competitors scanned:</strong> <span>You rank in the ${COMPETITORS.ranking} for your category in ${COMPETITORS.location}</span>` },
+  { severity: STRUCTURE_CHECKS[1].severity, html: `<strong>${STRUCTURE_CHECKS[1].label}</strong> <span>&mdash; ${STRUCTURE_CHECKS[1].note}</span>` },
+];
+
+const PHASE_DURATIONS = [2000, 3500, 2500, 3000, 3000, 3000];
+
+const PHASES = [
+  {
+    control: 'Scan',
+    pill: 'Fetching site',
+    eyebrow: 'Fetching site',
+    text: 'Reading your page structure and visual layout\u2026',
+    findings: [],
+  },
+  {
+    control: 'Industry',
+    pill: 'Industry',
+    eyebrow: 'Industry identified',
+    text: 'You\u2019re an accounting firm. Your customers come here looking for tax help, business bookkeeping, or a trusted CPA they can call.',
+    findings: [0],
+  },
+  {
+    control: 'Brand',
+    pill: 'Brand',
+    eyebrow: 'Brand analysis',
+    text: 'Extracting your color palette, typography, and visual identity to preserve your brand in the redesign.',
+    findings: [1, 2],
+  },
+  {
+    control: 'Competitors',
+    pill: 'Competitors',
+    eyebrow: 'Competitor scan',
+    text: `Scanning ${COMPETITORS.count} accounting firms in your area to understand what top-performing sites do differently\u2026`,
+    findings: [3],
+  },
+  {
+    control: 'Score',
+    pill: 'Scoring',
+    eyebrow: 'Key finding',
+    text: 'Most visitors decide whether to stay or leave within 5 seconds. Right now, your homepage headline gives them no reason to stay.',
+    findings: [4],
+    showScore: true,
+  },
+  {
+    control: 'Design',
+    pill: 'Designing',
+    eyebrow: 'Generating designs',
+    text: `Creating ${LAYOUTS} unique redesigns that fix these issues while keeping your brand identity intact.`,
+    findings: [],
+  },
+];
+
+const COPY = {
+  thinkingLabel:  'Analyzing your website\u2026',
+  thinkingSub:    'This takes about 45 seconds',
+  defaultEyebrow: 'Reading your site\u2026',
+  doneLabel:      `Analysis complete \u2014 ${LAYOUTS} designs ready`,
+  doneSub:        'Results are waiting for you',
+  doneControl:    'Done',
+  scoreTagline:   `Your site scored <strong id="score-inline">${DEFAULT_SCORE}</strong>/100 &mdash; <strong>${LAYOUTS} redesigns are ready</strong> that fix these issues.`,
+};
+
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+let speed = 1;
+let timers = [];
+let countFrame = null;
+
+// ═══════════════════════════════════════
+// SCHEDULING
+// ═══════════════════════════════════════
+function schedule(fn, ms) {
+  const id = setTimeout(fn, ms / speed);
+  timers.push(id);
+  return id;
+}
+function clearAll() {
+  timers.forEach(clearTimeout);
+  timers = [];
+  if (countFrame) { cancelAnimationFrame(countFrame); countFrame = null; }
+}
+function updateSpeed() {
+  speed = parseFloat(document.getElementById('speed-slider').value);
+  document.getElementById('speed-val').textContent = speed + '\u00d7';
+}
+
+// ═══════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════
+function setPill(idx, state) {
+  const pill = document.getElementById('p' + idx);
+  if (!pill) return;
+  pill.classList.remove('active', 'done');
+  if (state === 'active') pill.classList.add('active');
+  else if (state === 'done') pill.classList.add('done');
+}
+
+function showFinding(idx) {
+  const el = document.getElementById('f' + idx);
+  if (el) el.classList.add('show');
+}
+
+function hideFinding(idx) {
+  const el = document.getElementById('f' + idx);
+  if (el) el.classList.remove('show');
+}
+
+function streamText(text, eyebrow) {
+  const streamEl = document.getElementById('istream');
+  const eyebrowEl = document.getElementById('ieyebrow');
+  const cursor = document.getElementById('icursor');
+
+  eyebrowEl.textContent = eyebrow;
+  while (streamEl.firstChild) streamEl.removeChild(streamEl.firstChild);
+  const textNode = document.createTextNode('');
+  streamEl.appendChild(textNode);
+  streamEl.appendChild(cursor);
+  cursor.classList.add('on');
+
+  let i = 0;
+  function next() {
+    if (i < text.length) {
+      textNode.textContent += text[i++];
+      schedule(next, 22);
+    } else {
+      cursor.classList.remove('on');
+    }
+  }
+  schedule(next, 22);
+}
+
+function setStreamInstant(text, eyebrow) {
+  const streamEl = document.getElementById('istream');
+  const eyebrowEl = document.getElementById('ieyebrow');
+  const cursor = document.getElementById('icursor');
+
+  eyebrowEl.textContent = eyebrow;
+  while (streamEl.firstChild) streamEl.removeChild(streamEl.firstChild);
+  streamEl.appendChild(document.createTextNode(text));
+  streamEl.appendChild(cursor);
+  cursor.classList.remove('on');
+}
+
+function animateScore() {
+  const target = parseInt(document.getElementById('score-input').value) || DEFAULT_SCORE;
+  const strip = document.getElementById('score-strip');
+  const numEl = document.getElementById('score-num');
+  const inlineEl = document.getElementById('score-inline');
+
+  inlineEl.textContent = target;
+  strip.classList.add('show');
+
+  const duration = 1400 / speed;
+  let start = null;
+  function frame(ts) {
+    if (!start) start = ts;
+    const p = Math.min((ts - start) / duration, 1);
+    numEl.textContent = Math.round((1 - Math.pow(1 - p, 3)) * target);
+    if (p < 1) {
+      countFrame = requestAnimationFrame(frame);
+    }
+  }
+  countFrame = requestAnimationFrame(frame);
+}
+
+function showScoreInstant() {
+  const target = parseInt(document.getElementById('score-input').value) || DEFAULT_SCORE;
+  document.getElementById('score-strip').classList.add('show');
+  document.getElementById('score-num').textContent = target;
+  document.getElementById('score-inline').textContent = target;
+}
+
+function highlightButton(idx) {
+  for (let i = 0; i <= PHASES.length; i++) {
+    const b = document.getElementById('pb-' + i);
+    if (b) b.classList.toggle('active', i === idx);
+  }
+}
+
+function doneState() {
+  document.getElementById('thinking-label').textContent = COPY.doneLabel;
+  document.getElementById('thinking-sub').textContent = COPY.doneSub;
+  document.getElementById('thinking-orb').classList.add('done');
+}
+
+// ═══════════════════════════════════════
+// RESET
+// ═══════════════════════════════════════
+function resetAll() {
+  for (let i = 0; i < PHASES.length; i++) setPill(i, 'inactive');
+  for (let i = 0; i < FINDINGS.length; i++) hideFinding(i);
+
+  document.getElementById('score-strip').classList.remove('show');
+  document.getElementById('score-num').textContent = '0';
+
+  const streamEl = document.getElementById('istream');
+  const cursor = document.getElementById('icursor');
+  while (streamEl.firstChild) streamEl.removeChild(streamEl.firstChild);
+  streamEl.appendChild(cursor);
+  cursor.classList.remove('on');
+
+  document.getElementById('ieyebrow').textContent = COPY.defaultEyebrow;
+  document.getElementById('thinking-label').textContent = COPY.thinkingLabel;
+  document.getElementById('thinking-sub').textContent = COPY.thinkingSub;
+  document.getElementById('thinking-orb').classList.remove('done');
+
+  highlightButton(-1);
+}
+
+// ═══════════════════════════════════════
+// RUN (full sequence)
+// ═══════════════════════════════════════
+function startScan() {
+  clearAll();
+  resetAll();
+  document.getElementById('btn-start').textContent = '\u27f3 Restart';
+
+  let elapsed = 200;
+
+  for (let p = 0; p < PHASES.length; p++) {
+    ((phase, idx, startAt) => {
+      schedule(() => {
+        if (idx > 0) setPill(idx - 1, 'done');
+        setPill(idx, 'active');
+        streamText(phase.text, phase.eyebrow);
+        highlightButton(idx);
+
+        if (phase.findings.length) {
+          phase.findings.forEach((fi, i) => {
+            schedule(() => showFinding(fi), 800 + i * 800);
+          });
+        }
+
+        if (phase.showScore) {
+          schedule(() => animateScore(), 1500);
+        }
+      }, startAt);
+    })(PHASES[p], p, elapsed);
+    elapsed += PHASE_DURATIONS[p];
+  }
+
+  schedule(() => {
+    setPill(PHASES.length - 1, 'done');
+    doneState();
+    highlightButton(PHASES.length);
+  }, elapsed);
+}
+
+// ═══════════════════════════════════════
+// JUMP TO PHASE
+// ═══════════════════════════════════════
+function jumpTo(idx) {
+  clearAll();
+  resetAll();
+  document.getElementById('btn-start').textContent = '\u27f3 Restart';
+
+  for (let i = 0; i < idx && i < PHASES.length; i++) {
+    setPill(i, 'done');
+    PHASES[i].findings.forEach(fi => showFinding(fi));
+  }
+
+  const scorePhaseIdx = PHASES.findIndex(p => p.showScore);
+
+  if (idx < PHASES.length) {
+    const phase = PHASES[idx];
+    setPill(idx, 'active');
+    streamText(phase.text, phase.eyebrow);
+    highlightButton(idx);
+
+    if (phase.findings.length) {
+      phase.findings.forEach((fi, i) => {
+        schedule(() => showFinding(fi), 800 + i * 800);
+      });
+    }
+
+    if (idx === scorePhaseIdx) {
+      schedule(() => animateScore(), 1500);
+    } else if (idx > scorePhaseIdx && scorePhaseIdx >= 0) {
+      showScoreInstant();
+    }
+  } else {
+    for (let i = 0; i < PHASES.length; i++) setPill(i, 'done');
+    for (let i = 0; i < FINDINGS.length; i++) showFinding(i);
+    showScoreInstant();
+    const lastPhase = PHASES[PHASES.length - 1];
+    setStreamInstant(lastPhase.text, lastPhase.eyebrow);
+    doneState();
+    highlightButton(PHASES.length);
+  }
+}
+
+// ═══════════════════════════════════════
+// INIT — populate DOM from mock data
+// ═══════════════════════════════════════
+function init() {
+  document.getElementById('nav-url').textContent = SITE_URL;
+
+  // Score controls
+  document.getElementById('score-input').value = DEFAULT_SCORE;
+  document.getElementById('score-disp').textContent = DEFAULT_SCORE;
+  document.getElementById('score-tagline').innerHTML = COPY.scoreTagline;
+
+  // Phase control buttons
+  const phaseGroup = document.getElementById('phase-group');
+  PHASES.forEach((phase, i) => {
+    const btn = document.createElement('button');
+    btn.id = 'pb-' + i;
+    btn.textContent = phase.control;
+    btn.onclick = () => jumpTo(i);
+    phaseGroup.appendChild(btn);
+  });
+  const doneBtn = document.createElement('button');
+  doneBtn.id = 'pb-' + PHASES.length;
+  doneBtn.textContent = COPY.doneControl;
+  doneBtn.onclick = () => jumpTo(PHASES.length);
+  phaseGroup.appendChild(doneBtn);
+
+  // Pills
+  const pillsEl = document.getElementById('pills');
+  PHASES.forEach((phase, i) => {
+    const pill = document.createElement('div');
+    pill.className = 'pill';
+    pill.id = 'p' + i;
+    pill.innerHTML = '<div class="pill-dot"></div>' + phase.pill;
+    pillsEl.appendChild(pill);
+  });
+
+  // Findings
+  const severityIcons = { ok: '&check;', warn: '!', bad: '&cross;' };
+  const findingsEl = document.getElementById('findings');
+  FINDINGS.forEach((f, i) => {
+    const el = document.createElement('div');
+    el.className = 'finding';
+    el.id = 'f' + i;
+    el.innerHTML =
+      '<div class="finding-bullet ' + f.severity + '">' + severityIcons[f.severity] + '</div>' +
+      '<div class="finding-text">' + f.html + '</div>';
+    findingsEl.appendChild(el);
+  });
+
+  resetAll();
+}
+
+init();
+</script>
+</body>
+</html>

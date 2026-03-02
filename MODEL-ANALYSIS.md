@@ -296,3 +296,99 @@ Extracted from the production failures documented above. Apply these when adding
 6. **Separate retryable from terminal errors.** Don't retry quota/billing errors — they'll never succeed and just burn time. Do retry rate limits and connection errors with backoff.
 
 7. **Don't over-parallelize identical agents.** Step 1's 3 agents are fine in full parallel because they're different types (vision, text, asset extraction) with different token profiles. Step 3's 3 creative agents are identical in shape — launching all 3 simultaneously triggers rate limits.
+
+---
+
+## Short-Term Optimizations
+
+Concrete improvements to creative agent efficiency and output quality. Organized by effort level — DB-tunable changes can be tested immediately via the admin UI, code changes require a deploy.
+
+**Baseline data** (from acehardware.com test run on Sonnet 4.0, see Post-Fix Verification above):
+
+| Agent | Output Tokens | Response Time |
+|-------|--------------|---------------|
+| creative_classy | 11,584 | 95.5s |
+| creative_modern | 11,816 | 98.6s |
+| creative_unique | 12,819 | 109.1s |
+
+### DB-Tunable (no code deploy)
+
+**1. Reduce `maxTokens` from 32,768 → 16,000**
+
+- **File:** `lib/pipeline/agents/creative.ts:79` — `skill.maxTokens ?? 32768`
+- Current allocation (32K) is 2.5× actual output (11.5K–12.8K). We're paying for headroom we don't use.
+- 16K gives ~25% margin above the observed max while halving the per-call allocation.
+- **How to test:** Set `maxTokens = 16000` on one creative AgentSkill record. Run 3–5 analyses. Check PromptLog for truncation warnings (`stop_reason: "max_tokens"`). If none, roll out to all 3.
+
+**2. Lower temperature from 0.7 → 0.4–0.5**
+
+- **File:** `lib/pipeline/agents/creative.ts:80` — `skill.temperature ?? 0.7`
+- Temperature across agents: screenshot-analysis 0.1, industry-seo 0.2, score 0.3, **creative 0.7**.
+- Higher temp = more unpredictable output length, more "hallucinated" HTML structures, wider variance between runs of the same site.
+- 0.4–0.5 still produces distinct designs across the 3 agents (Modern/Classy/Unique differentiation comes from the prompt, not temperature) while improving consistency.
+- **How to test:** Set `temperature = 0.5` on one creative AgentSkill. Compare output quality and length variance against the 0.7 agents across 5 analyses.
+
+### Code Changes (small, targeted)
+
+**3. Trim `copy` field in creative agent input**
+
+- **File:** `lib/pipeline/analyze.ts:458` — `copy: assetResult.assets.copy`
+- The full extracted copy object (hero text, all headlines, body paragraphs, nav items, footer text) is sent to all 3 creative agents. On text-heavy sites, this is 2K–5K input tokens per agent.
+- Creative agents need: hero headline, 1–2 value propositions, CTAs, and business name. They don't need full body paragraphs or footer boilerplate.
+- **Change:** Build a trimmed copy object before passing to `creativeInput`:
+  ```typescript
+  copy: {
+    businessName: assetResult.assets.copy?.businessName,
+    heroHeadline: assetResult.assets.copy?.heroHeadline,
+    valueProps: assetResult.assets.copy?.valueProps?.slice(0, 2),
+    ctas: assetResult.assets.copy?.ctas,
+    navItems: assetResult.assets.copy?.navItems,
+  }
+  ```
+- **Savings:** ~2K–5K input tokens × 3 agents = 6K–15K tokens per refresh.
+
+**4. Reduce `siteImageUrls` from 8 → 3**
+
+- **File:** `lib/pipeline/analyze.ts:448-451`
+  ```typescript
+  siteImageUrls: assetResult.assets.images
+    .map((img) => img.src)
+    .filter((src) => isHttpUrl(src))
+    .slice(0, 8),  // ← change to .slice(0, 3)
+  ```
+- 8 image URLs × ~100 chars each × 3 agents ≈ 2K–4K tokens. The generated HTML typically only references the hero image and 1–2 supporting images.
+- **Savings:** ~1K–3K tokens per refresh.
+
+**5. Enable Anthropic prompt caching for creative system prompts**
+
+- **File:** `lib/pipeline/agents/creative.ts:89-95`
+- All 3 creative agents send the identical system prompt to the API. With the 3s stagger, agents 2 and 3 launch after the system prompt is already processed — ideal for prompt caching.
+- **Change:** Add `cache_control` to the system message:
+  ```typescript
+  const stream = client.messages.stream({
+    model,
+    max_tokens: maxTokens,
+    temperature,
+    system: [{ type: "text", text: skill.systemPrompt, cache_control: { type: "ephemeral" } }],
+    messages: [{ role: "user", content: userContent }],
+  });
+  ```
+- **Savings:** ~5–10% reduction in input token cost per refresh. The system prompt is the largest invariant across all 3 calls.
+
+**6. Log output token counts for monitoring**
+
+- **File:** `lib/pipeline/agents/creative.ts:115`
+- The Anthropic response includes `response.usage.output_tokens` but the current `createPromptLog()` call doesn't capture it — only `tokensUsed` (which is input + output combined).
+- **Change:** Add `outputTokens: response.usage.output_tokens` to the PromptLog entry.
+- **Why it matters:** Without per-agent output token counts in the log, we can't validate at scale whether the maxTokens reduction (finding 1) is safe. One test run isn't enough — we need data across diverse sites.
+
+### Priority Order
+
+| # | Finding | Effort | Risk | Impact |
+|---|---------|--------|------|--------|
+| 6 | Log output tokens | 15 min | None | Enables data-driven decisions for all other changes |
+| 1 | Reduce maxTokens | 5 min (DB) | Low | Halves per-call token allocation |
+| 2 | Lower temperature | 5 min (DB) | Low | More consistent output quality |
+| 4 | Reduce siteImageUrls | 5 min (code) | Low | Saves 1K–3K tokens/refresh |
+| 3 | Trim copy field | 30 min (code) | Medium | Saves 6K–15K tokens/refresh |
+| 5 | Prompt caching | 1 hr (code) | Low | 5–10% input token cost reduction |
