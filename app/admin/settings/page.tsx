@@ -46,13 +46,22 @@ const PROVIDERS = [
 const PIPELINE_SLUGS = ["screenshot-analysis", "industry-seo", "score"];
 const CREATIVE_SLUGS = ["creative-modern", "creative-classy", "creative-unique"];
 
-const MODEL_OPTIONS = [
-  { value: "", label: "Default", cost: "" },
-  { value: "claude-haiku-4-5", label: "Haiku 4.5", cost: "$" },
-  { value: "claude-sonnet-4-6", label: "Sonnet 4.6", cost: "$$" },
-  { value: "claude-opus-4-6", label: "Opus 4.6", cost: "$$$" },
-  { value: "__custom__", label: "Custom...", cost: "" },
-] as const;
+const ANTHROPIC_MODELS = [
+  {
+    group: "Haiku",
+    models: [{ value: "claude-haiku-4-5-20251001", label: "Haiku 4.5" }],
+  },
+  {
+    group: "Sonnet",
+    models: [{ value: "claude-sonnet-4-6", label: "Sonnet 4.6 — Recommended" }],
+  },
+  {
+    group: "Opus",
+    models: [{ value: "claude-opus-4-6", label: "Opus 4.6" }],
+  },
+];
+
+const ALL_MODEL_VALUES = ANTHROPIC_MODELS.flatMap((g) => g.models.map((m) => m.value));
 
 type HistoryEntry = {
   id: string;
@@ -74,7 +83,6 @@ export default function AdminSettingsPage() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [rollingBack, setRollingBack] = useState(false);
-  const [modelMode, setModelMode] = useState<"preset" | "custom">("preset");
   const [form, setForm] = useState({
     systemPrompt: "",
     modelOverride: "",
@@ -108,8 +116,6 @@ export default function AdminSettingsPage() {
       .then((data) => {
         setDetail(data);
         const mo = data.modelOverride ?? "";
-        const isPreset = MODEL_OPTIONS.some((o) => o.value === mo);
-        setModelMode(isPreset ? "preset" : "custom");
         setForm({
           systemPrompt: data.systemPrompt ?? "",
           modelOverride: mo,
@@ -216,8 +222,6 @@ export default function AdminSettingsPage() {
         const updated = await res.json();
         setDetail(updated);
         const mo = updated.modelOverride ?? "";
-        const isPreset = MODEL_OPTIONS.some((o) => o.value === mo);
-        setModelMode(isPreset ? "preset" : "custom");
         setForm({
           systemPrompt: updated.systemPrompt ?? "",
           modelOverride: mo,
@@ -400,36 +404,27 @@ export default function AdminSettingsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Model</Label>
-                  <div className="flex gap-2">
-                    <select
-                      value={modelMode === "custom" ? "__custom__" : form.modelOverride}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === "__custom__") {
-                          setModelMode("custom");
-                          setForm((f) => ({ ...f, modelOverride: f.modelOverride || "" }));
-                        } else {
-                          setModelMode("preset");
-                          setForm((f) => ({ ...f, modelOverride: val }));
-                        }
-                      }}
-                      className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm"
-                    >
-                      {MODEL_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}{opt.cost ? ` (${opt.cost})` : ""}
-                        </option>
-                      ))}
-                    </select>
-                    {modelMode === "custom" && (
-                      <Input
-                        value={form.modelOverride}
-                        onChange={(e) => setForm((f) => ({ ...f, modelOverride: e.target.value }))}
-                        placeholder="claude-model-id"
-                        className="flex-1 font-mono text-sm"
-                      />
+                  <select
+                    value={form.modelOverride}
+                    onChange={(e) => setForm((f) => ({ ...f, modelOverride: e.target.value }))}
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="">Default</option>
+                    {form.modelOverride && !ALL_MODEL_VALUES.includes(form.modelOverride) && (
+                      <option value={form.modelOverride} disabled>
+                        Custom: {form.modelOverride}
+                      </option>
                     )}
-                  </div>
+                    {ANTHROPIC_MODELS.map((group) => (
+                      <optgroup key={group.group} label={group.group}>
+                        {group.models.map((m) => (
+                          <option key={m.value} value={m.value}>
+                            {m.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
