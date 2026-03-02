@@ -205,13 +205,15 @@ export default function Home() {
         setProgressMessage("Reconnecting...");
         const POLL_INTERVAL_MS = 3_000;
         const POLL_TIMEOUT_MS = 90_000;
+        const LAYOUT_GRACE_MS = 20_000; // extra wait after "complete" for background agents
         const pollStart = Date.now();
+        let completeSeenAt: number | null = null;
+        const resultsPath = `/results/${pending.id}?token=${encodeURIComponent(pending.token)}`;
         pollIntervalRef.current = setInterval(async () => {
           if (Date.now() - pollStart > POLL_TIMEOUT_MS) {
             clearInterval(pollIntervalRef.current!);
             pollIntervalRef.current = null;
-            // Timed out — redirect to results anyway (may show partial data)
-            router.push(`/results/${pending.id}?token=${encodeURIComponent(pending.token)}`);
+            router.push(resultsPath);
             return;
           }
           try {
@@ -219,11 +221,31 @@ export default function Home() {
               `/api/analyze/${pending.id}/status?token=${encodeURIComponent(pending.token)}`
             );
             if (!res.ok) return; // retry next interval
-            const { status } = (await res.json()) as { status: string };
-            if (status === "complete" || status === "failed") {
+            const { status, layoutCount } = (await res.json()) as { status: string; layoutCount: number };
+
+            if (status === "failed") {
               clearInterval(pollIntervalRef.current!);
               pollIntervalRef.current = null;
-              router.push(`/results/${pending.id}?token=${encodeURIComponent(pending.token)}`);
+              router.push(resultsPath);
+              return;
+            }
+
+            if (status === "complete") {
+              // All 3 layouts ready — redirect immediately
+              if (layoutCount >= 3) {
+                clearInterval(pollIntervalRef.current!);
+                pollIntervalRef.current = null;
+                router.push(resultsPath);
+                return;
+              }
+              // Status is complete but layouts still arriving (background agents).
+              // Give them a grace period, then redirect with whatever we have.
+              if (!completeSeenAt) completeSeenAt = Date.now();
+              if (Date.now() - completeSeenAt > LAYOUT_GRACE_MS) {
+                clearInterval(pollIntervalRef.current!);
+                pollIntervalRef.current = null;
+                router.push(resultsPath);
+              }
             }
           } catch {
             // Network still down — retry next interval

@@ -19,7 +19,13 @@ export async function GET(
 
   const refresh = await prisma.refresh.findUnique({
     where: { id },
-    select: { status: true, viewToken: true },
+    select: {
+      status: true,
+      viewToken: true,
+      layout1Html: true,
+      layout2Html: true,
+      layout3Html: true,
+    },
   });
 
   if (!refresh) {
@@ -30,5 +36,8 @@ export async function GET(
     return Response.json({ error: "Invalid token" }, { status: 403 });
   }
 
-  return Response.json({ status: refresh.status });
+  const layoutCount = [refresh.layout1Html, refresh.layout2Html, refresh.layout3Html]
+    .filter((html) => html?.trim()).length;
+
+  return Response.json({ status: refresh.status, layoutCount });
 }
