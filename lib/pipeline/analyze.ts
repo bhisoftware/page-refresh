@@ -422,13 +422,34 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     if (url.startsWith("data:")) return null;
     return url;
   };
+  const isHttpUrl = (s: string): boolean => {
+    try { const u = new URL(s); return u.protocol === "http:" || u.protocol === "https:"; }
+    catch { return false; }
+  };
 
   const creativeInput: CreativeAgentInput = {
-    creativeBrief: scoreResult.creativeBrief,
+    designDirection: {
+      priorities: scoreResult.creativeBrief.priorities?.map((p) => ({
+        area: p.dimension,
+        priority: p.priority,
+        guidance: p.guidance,
+      })) ?? [],
+      strengths: scoreResult.creativeBrief.strengths ?? [],
+      industryRequirements: scoreResult.creativeBrief.industryRequirements ?? [],
+      contentDirection: scoreResult.creativeBrief.contentDirection ?? "",
+      technicalRequirements: scoreResult.creativeBrief.technicalRequirements ?? [],
+    },
     industry,
     brandAssets: {
       logoUrl: safeUrl(assetResult.storedAssets.find((a) => a.assetType === "logo")?.storageUrl),
       heroImageUrl: safeUrl(assetResult.storedAssets.find((a) => a.assetType === "hero_image")?.storageUrl),
+      additionalImageUrls: assetResult.storedAssets
+        .filter((a) => !["logo", "hero_image"].includes(a.assetType) && a.storageUrl && !a.storageUrl.startsWith("data:"))
+        .map((a) => ({ url: a.storageUrl!, type: a.assetType })),
+      siteImageUrls: assetResult.assets.images
+        .map((img) => img.src)
+        .filter((src) => isHttpUrl(src))
+        .slice(0, 8),
       colors: assetResult.assets.colors.map((c) => ("hex" in c ? c.hex : String(c))),
       fonts: assetResult.assets.fonts.map((f) => ("family" in f ? f.family : String(f))),
       navLinks: assetResult.assets.copy?.navItems ?? [],

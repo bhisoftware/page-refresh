@@ -81,12 +81,28 @@ function identifyDownloadableUrls(
     candidates.push({ url: absolute, assetType });
   }
 
-  if (logoUrl) add(logoUrl, "logo");
-
+  // Collect favicon URLs first so we can check if the logo is actually a favicon
+  const faviconUrls = new Set<string>();
   $('link[rel="icon"], link[rel="shortcut icon"]').each((_, el) => {
     const href = $(el).attr("href");
-    if (href) add(href, "favicon");
+    if (href) {
+      faviconUrls.add(resolveAbsolute(baseUrl, href));
+    }
   });
+
+  // Only classify as "logo" if it's a genuine logo, not a favicon
+  if (logoUrl) {
+    const absoluteLogo = resolveAbsolute(baseUrl, logoUrl);
+    if (faviconUrls.has(absoluteLogo)) {
+      add(logoUrl, "favicon");
+    } else {
+      add(logoUrl, "logo");
+    }
+  }
+
+  for (const faviconAbsolute of faviconUrls) {
+    add(faviconAbsolute, "favicon");
+  }
 
   $('meta[property="og:image"]').each((_, el) => {
     const content = $(el).attr("content");

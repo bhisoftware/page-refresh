@@ -10,7 +10,7 @@ import { createPromptLog } from "@/lib/ai/prompt-log";
 import { withRetry } from "@/lib/ai/retry";
 import { safeParseJSON } from "@/lib/ai/json-repair";
 import type { CreativeAgentInput, CreativeAgentOutput } from "./types";
-import { scanHtmlForLeakedScores } from "@/lib/pipeline/html-score-scanner";
+import { scanHtmlForLeakedScores, stripLeakedContent } from "@/lib/pipeline/html-score-scanner";
 
 function extractText(message: Anthropic.Message): string {
   const block = message.content.find((b) => b.type === "text");
@@ -40,8 +40,8 @@ export function isCreativeSlug(slug: string): slug is CreativeSlug {
   return CREATIVE_SLUGS.includes(slug as CreativeSlug);
 }
 
-/** Log a warning if the generated HTML contains leaked scoring data. */
-function warnOnLeakedScores(result: CreativeAgentOutput, slug: string): CreativeAgentOutput {
+/** Warn about and strip leaked scoring data from generated HTML. */
+function cleanLeakedScores(result: CreativeAgentOutput, slug: string): CreativeAgentOutput {
   const scan = scanHtmlForLeakedScores(result.html);
   if (scan.matches.length > 0) {
     const high = scan.matches.filter((m) => m.confidence === "high");
@@ -51,6 +51,7 @@ function warnOnLeakedScores(result: CreativeAgentOutput, slug: string): Creative
       `[creative] ${slug} score leak scan: ${high.length} high, ${med.length} medium.` +
       (details ? ` High: ${details}` : "")
     );
+    result.html = stripLeakedContent(result.html);
   }
   return result;
 }
@@ -117,7 +118,7 @@ export async function runCreativeAgent(
 
   // Primary path: extract from XML-style tags (avoids JSON escaping issues)
   const tagged = extractFromTags(text);
-  if (tagged) return warnOnLeakedScores(tagged, slug);
+  if (tagged) return cleanLeakedScores(tagged, slug);
 
   // Fallback: try JSON parsing (backwards compat with older prompts in DB)
   const parsed = safeParseJSON(text);
@@ -125,7 +126,7 @@ export async function runCreativeAgent(
     const data = parsed.data as Record<string, unknown>;
     const html = typeof data.html === "string" ? data.html : "";
     const rationale = typeof data.rationale === "string" ? data.rationale : "";
-    if (html.trim()) return warnOnLeakedScores({ html, rationale }, slug);
+    if (html.trim()) return cleanLeakedScores({ html, rationale }, slug);
   }
 
   throw new Error(`Creative Agent ${slug} returned unparseable output (no tags, invalid JSON)`);

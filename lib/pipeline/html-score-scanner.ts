@@ -1,8 +1,10 @@
 /**
  * Scans generated HTML for leaked scoring/analysis data.
  * Extracts visible text (strips tags, <style>, <script>) and checks
- * against known patterns. Warn-only — never blocks the pipeline.
+ * against known patterns. stripLeakedContent() actively removes leaks.
  */
+
+import * as cheerio from "cheerio";
 
 export interface ScanMatch {
   pattern: string;
@@ -90,4 +92,58 @@ export function scanHtmlForLeakedScores(html: string): ScanResult {
     hasHighConfidenceLeaks: matches.some((m) => m.confidence === "high"),
     matches,
   };
+}
+
+/** Dangerous href patterns that should never appear in generated layouts. */
+const DANGEROUS_HREF_RE = /pagerefresh|\/analysis|\/admin|\/results/i;
+
+/** High-confidence visible-text patterns to strip from text nodes. */
+const STRIP_PATTERNS: RegExp[] = HIGH_CONFIDENCE.map((h) => {
+  // Clone each pattern so we get a fresh regex with the same flags
+  return new RegExp(h.pattern.source, h.pattern.flags);
+});
+
+/**
+ * Strip leaked scoring data and dangerous links from generated HTML.
+ * Uses cheerio for DOM-safe manipulation (avoids touching script/style).
+ */
+export function stripLeakedContent(html: string): string {
+  const $ = cheerio.load(html);
+
+  // Rewrite dangerous links
+  $("a[href]").each((_, el) => {
+    const href = $(el).attr("href") ?? "";
+    if (DANGEROUS_HREF_RE.test(href)) {
+      $(el).attr("href", "#");
+    }
+  });
+
+  // Walk text nodes in body, skip script/style
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const walk = (nodes: ReturnType<typeof $>) => {
+    nodes.contents().each((_, node) => {
+      if (node.type === "text" && "data" in node) {
+        let text = node.data as string;
+        for (const pat of STRIP_PATTERNS) {
+          pat.lastIndex = 0;
+          text = text.replace(pat, "");
+        }
+        (node as { data: string }).data = text;
+      } else if (node.type === "tag") {
+        const tag = "tagName" in node ? (node.tagName as string)?.toLowerCase() : "";
+        if (tag !== "script" && tag !== "style") {
+          walk($(node));
+        }
+      }
+    });
+  };
+
+  const body = $("body");
+  if (body.length) {
+    walk(body);
+  } else {
+    walk($.root());
+  }
+
+  return $.html();
 }

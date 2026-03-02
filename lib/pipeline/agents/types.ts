@@ -125,13 +125,24 @@ export interface ScoreAgentOutput {
   creativeBrief: CreativeBrief;
 }
 
+// --- Design Direction (score-free brief for creative agents) ---
+export interface DesignDirection {
+  priorities: Array<{ area: string; priority: number; guidance: string }>;
+  strengths: string[];
+  industryRequirements: string[];
+  contentDirection: string;
+  technicalRequirements: string[];
+}
+
 // --- Creative Agent ---
 export interface CreativeAgentInput {
-  creativeBrief: CreativeBrief;
+  designDirection: DesignDirection;
   industry: string;
   brandAssets: {
     logoUrl: string | null;
     heroImageUrl: string | null;
+    additionalImageUrls: Array<{ url: string; type: string }>;
+    siteImageUrls: string[];
     colors: string[];
     fonts: string[];
     navLinks: string[];
