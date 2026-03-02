@@ -91,6 +91,7 @@ export default async function AdminProfilePage({
           initialEmail={profile.customerEmail}
           initialPhone={profile.contactPhone}
           initialHostingPlatform={profile.hostingPlatform}
+          lastAnalyzedAt={profile.lastAnalyzedAt?.toISOString() ?? null}
         />
 
         <div className="grid gap-6 md:grid-cols-2">

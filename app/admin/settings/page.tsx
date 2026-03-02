@@ -90,6 +90,38 @@ export default function AdminSettingsPage() {
     temperature: "",
   });
 
+  // General settings
+  const [cooldownDays, setCooldownDays] = useState("");
+  const [cooldownSaving, setCooldownSaving] = useState(false);
+  const [cooldownSaved, setCooldownSaved] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/settings/app")
+      .then((r) => r.json())
+      .then((data: Record<string, string>) => {
+        setCooldownDays(data.analysis_cooldown_days ?? "30");
+      })
+      .catch(() => setCooldownDays("30"));
+  }, []);
+
+  async function handleSaveCooldown() {
+    setCooldownSaving(true);
+    setCooldownSaved(false);
+    try {
+      const res = await fetch("/api/admin/settings/app", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "analysis_cooldown_days", value: cooldownDays }),
+      });
+      if (res.ok) {
+        setCooldownSaved(true);
+        setTimeout(() => setCooldownSaved(false), 2000);
+      }
+    } finally {
+      setCooldownSaving(false);
+    }
+  }
+
   useEffect(() => {
     fetch("/api/admin/settings/configs")
       .then((r) => r.json())
@@ -243,6 +275,37 @@ export default function AdminSettingsPage() {
   return (
     <main className="min-h-screen bg-background p-6">
       <div className="mx-auto max-w-4xl">
+        <h1 className="text-2xl font-semibold mb-6">General</h1>
+        <Card className="mb-10">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Analysis Cooldown</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              How long before the same URL can be re-analyzed. Set to 0 to disable. Admins can reset individual URLs from the profile page.
+            </p>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={0}
+                  value={cooldownDays}
+                  onChange={(e) => setCooldownDays(e.target.value)}
+                  className="w-24"
+                />
+                <span className="text-sm text-muted-foreground">days</span>
+              </div>
+              <Button
+                size="sm"
+                onClick={handleSaveCooldown}
+                disabled={cooldownSaving}
+              >
+                {cooldownSaving ? "Saving..." : cooldownSaved ? "Saved" : "Save"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         <h1 className="text-2xl font-semibold mb-6">API</h1>
         <div className="space-y-4">
           {PROVIDERS.map((provider) => (

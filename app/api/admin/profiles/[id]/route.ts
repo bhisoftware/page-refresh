@@ -15,6 +15,7 @@ const patchSchema = z.object({
   customerEmail: z.string().email().nullable().optional(),
   contactPhone: z.string().nullable().optional(),
   hostingPlatform: z.string().nullable().optional(),
+  resetCooldown: z.boolean().optional(),
 });
 
 export async function PATCH(
@@ -44,9 +45,14 @@ export async function PATCH(
   // Build update data from provided fields only
   const data: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(parsed.data)) {
-    if (value !== undefined) {
+    if (value !== undefined && key !== "resetCooldown") {
       data[key] = value;
     }
+  }
+
+  // Reset cooldown by clearing lastAnalyzedAt
+  if (parsed.data.resetCooldown) {
+    data.lastAnalyzedAt = null;
   }
 
   const updated = await prisma.urlProfile.update({

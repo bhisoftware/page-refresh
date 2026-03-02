@@ -40,7 +40,7 @@
   - All 3 layouts render with real brand assets (not placeholders)
   - Scores are reasonable (not all 0s or all 100s)
   - PromptLog entries show correct agent step names
-  - Processing time is within Netlify's 120s limit
+  - Processing time is within the Vercel function timeout (300s)
 
 - [ ] **Verify existing Refresh records still display correctly.** Old records have template-based layouts and no `urlProfileId`. The results page must not break for these.
 

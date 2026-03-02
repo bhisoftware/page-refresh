@@ -1,7 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { getRubricEntries } from "../lib/seed-data/scoring-rubric";
 import { INDUSTRIES, getIndustryDimensionWeights } from "../lib/seed-data/industries";
-import { TEMPLATES } from "../lib/seed-data/templates";
 
 const prisma = new PrismaClient();
 
@@ -20,36 +19,8 @@ async function main() {
   });
   console.log(`  Created ${rubricEntries.length} scoring rubric entries.`);
 
-  // 2. Templates (20)
-  const templateIdsByName: Record<string, string> = {};
-  for (const t of TEMPLATES) {
-    const created = await prisma.template.upsert({
-      where: { name: t.name },
-      create: {
-        name: t.name,
-        description: t.description,
-        category: t.category,
-        htmlTemplate: t.htmlTemplate,
-        cssTemplate: t.cssTemplate,
-        suitableIndustries: t.suitableIndustries,
-      },
-      update: {
-        description: t.description,
-        category: t.category,
-        htmlTemplate: t.htmlTemplate,
-        cssTemplate: t.cssTemplate,
-        suitableIndustries: t.suitableIndustries,
-      },
-    });
-    templateIdsByName[t.name] = created.id;
-  }
-  console.log(`  Created/updated ${TEMPLATES.length} templates.`);
-
-  // 3. Industries (20) - resolve preferredTemplates to template IDs; merge dimensionWeights into scoringCriteria
+  // 2. Industries (20) - merge dimensionWeights into scoringCriteria
   for (const ind of INDUSTRIES) {
-    const preferredIds = ind.preferredTemplates
-      .map((name) => templateIdsByName[name])
-      .filter(Boolean);
     const scoringCriteriaWithWeights = {
       ...ind.scoringCriteria,
       dimensionWeights: getIndustryDimensionWeights(ind),
@@ -60,16 +31,23 @@ async function main() {
         name: ind.name,
         description: ind.description,
         scoringCriteria: scoringCriteriaWithWeights as object,
-        preferredTemplates: preferredIds.length ? preferredIds : [],
+        preferredTemplates: [],
       },
       update: {
         description: ind.description,
         scoringCriteria: scoringCriteriaWithWeights as object,
-        preferredTemplates: preferredIds.length ? preferredIds : [],
       },
     });
   }
   console.log(`  Created/updated ${INDUSTRIES.length} industries.`);
+
+  // 3. Default app settings
+  await prisma.appSetting.upsert({
+    where: { key: "analysis_cooldown_days" },
+    create: { key: "analysis_cooldown_days", value: "30" },
+    update: {},
+  });
+  console.log("  Seeded default app settings.");
 
   console.log("Seed completed.");
 }

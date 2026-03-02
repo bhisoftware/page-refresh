@@ -13,6 +13,7 @@ interface ProfileEditableFieldsProps {
   initialEmail: string | null;
   initialPhone: string | null;
   initialHostingPlatform: string | null;
+  lastAnalyzedAt: string | null;
 }
 
 async function patchProfile(profileId: string, data: Record<string, unknown>) {
@@ -111,6 +112,7 @@ export function ProfileEditableFields({
   initialEmail,
   initialPhone,
   initialHostingPlatform,
+  lastAnalyzedAt,
 }: ProfileEditableFieldsProps) {
   const [cms, setCms] = useState(initialCms);
   const [cmsLocked, setCmsLocked] = useState(initialCmsLocked);
@@ -119,6 +121,7 @@ export function ProfileEditableFields({
   const [email, setEmail] = useState(initialEmail);
   const [phone, setPhone] = useState(initialPhone);
   const [hosting, setHosting] = useState(initialHostingPlatform);
+  const [cooldownCleared, setCooldownCleared] = useState(false);
   const [, startTransition] = useTransition();
 
   const save = (data: Record<string, unknown>) => {
@@ -199,6 +202,35 @@ export function ProfileEditableFields({
           />
         </CardContent>
       </Card>
+
+      {lastAnalyzedAt && !cooldownCleared && (
+        <Card className="md:col-span-2">
+          <CardContent className="flex items-center justify-between py-4">
+            <div className="text-sm">
+              <span className="text-muted-foreground">Analysis cooldown active since </span>
+              <span>{new Date(lastAnalyzedAt).toLocaleString()}</span>
+            </div>
+            <button
+              className="text-sm text-destructive hover:underline"
+              onClick={() => {
+                if (!confirm("Reset cooldown? This allows the URL to be re-analyzed immediately.")) return;
+                patchProfile(profileId, { resetCooldown: true })
+                  .then(() => setCooldownCleared(true))
+                  .catch(console.error);
+              }}
+            >
+              Reset Cooldown
+            </button>
+          </CardContent>
+        </Card>
+      )}
+      {cooldownCleared && (
+        <Card className="md:col-span-2">
+          <CardContent className="py-4">
+            <p className="text-sm text-green-600">Cooldown cleared — this URL can be re-analyzed.</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
