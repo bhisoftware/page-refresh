@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { type PipelineStep } from "@/components/AnalysisProgress";
-import { AnalysisLoaderCards } from "@/components/AnalysisLoaderCards";
+import { ScanningExperience } from "@/components/ScanningExperience";
 import { Loader2 } from "lucide-react";
 import { cn, normalizeWebsiteUrl } from "@/lib/utils";
 
@@ -367,7 +367,8 @@ export default function Home() {
               {progressMessage ? (
                 <p className="text-sm text-muted-foreground mb-4 -mt-2">{progressMessage}</p>
               ) : null}
-              <AnalysisLoaderCards
+              <ScanningExperience
+                url={url}
                 tokens={tokens}
                 currentStep={currentStep}
                 countdownSeconds={countdown ?? undefined}
