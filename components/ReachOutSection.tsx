@@ -94,7 +94,7 @@ export function ReachOutSection({ refreshId, viewToken }: ReachOutSectionProps) 
           variant="default"
           disabled={form.formState.isSubmitting}
         >
-          {form.formState.isSubmitting ? "Sending..." : "Reach out"}
+          {form.formState.isSubmitting ? "Sending..." : "Submit"}
         </Button>
       </form>
     </Form>
