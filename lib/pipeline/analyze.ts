@@ -441,7 +441,10 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     industry,
     brandAssets: {
       logoUrl: safeUrl(assetResult.storedAssets.find((a) => a.assetType === "logo")?.storageUrl),
-      heroImageUrl: safeUrl(assetResult.storedAssets.find((a) => a.assetType === "hero_image")?.storageUrl),
+      heroImageUrl:
+        safeUrl(assetResult.storedAssets.find((a) => a.assetType === "hero_image")?.storageUrl)
+        // Fallback: promote OG image to hero if no dedicated hero was extracted
+        ?? safeUrl(assetResult.storedAssets.find((a) => a.assetType === "og_image")?.storageUrl),
       additionalImageUrls: assetResult.storedAssets
         .filter((a) => !["logo", "hero_image"].includes(a.assetType) && a.storageUrl && !a.storageUrl.startsWith("data:"))
         .map((a) => ({ url: a.storageUrl!, type: a.assetType })),

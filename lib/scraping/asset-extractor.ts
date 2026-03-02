@@ -407,13 +407,52 @@ export function extractAssets(html: string, css: string, baseUrl: string): Extra
   const colors = extractColorsFromCss(css);
   const fonts = extractFontsFromCss(css);
 
+  const JUNK_URL_PATTERN =
+    /thumb(nail)?s?[\-_\/\.]|spacer|pixel|tracking|transparent\.|1x1|blank\.|spinner|loader/i;
+
   const images: ExtractedImage = [];
   $("img").each((_, el) => {
-    const src = $(el).attr("src");
     const alt = $(el).attr("alt");
-    if (src && !src.startsWith("data:")) {
+
+    // Prefer high-res variants: srcset > data-src > src
+    const srcset = $(el).attr("srcset") || $(el).attr("data-srcset");
+    let bestSrc: string | undefined;
+    if (srcset) {
+      const entries = srcset
+        .split(",")
+        .map((entry) => {
+          const parts = entry.trim().split(/\s+/);
+          const url = parts[0];
+          const descriptor = parts[1] ?? "";
+          let size = 0;
+          if (descriptor.endsWith("w")) size = parseInt(descriptor, 10) || 0;
+          else if (descriptor.endsWith("x")) size = (parseFloat(descriptor) || 1) * 1000;
+          return { url, size };
+        })
+        .filter((e) => e.url && !e.url.startsWith("data:"));
+      if (entries.length) {
+        entries.sort((a, b) => b.size - a.size);
+        bestSrc = entries[0].url;
+      }
+    }
+    if (!bestSrc) {
+      bestSrc =
+        $(el).attr("data-src") ||
+        $(el).attr("data-lazy-src") ||
+        $(el).attr("data-original") ||
+        $(el).attr("src") ||
+        undefined;
+    }
+
+    if (bestSrc && !bestSrc.startsWith("data:")) {
+      const resolved = resolveUrl(baseUrl, bestSrc);
+      // Skip likely non-content images (tracking pixels, spacers, tiny icons)
+      if (JUNK_URL_PATTERN.test(resolved)) return;
+      const w = parseInt($(el).attr("width") ?? "0", 10);
+      const h = parseInt($(el).attr("height") ?? "0", 10);
+      if ((w > 0 && w < 50) || (h > 0 && h < 50)) return;
       images.push({
-        src: resolveUrl(baseUrl, src),
+        src: resolved,
         alt: alt ?? undefined,
       });
     }
@@ -468,11 +507,53 @@ export function extractAssets(html: string, css: string, baseUrl: string): Extra
   if (bodySamples.length) copy.bodySamples = bodySamples.slice(0, 5);
 
   // Logo heuristics: first img in header, or img with "logo" in src/alt
+  // Prefer SVG variants and srcset high-res versions for crisp logos
   let logo: string | undefined;
   const logoImg = $('header img[alt*="logo"], img[src*="logo"], img[alt*="Logo"]').first();
   if (logoImg.length) {
-    const src = logoImg.attr("src");
-    if (src && !src.startsWith("data:")) logo = resolveUrl(baseUrl, src);
+    // Check for SVG sibling (many sites render both raster and SVG logos)
+    const parent = logoImg.parent();
+    const svgSource = parent.find('source[srcset$=".svg"], source[type="image/svg+xml"]').first();
+    if (svgSource.length) {
+      const svgSrc = svgSource.attr("srcset");
+      if (svgSrc && !svgSrc.startsWith("data:")) {
+        logo = resolveUrl(baseUrl, svgSrc);
+      }
+    }
+    // Check srcset for higher-res logo
+    if (!logo) {
+      const srcset = logoImg.attr("srcset") || logoImg.attr("data-srcset");
+      if (srcset) {
+        const entries = srcset
+          .split(",")
+          .map((entry) => {
+            const parts = entry.trim().split(/\s+/);
+            const url = parts[0];
+            const descriptor = parts[1] ?? "";
+            let size = 0;
+            if (descriptor.endsWith("w")) size = parseInt(descriptor, 10) || 0;
+            else if (descriptor.endsWith("x")) size = (parseFloat(descriptor) || 1) * 1000;
+            return { url, size };
+          })
+          .filter((e) => e.url && !e.url.startsWith("data:"));
+        if (entries.length) {
+          entries.sort((a, b) => b.size - a.size);
+          logo = resolveUrl(baseUrl, entries[0].url);
+        }
+      }
+    }
+    // Check data-src (lazy-loaded logos)
+    if (!logo) {
+      const dataSrc = logoImg.attr("data-src") || logoImg.attr("data-lazy-src");
+      if (dataSrc && !dataSrc.startsWith("data:")) {
+        logo = resolveUrl(baseUrl, dataSrc);
+      }
+    }
+    // Fall back to src
+    if (!logo) {
+      const src = logoImg.attr("src");
+      if (src && !src.startsWith("data:")) logo = resolveUrl(baseUrl, src);
+    }
   }
   if (!logo && images.length) {
     logo = images[0].src;

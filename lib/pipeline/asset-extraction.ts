@@ -62,6 +62,88 @@ function contentTypeToExt(contentType: string): string {
 }
 
 /**
+ * Parse a srcset attribute and return the URL with the largest width/density descriptor.
+ * Handles: "small.jpg 300w, large.jpg 1200w" and "img-1x.jpg 1x, img-2x.jpg 2x"
+ */
+function parseSrcsetForLargest(srcset: string, baseUrl: string): string | null {
+  const entries = srcset
+    .split(",")
+    .map((entry) => {
+      const parts = entry.trim().split(/\s+/);
+      const url = parts[0];
+      const descriptor = parts[1] ?? "";
+      let size = 0;
+      if (descriptor.endsWith("w")) {
+        size = parseInt(descriptor, 10) || 0;
+      } else if (descriptor.endsWith("x")) {
+        size = (parseFloat(descriptor) || 1) * 1000; // Normalize: 2x → 2000
+      }
+      return { url, size };
+    })
+    .filter((e) => e.url && !e.url.startsWith("data:"));
+
+  if (entries.length === 0) return null;
+  entries.sort((a, b) => b.size - a.size);
+  return resolveAbsolute(baseUrl, entries[0].url);
+}
+
+/**
+ * Given an <img> element, find the highest-resolution image URL available.
+ * Priority: srcset (largest) > data-srcset > data-src/data-lazy-src > src
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getBestImageUrl($: cheerio.CheerioAPI, el: any, baseUrl: string): string | null {
+  const $el = $(el);
+
+  // Check srcset / data-srcset for highest-resolution variant
+  const srcset = $el.attr("srcset") || $el.attr("data-srcset");
+  if (srcset) {
+    const best = parseSrcsetForLargest(srcset, baseUrl);
+    if (best) return best;
+  }
+
+  // Check lazy-load attributes
+  const dataSrc =
+    $el.attr("data-src") || $el.attr("data-lazy-src") || $el.attr("data-original");
+  if (dataSrc && !dataSrc.startsWith("data:")) {
+    return resolveAbsolute(baseUrl, dataSrc);
+  }
+
+  // Fall back to src
+  const src = $el.attr("src");
+  if (src && !src.startsWith("data:")) {
+    return resolveAbsolute(baseUrl, src);
+  }
+
+  return null;
+}
+
+/** Positive URL signals for hero/feature images. */
+const POSITIVE_URL_PATTERNS =
+  /hero|banner|feature|full|large|original|header|cover|background|main/i;
+/** Negative URL signals — likely icons, tracking pixels, or tiny assets. */
+const NEGATIVE_URL_PATTERNS =
+  /thumb|icon|small|tiny|avatar|favicon|logo|sprite|pixel|tracking|badge|button|arrow|spacer/i;
+
+/**
+ * Score an image URL based on path heuristics.
+ * Higher score → more likely to be a meaningful content image.
+ */
+function scoreImageUrl(url: string): number {
+  let score = 0;
+  if (POSITIVE_URL_PATTERNS.test(url)) score += 10;
+  if (NEGATIVE_URL_PATTERNS.test(url)) score -= 10;
+  // Prefer URLs with larger numbers (often resolution indicators)
+  const numbers = url.match(/(\d{3,4})/g);
+  if (numbers) {
+    const maxNum = Math.max(...numbers.map(Number));
+    if (maxNum >= 800) score += 5;
+    if (maxNum >= 1200) score += 5;
+  }
+  return score;
+}
+
+/**
  * Identify candidate URLs for logo, favicon, og:image, hero_image from HTML.
  * Returns deduplicated list of { url, assetType }.
  */
@@ -118,34 +200,38 @@ function identifyDownloadableUrls(
   }
 
   // Hero detection: first try header images that aren't logo/favicon
+  // Use getBestImageUrl to prefer srcset/data-src high-res variants
   let heroFound = false;
   $("header img").each((_, el) => {
     if (heroFound) return;
-    const src = $(el).attr("src");
-    if (!src || src.startsWith("data:")) return;
-    const absolute = resolveAbsolute(baseUrl, src);
-    if (classifiedUrls.has(absolute) || seen.has(absolute)) return;
-    add(src, "hero_image");
+    const bestUrl = getBestImageUrl($, el, baseUrl);
+    if (!bestUrl) return;
+    if (classifiedUrls.has(bestUrl) || seen.has(bestUrl)) return;
+    add(bestUrl, "hero_image");
     heroFound = true;
   });
 
-  // Fallback: if no hero in header, pick the largest image in first <section> or <main>
+  // Fallback: if no hero in header, pick the best image in first <section> or <main>
+  // Uses HTML dimensions when available, falls back to URL heuristic scoring
   if (!heroFound) {
     let bestSrc: string | null = null;
-    let bestSize = -1;
+    let bestScore = -1;
     const fallbackContainer = $("section, main").first();
     if (fallbackContainer.length) {
       fallbackContainer.find("img").each((_, el) => {
-        const src = $(el).attr("src");
-        if (!src || src.startsWith("data:")) return;
-        const absolute = resolveAbsolute(baseUrl, src);
-        if (classifiedUrls.has(absolute) || seen.has(absolute)) return;
+        const imgUrl = getBestImageUrl($, el, baseUrl);
+        if (!imgUrl) return;
+        if (classifiedUrls.has(imgUrl) || seen.has(imgUrl)) return;
         const w = parseInt($(el).attr("width") ?? "0", 10) || 0;
         const h = parseInt($(el).attr("height") ?? "0", 10) || 0;
-        const size = w * h;
-        if (size > bestSize) {
-          bestSize = size;
-          bestSrc = src;
+        let size = w * h;
+        if (size === 0) {
+          // No HTML dimensions — use URL heuristic scoring
+          size = scoreImageUrl(imgUrl) + 1; // +1 so score-0 still beats -1
+        }
+        if (size > bestScore) {
+          bestScore = size;
+          bestSrc = imgUrl;
         }
       });
     }
@@ -155,15 +241,23 @@ function identifyDownloadableUrls(
     }
   }
 
+  // Fallback: promote OG image to hero if available (typically 1200x630+)
+  if (!heroFound) {
+    const ogCandidate = candidates.find((c) => c.assetType === "og_image");
+    if (ogCandidate) {
+      ogCandidate.assetType = "hero_image";
+      heroFound = true;
+    }
+  }
+
   // Last resort: any img on the page not already classified
   if (!heroFound && $("img").length) {
     $("img").each((_, el) => {
       if (heroFound) return;
-      const src = $(el).attr("src");
-      if (!src || src.startsWith("data:")) return;
-      const absolute = resolveAbsolute(baseUrl, src);
-      if (classifiedUrls.has(absolute) || seen.has(absolute)) return;
-      add(src, "hero_image");
+      const bestUrl = getBestImageUrl($, el, baseUrl);
+      if (!bestUrl) return;
+      if (classifiedUrls.has(bestUrl) || seen.has(bestUrl)) return;
+      add(bestUrl, "hero_image");
       heroFound = true;
     });
   }
