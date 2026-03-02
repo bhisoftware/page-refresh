@@ -46,6 +46,23 @@ const PROVIDERS = [
 const PIPELINE_SLUGS = ["screenshot-analysis", "industry-seo", "score"];
 const CREATIVE_SLUGS = ["creative-modern", "creative-classy", "creative-unique"];
 
+const MODEL_OPTIONS = [
+  { value: "", label: "Default", cost: "" },
+  { value: "claude-haiku-4-5", label: "Haiku 4.5", cost: "$" },
+  { value: "claude-sonnet-4-6", label: "Sonnet 4.6", cost: "$$" },
+  { value: "claude-opus-4-6", label: "Opus 4.6", cost: "$$$" },
+  { value: "__custom__", label: "Custom...", cost: "" },
+] as const;
+
+type HistoryEntry = {
+  id: string;
+  version: number;
+  editedBy: string | null;
+  changeNote: string | null;
+  systemPrompt: string;
+  createdAt: string;
+};
+
 export default function AdminSettingsPage() {
   const [configs, setConfigs] = useState<ConfigsResponse | null>(null);
   const [testResult, setTestResult] = useState<Record<string, { success: boolean; error?: string; latency?: number }>>({});
@@ -53,6 +70,11 @@ export default function AdminSettingsPage() {
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [detail, setDetail] = useState<SkillDetail | null>(null);
   const [saving, setSaving] = useState(false);
+  const [changeNote, setChangeNote] = useState("");
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [rollingBack, setRollingBack] = useState(false);
+  const [modelMode, setModelMode] = useState<"preset" | "custom">("preset");
   const [form, setForm] = useState({
     systemPrompt: "",
     modelOverride: "",
@@ -77,20 +99,30 @@ export default function AdminSettingsPage() {
   useEffect(() => {
     if (!selectedSlug) {
       setDetail(null);
+      setHistory([]);
+      setShowHistory(false);
       return;
     }
     fetch(`/api/admin/settings/skills/${encodeURIComponent(selectedSlug)}`)
       .then((r) => r.json())
       .then((data) => {
         setDetail(data);
+        const mo = data.modelOverride ?? "";
+        const isPreset = MODEL_OPTIONS.some((o) => o.value === mo);
+        setModelMode(isPreset ? "preset" : "custom");
         setForm({
           systemPrompt: data.systemPrompt ?? "",
-          modelOverride: data.modelOverride ?? "",
+          modelOverride: mo,
           maxTokens: data.maxTokens != null ? String(data.maxTokens) : "",
           temperature: data.temperature != null ? String(data.temperature) : "",
         });
+        setChangeNote("");
       })
       .catch(() => setDetail(null));
+    fetch(`/api/admin/settings/skills/${encodeURIComponent(selectedSlug)}/history`)
+      .then((r) => r.json())
+      .then((data) => setHistory(data.history ?? []))
+      .catch(() => setHistory([]));
   }, [selectedSlug]);
 
   async function handleTest(provider: string) {
@@ -134,17 +166,73 @@ export default function AdminSettingsPage() {
           maxTokens: form.maxTokens ? Number(form.maxTokens) : undefined,
           temperature: form.temperature ? Number(form.temperature) : undefined,
           editedBy: "Admin",
+          changeNote: changeNote || undefined,
         }),
       });
       if (res.ok) {
         const updated = await res.json();
         setDetail(updated);
+        setChangeNote("");
         setSkills((prev) =>
           prev.map((s) => (s.agentSlug === selectedSlug ? { ...s, version: updated.version, updatedAt: updated.updatedAt } : s))
         );
+        // Refresh history
+        fetch(`/api/admin/settings/skills/${encodeURIComponent(selectedSlug)}/history`)
+          .then((r) => r.json())
+          .then((data) => setHistory(data.history ?? []))
+          .catch(() => {});
       }
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleToggleActive(slug: string, currentActive: boolean) {
+    const action = currentActive ? "disable" : "enable";
+    if (!confirm(`Are you sure you want to ${action} this agent? ${currentActive ? "It will be skipped during pipeline runs." : "It will be included in pipeline runs."}`)) return;
+    const res = await fetch(`/api/admin/settings/skills/${encodeURIComponent(slug)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ active: !currentActive, editedBy: "Admin", changeNote: `${currentActive ? "Disabled" : "Enabled"} agent` }),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setSkills((prev) => prev.map((s) => (s.agentSlug === slug ? { ...s, active: updated.active, version: updated.version, updatedAt: updated.updatedAt } : s)));
+      if (detail?.agentSlug === slug) setDetail({ ...detail, active: updated.active, version: updated.version, updatedAt: updated.updatedAt });
+    }
+  }
+
+  async function handleRollback(version: number) {
+    if (!selectedSlug) return;
+    if (!confirm(`Restore version ${version}? This creates a new version with the old settings.`)) return;
+    setRollingBack(true);
+    try {
+      const res = await fetch(`/api/admin/settings/skills/${encodeURIComponent(selectedSlug)}/rollback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ version }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setDetail(updated);
+        const mo = updated.modelOverride ?? "";
+        const isPreset = MODEL_OPTIONS.some((o) => o.value === mo);
+        setModelMode(isPreset ? "preset" : "custom");
+        setForm({
+          systemPrompt: updated.systemPrompt ?? "",
+          modelOverride: mo,
+          maxTokens: updated.maxTokens != null ? String(updated.maxTokens) : "",
+          temperature: updated.temperature != null ? String(updated.temperature) : "",
+        });
+        setSkills((prev) => prev.map((s) => (s.agentSlug === selectedSlug ? { ...s, version: updated.version, updatedAt: updated.updatedAt } : s)));
+        // Refresh history
+        fetch(`/api/admin/settings/skills/${encodeURIComponent(selectedSlug)}/history`)
+          .then((r) => r.json())
+          .then((data) => setHistory(data.history ?? []))
+          .catch(() => {});
+      }
+    } finally {
+      setRollingBack(false);
     }
   }
 
@@ -227,19 +315,33 @@ export default function AdminSettingsPage() {
               {skills
                 .filter((s) => PIPELINE_SLUGS.includes(s.agentSlug))
                 .map((s) => (
-                  <li key={s.agentSlug}>
+                  <li key={s.agentSlug} className="flex items-center gap-1">
                     <button
                       type="button"
                       onClick={() => setSelectedSlug(s.agentSlug)}
                       className={cn(
-                        "w-full text-left px-2 py-1.5 rounded text-sm",
+                        "flex-1 text-left px-2 py-1.5 rounded text-sm",
                         selectedSlug === s.agentSlug
                           ? "bg-primary text-primary-foreground"
                           : "hover:bg-muted",
-                        !s.active && "opacity-60"
+                        !s.active && "opacity-50 line-through"
                       )}
                     >
                       {s.agentName}
+                    </button>
+                    <button
+                      type="button"
+                      title={s.active ? "Disable agent" : "Enable agent"}
+                      onClick={() => handleToggleActive(s.agentSlug, s.active)}
+                      className={cn(
+                        "shrink-0 w-7 h-4 rounded-full relative transition-colors",
+                        s.active ? "bg-green-500" : "bg-muted-foreground/30"
+                      )}
+                    >
+                      <span className={cn(
+                        "absolute top-0.5 h-3 w-3 rounded-full bg-white transition-transform",
+                        s.active ? "left-3.5" : "left-0.5"
+                      )} />
                     </button>
                   </li>
                 ))}
@@ -249,19 +351,33 @@ export default function AdminSettingsPage() {
               {skills
                 .filter((s) => CREATIVE_SLUGS.includes(s.agentSlug))
                 .map((s) => (
-                  <li key={s.agentSlug}>
+                  <li key={s.agentSlug} className="flex items-center gap-1">
                     <button
                       type="button"
                       onClick={() => setSelectedSlug(s.agentSlug)}
                       className={cn(
-                        "w-full text-left px-2 py-1.5 rounded text-sm",
+                        "flex-1 text-left px-2 py-1.5 rounded text-sm",
                         selectedSlug === s.agentSlug
                           ? "bg-primary text-primary-foreground"
                           : "hover:bg-muted",
-                        !s.active && "opacity-60"
+                        !s.active && "opacity-50 line-through"
                       )}
                     >
                       {s.agentName}
+                    </button>
+                    <button
+                      type="button"
+                      title={s.active ? "Disable agent" : "Enable agent"}
+                      onClick={() => handleToggleActive(s.agentSlug, s.active)}
+                      className={cn(
+                        "shrink-0 w-7 h-4 rounded-full relative transition-colors",
+                        s.active ? "bg-green-500" : "bg-muted-foreground/30"
+                      )}
+                    >
+                      <span className={cn(
+                        "absolute top-0.5 h-3 w-3 rounded-full bg-white transition-transform",
+                        s.active ? "left-3.5" : "left-0.5"
+                      )} />
                     </button>
                   </li>
                 ))}
@@ -275,6 +391,7 @@ export default function AdminSettingsPage() {
                     <h3 className="font-medium">{detail.agentName}</h3>
                     <p className="text-xs text-muted-foreground">
                       Version {detail.version} · Updated {new Date(detail.updatedAt).toLocaleDateString()}
+                      {!detail.active && <span className="ml-2 text-destructive font-medium">(Disabled)</span>}
                     </p>
                   </div>
                   <Button size="sm" onClick={handleSaveSkill} disabled={saving}>
@@ -282,13 +399,37 @@ export default function AdminSettingsPage() {
                   </Button>
                 </div>
                 <div className="space-y-2">
-                  <Label>Model override</Label>
-                  <Input
-                    value={form.modelOverride}
-                    onChange={(e) => setForm((f) => ({ ...f, modelOverride: e.target.value }))}
-                    placeholder="claude-sonnet-4-20250514"
-                    className="font-mono text-sm"
-                  />
+                  <Label>Model</Label>
+                  <div className="flex gap-2">
+                    <select
+                      value={modelMode === "custom" ? "__custom__" : form.modelOverride}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "__custom__") {
+                          setModelMode("custom");
+                          setForm((f) => ({ ...f, modelOverride: f.modelOverride || "" }));
+                        } else {
+                          setModelMode("preset");
+                          setForm((f) => ({ ...f, modelOverride: val }));
+                        }
+                      }}
+                      className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      {MODEL_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}{opt.cost ? ` (${opt.cost})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    {modelMode === "custom" && (
+                      <Input
+                        value={form.modelOverride}
+                        onChange={(e) => setForm((f) => ({ ...f, modelOverride: e.target.value }))}
+                        placeholder="claude-model-id"
+                        className="flex-1 font-mono text-sm"
+                      />
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -304,7 +445,7 @@ export default function AdminSettingsPage() {
                     <Label>Temperature</Label>
                     <Input
                       type="number"
-                      step={0.1}
+                      step={0.05}
                       min={0}
                       max={1}
                       value={form.temperature}
@@ -321,6 +462,53 @@ export default function AdminSettingsPage() {
                     className="w-full min-h-[200px] rounded-md border border-input bg-background px-3 py-2 font-mono text-sm"
                     spellCheck={false}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label>Change note <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                  <Input
+                    value={changeNote}
+                    onChange={(e) => setChangeNote(e.target.value)}
+                    placeholder="Describe what you changed and why"
+                    className="text-sm"
+                  />
+                </div>
+                {/* Version History */}
+                <div className="border-t border-border pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowHistory(!showHistory)}
+                    className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+                  >
+                    <span className={cn("transition-transform", showHistory && "rotate-90")}>&#9654;</span>
+                    History ({history.length} versions)
+                  </button>
+                  {showHistory && history.length > 0 && (
+                    <ul className="mt-2 space-y-2">
+                      {history.slice(0, 10).map((h) => (
+                        <li key={h.id} className="rounded border border-border p-2 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">v{h.version}</span>
+                            <span className="text-muted-foreground">{new Date(h.createdAt).toLocaleDateString()}</span>
+                          </div>
+                          {h.changeNote && <p className="text-muted-foreground mt-1">{h.changeNote}</p>}
+                          {h.editedBy && <p className="text-muted-foreground">by {h.editedBy}</p>}
+                          <p className="mt-1 font-mono text-muted-foreground truncate">{h.systemPrompt.slice(0, 150)}...</p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-1 h-6 text-xs"
+                            disabled={rollingBack}
+                            onClick={() => handleRollback(h.version)}
+                          >
+                            Restore v{h.version}
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {showHistory && history.length === 0 && (
+                    <p className="mt-2 text-xs text-muted-foreground">No previous versions.</p>
+                  )}
                 </div>
               </>
             ) : (

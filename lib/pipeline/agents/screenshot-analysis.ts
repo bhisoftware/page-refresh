@@ -33,7 +33,7 @@ export async function runScreenshotAnalysisAgent(
 
   const apiKey = await getApiKey("anthropic");
   const client = new Anthropic({ apiKey });
-  const model = skill.modelOverride ?? "claude-sonnet-4-20250514";
+  const model = skill.modelOverride ?? "claude-haiku-4-5";
   const maxTokens = skill.maxTokens ?? 4096;
   const temperature = skill.temperature ?? 0.1;
 

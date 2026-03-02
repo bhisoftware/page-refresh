@@ -459,8 +459,18 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
 
   // Run creative agents in parallel with a 3s stagger to avoid overwhelming the API.
   // Much faster than fully sequential (3-6s stagger vs 15-25s per agent) while avoiding 429/529 spikes.
-  const creativeSlugs: CreativeSlug[] = ["creative-modern", "creative-classy", "creative-unique"];
-  const creativeTemplateNames = ["Modern", "Classy", "Unique"];
+  const allCreativeSlugs: CreativeSlug[] = ["creative-modern", "creative-classy", "creative-unique"];
+  const allTemplateNames = ["Modern", "Classy", "Unique"];
+  // Only run creative agents that are active (have a matching skill in the DB)
+  const activeCreativeIndices = allCreativeSlugs
+    .map((slug, i) => skills.some((s) => s.agentSlug === slug) ? i : -1)
+    .filter((i) => i >= 0);
+  const creativeSlugs = activeCreativeIndices.map((i) => allCreativeSlugs[i]);
+  const creativeTemplateNames = activeCreativeIndices.map((i) => allTemplateNames[i]);
+  if (creativeSlugs.length === 0) {
+    console.warn("[pipeline] No active creative agents — skipping layout generation");
+    onProgress?.({ step: "error", message: "No creative agents are enabled. Scores and audit are saved below." });
+  }
   const accentColor = creativeInput.brandAssets.colors[0] ?? "#2d5016";
   const CREATIVE_STAGGER_MS = 3000;
   let completedCount = 0;
@@ -499,7 +509,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
           options: creativeTemplateNames.slice(0, completedCount).map((label) => ({ label, accentColor })),
         },
       });
-      onProgress?.({ step: "generating", message: `Generated ${completedCount} of 3 design options...` });
+      onProgress?.({ step: "generating", message: `Generated ${completedCount} of ${creativeSlugs.length} design options...` });
       return result;
     })
   );
@@ -515,21 +525,21 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
       .map((r, i) => r.status === "rejected" ? `${creativeSlugs[i]}: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}` : null)
       .filter(Boolean)
       .join(" | ");
-    console.error("[pipeline] All 3 Creative Agents failed:", reasons);
+    console.error(`[pipeline] All ${creativeSlugs.length} Creative Agents failed:`, reasons);
     await prisma.refresh.update({
       where: { id: refreshId },
-      data: { errorStep: "generating", errorMessage: `All 3 creative agents failed — ${reasons}`.slice(0, 2000) },
+      data: { errorStep: "generating", errorMessage: `All ${creativeSlugs.length} creative agents failed — ${reasons}`.slice(0, 2000) },
     }).catch(() => {});
     onProgress?.({ step: "error", message: "Layout generation was unable to complete. Your scores and audit are still saved below." });
-  } else if (successCount < 3) {
+  } else if (successCount < creativeSlugs.length) {
     const failedSlugs = creativeSlugs.filter((_, i) => creativeResults[i].status === "rejected");
-    const failedCount = 3 - successCount;
-    console.warn(`[pipeline] ${failedCount} of 3 creative agents failed: ${failedSlugs.join(", ")}`);
+    const failedCount = creativeSlugs.length - successCount;
+    console.warn(`[pipeline] ${failedCount} of ${creativeSlugs.length} creative agents failed: ${failedSlugs.join(", ")}`);
     await prisma.refresh.update({
       where: { id: refreshId },
       data: {
         errorStep: "generating",
-        errorMessage: `${failedCount} of 3 creative agents failed: ${failedSlugs.join(", ")}`,
+        errorMessage: `${failedCount} of ${creativeSlugs.length} creative agents failed: ${failedSlugs.join(", ")}`,
       },
     }).catch(() => {});
   }

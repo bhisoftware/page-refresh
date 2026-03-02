@@ -5,8 +5,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createPromptLog } from "@/lib/ai/prompt-log";
 import { withRetry } from "@/lib/ai/retry";
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+import { getApiKey } from "@/lib/config/api-keys";
 
 export interface PromptLogContext {
   refreshId: string;
@@ -38,10 +37,12 @@ export async function analyzeScreenshot(
   promptLog?: PromptLogContext
 ): Promise<VisionAnalysisResult> {
   const startMs = Date.now();
+  const apiKey = await getApiKey("anthropic");
+  const client = new Anthropic({ apiKey });
   const message = await withRetry(
     () =>
       client.messages.create({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-5",
         max_tokens: 1024,
         messages: [
           {

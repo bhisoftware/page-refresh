@@ -75,7 +75,7 @@ export async function runCreativeAgent(
 
   const apiKey = await getApiKey("anthropic");
   const client = new Anthropic({ apiKey });
-  const model = skill.modelOverride ?? "claude-sonnet-4-20250514";
+  const model = skill.modelOverride ?? "claude-sonnet-4-6";
   const maxTokens = skill.maxTokens ?? 32768;
   const temperature = skill.temperature ?? 0.7;
 

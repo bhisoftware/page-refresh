@@ -6,9 +6,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createPromptLog } from "@/lib/ai/prompt-log";
 import { withRetry } from "@/lib/ai/retry";
 import { safeParseJSON } from "@/lib/ai/json-repair";
+import { getApiKey } from "@/lib/config/api-keys";
 import type { TechStack } from "@/lib/scraping/tech-detector";
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export interface PromptLogContext {
   refreshId: string;
@@ -69,10 +68,12 @@ Content (HTML stripped for analysis):
 ${truncated.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()}`;
 
   const startMs = Date.now();
+  const apiKey = await getApiKey("anthropic");
+  const client = new Anthropic({ apiKey });
   const message = await withRetry(
     () =>
       client.messages.create({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-5",
         max_tokens: 512,
         messages: [{ role: "user", content: prompt }],
       }),
@@ -131,10 +132,12 @@ export async function completeText(
   promptLog?: PromptLogContext
 ): Promise<{ text: string; tokensUsed?: number }> {
   const startMs = Date.now();
+  const apiKey = await getApiKey("anthropic");
+  const client = new Anthropic({ apiKey });
   const message = await withRetry(
     () =>
       client.messages.create({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-sonnet-4-6",
         max_tokens: 2048,
         system: system ?? "You are a helpful assistant. Return only valid JSON when asked.",
         messages: [{ role: "user", content: prompt }],
@@ -203,10 +206,12 @@ Tech stack detected: ${techSummary.length ? techSummary.join(", ") : "Unknown"}
 ${summary}`;
 
   const startMs = Date.now();
+  const apiKey = await getApiKey("anthropic");
+  const client = new Anthropic({ apiKey });
   const message = await withRetry(
     () =>
       client.messages.create({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-5",
         max_tokens: 1024,
         messages: [{ role: "user", content: prompt }],
       }),

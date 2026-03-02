@@ -80,7 +80,7 @@ export async function PUT(
       systemPrompt: skill.systemPrompt,
       version: skill.version,
       editedBy: skill.lastEditedBy ?? undefined,
-      changeNote: undefined,
+      changeNote: typeof body.changeNote === "string" ? body.changeNote : undefined,
     },
   });
 
