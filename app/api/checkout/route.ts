@@ -30,11 +30,18 @@ export async function POST(request: NextRequest) {
 
   const refresh = await prisma.refresh.findUnique({
     where: { id: refreshId },
-    select: { id: true, viewToken: true },
+    select: { id: true, viewToken: true, stripePaymentStatus: true },
   });
 
   if (!refresh || refresh.viewToken !== token) {
     return Response.json({ error: "Not found" }, { status: 404 });
+  }
+
+  if (refresh.stripePaymentStatus === "paid") {
+    return Response.json(
+      { error: "Already paid", alreadyPaid: true },
+      { status: 409 },
+    );
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!;

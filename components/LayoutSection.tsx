@@ -15,9 +15,11 @@ interface LayoutSectionProps {
   refreshId: string;
   viewToken: string;
   layouts: LayoutItem[];
+  stripePaymentStatus?: string;
+  stripeSessionId?: string;
 }
 
-export function LayoutSection({ refreshId, viewToken, layouts }: LayoutSectionProps) {
+export function LayoutSection({ refreshId, viewToken, layouts, stripePaymentStatus, stripeSessionId }: LayoutSectionProps) {
   if (!layouts.length) return null;
 
   return (
@@ -27,6 +29,8 @@ export function LayoutSection({ refreshId, viewToken, layouts }: LayoutSectionPr
           refreshId={refreshId}
           viewToken={viewToken}
           layouts={layouts}
+          stripePaymentStatus={stripePaymentStatus}
+          stripeSessionId={stripeSessionId}
         />
       </div>
     </section>

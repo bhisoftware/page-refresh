@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { sendBookingConfirmation } from "@/lib/email";
 
 const schema = z.object({
   refreshId: z.string().min(1),
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
 
   const refresh = await prisma.refresh.findUnique({
     where: { id: refreshId },
-    select: { id: true, stripePaymentStatus: true, notes: true },
+    select: { id: true, stripePaymentStatus: true, notes: true, paidEmail: true },
   });
 
   if (!refresh) {
@@ -47,6 +48,12 @@ export async function POST(request: NextRequest) {
           .join("\n") || undefined,
     },
   });
+
+  if (refresh.paidEmail) {
+    sendBookingConfirmation(refresh.paidEmail, refreshId, date, timeSlot).catch(
+      (err) => console.error("Booking email error:", err),
+    );
+  }
 
   return Response.json({ success: true });
 }

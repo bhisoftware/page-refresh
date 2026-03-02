@@ -14,7 +14,6 @@ export async function GET(request: NextRequest) {
       id: true,
       stripePaymentStatus: true,
       selectedLayoutPaid: true,
-      viewToken: true,
     },
   });
 
@@ -26,6 +25,5 @@ export async function GET(request: NextRequest) {
     status: refresh.stripePaymentStatus ?? "pending",
     refreshId: refresh.id,
     layoutIndex: refresh.selectedLayoutPaid,
-    viewToken: refresh.viewToken,
   });
 }

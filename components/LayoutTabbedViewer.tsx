@@ -10,9 +10,11 @@ interface LayoutTabbedViewerProps {
   refreshId: string;
   viewToken: string;
   layouts: LayoutItem[];
+  stripePaymentStatus?: string;
+  stripeSessionId?: string;
 }
 
-export function LayoutTabbedViewer({ refreshId, viewToken, layouts }: LayoutTabbedViewerProps) {
+export function LayoutTabbedViewer({ refreshId, viewToken, layouts, stripePaymentStatus, stripeSessionId }: LayoutTabbedViewerProps) {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("1");
 
@@ -35,7 +37,14 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts }: LayoutTabb
     [currentLayout.layoutHtml, currentLayout.layoutCss]
   );
 
+  const isPaid = stripePaymentStatus === "paid";
+
   const handleInstallClick = async () => {
+    if (isPaid && stripeSessionId) {
+      window.location.href = `/refreshed-layout?session_id=${encodeURIComponent(stripeSessionId)}`;
+      return;
+    }
+
     setCheckoutLoading(true);
     try {
       const res = await fetch("/api/checkout", {
@@ -47,11 +56,22 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts }: LayoutTabb
           token: viewToken,
         }),
       });
-      const data = await res.json();
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        if (data.alreadyPaid) {
+          toast.info("You've already purchased a layout.");
+          return;
+        }
+        toast.error(data.error || "Something went wrong. Please try again.");
+        return;
+      }
+
       if (data.url) {
         window.location.href = data.url;
       } else {
-        toast.info("Checkout coming soon — we'll notify you when it's ready.");
+        toast.error("Unable to start checkout. Please try again.");
       }
     } catch {
       toast.error("Something went wrong. Please try again.");
@@ -170,7 +190,7 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts }: LayoutTabb
               className="icy-install-btn absolute bottom-6 right-0 z-20 px-6 py-3 rounded-xl
                          font-bold text-sm cursor-pointer transition-all"
             >
-              {checkoutLoading ? "Loading…" : "Install This Layout"}
+              {checkoutLoading ? "Loading…" : isPaid ? "View Your Layout" : "Install This Layout"}
             </button>
           </div>
         </div>

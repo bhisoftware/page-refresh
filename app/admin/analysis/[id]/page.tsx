@@ -9,6 +9,7 @@ import { AdminLayoutViewer } from "@/components/AdminLayoutViewer";
 import type { LayoutItem } from "@/components/LayoutSection";
 import { AdminNotesSection } from "./AdminNotesSection";
 import { AdminPromptLogs } from "./AdminPromptLogs";
+import { Badge } from "@/components/ui/badge";
 import { ArrowLeft } from "lucide-react";
 
 function scoreHeadline(score: number): string {
@@ -176,6 +177,73 @@ export default async function AdminAnalysisPage({
               </ul>
             ) : (
               <p className="text-muted-foreground">No contact info submitted.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Payment & Booking */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-base">Payment &amp; Booking</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <div>
+                <span className="text-muted-foreground block">Payment status</span>
+                <Badge
+                  variant={
+                    refresh.stripePaymentStatus === "paid"
+                      ? "default"
+                      : refresh.stripePaymentStatus === "expired" || refresh.stripePaymentStatus === "failed"
+                        ? "destructive"
+                        : "secondary"
+                  }
+                >
+                  {refresh.stripePaymentStatus ?? "none"}
+                </Badge>
+              </div>
+              <div>
+                <span className="text-muted-foreground block">Session ID</span>
+                {refresh.stripeSessionId ? (
+                  <a
+                    href={`https://dashboard.stripe.com/checkout/sessions/${refresh.stripeSessionId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline font-mono text-xs"
+                  >
+                    {refresh.stripeSessionId.slice(0, 20)}…
+                  </a>
+                ) : (
+                  <span>—</span>
+                )}
+              </div>
+              <div>
+                <span className="text-muted-foreground block">Paid email</span>
+                <span>{refresh.paidEmail ?? "—"}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground block">Paid at</span>
+                <span>
+                  {refresh.paidAt
+                    ? new Date(refresh.paidAt).toLocaleString(undefined, { timeZone: "America/New_York" })
+                    : "—"}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground block">Layout purchased</span>
+                <span>{refresh.selectedLayoutPaid ? `Layout ${refresh.selectedLayoutPaid}` : "—"}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground block">Booking</span>
+                <span>
+                  {refresh.bookingDate
+                    ? `${new Date(refresh.bookingDate).toLocaleDateString()} (${refresh.bookingTimeSlot ?? "unspecified"})`
+                    : "—"}
+                </span>
+              </div>
+            </div>
+            {refresh.bookingConfirmed && (
+              <Badge variant="default" className="mt-3">Booking confirmed</Badge>
             )}
           </CardContent>
         </Card>
