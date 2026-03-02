@@ -3,7 +3,7 @@
  * Supports SSE for progress updates. Rate limited (5 req/min per IP).
  */
 
-import { NextRequest } from "next/server";
+import { NextRequest, after } from "next/server";
 import { runAnalysis } from "@/lib/pipeline/analyze";
 import { analysisRateLimiter } from "@/lib/rate-limiter";
 import { analyzeSchema } from "@/lib/validations";
@@ -82,16 +82,17 @@ export async function POST(request: NextRequest) {
 
           const PIPELINE_TIMEOUT_MS = 280_000; // 4m40s — gives 20s buffer before Vercel maxDuration (300s)
           let capturedRefreshId: string | null = null;
+          const pipelinePromise = runAnalysis({
+            url: normalizedUrl,
+            onProgress: (p) => send({ type: "progress", ...p }),
+            onRefreshCreated: (id, viewToken) => {
+              capturedRefreshId = id;
+              send({ type: "refresh_created", refreshId: id, viewToken });
+            },
+          });
           try {
             const refreshId = await Promise.race([
-              runAnalysis({
-                url: normalizedUrl,
-                onProgress: (p) => send({ type: "progress", ...p }),
-                  onRefreshCreated: (id, viewToken) => {
-                  capturedRefreshId = id;
-                  send({ type: "refresh_created", refreshId: id, viewToken });
-                },
-              }),
+              pipelinePromise,
               new Promise<string>((_, reject) =>
                 setTimeout(
                   () => reject(new Error("PIPELINE_TIMEOUT")),
@@ -115,6 +116,8 @@ export async function POST(request: NextRequest) {
             // On timeout, redirect to partial results if a refresh record exists
             if (message === "PIPELINE_TIMEOUT" && capturedRefreshId) {
               console.warn("[analyze] pipeline timed out — redirecting to partial results", { capturedRefreshId });
+              // Keep the function alive so the pipeline can finish in the background
+              after(() => pipelinePromise.catch(() => {}));
               const { prisma } = await import("@/lib/prisma");
               await prisma.refresh.update({
                 where: { id: capturedRefreshId },
