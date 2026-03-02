@@ -68,6 +68,7 @@ model Refresh {
   quoteRequested    Boolean  @default(false)
   installRequested  Boolean  @default(false)
   contactEmail      String?
+  contactFirstName  String?
   contactPhone      String?
   hostingPlatform   String?  // For install request
   notes             String?  @db.Text
@@ -123,6 +124,7 @@ model Refresh {
   @@index([installRequested])
   @@index([urlProfileId])
   @@index([status])
+  @@index([stripeSessionId])
 }
 
 model Industry {
@@ -247,8 +249,9 @@ model UrlProfile {
   bestScore       Int?
   latestScore     Int?
 
-  customerEmail   String?
-  customerId      String?
+  customerEmail     String?
+  customerFirstName String?
+  customerId        String?
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt

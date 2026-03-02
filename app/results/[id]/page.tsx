@@ -2,11 +2,11 @@ import { notFound, forbidden } from "next/navigation";
 import Link from "next/link";
 import { LayoutSection } from "@/components/LayoutSection";
 import { LayoutSectionErrorBoundary } from "@/components/LayoutSectionErrorBoundary";
-import { ScoreBreakdown, type DimensionDetail } from "@/components/ScoreBreakdown";
+import { ReachOutSection } from "@/components/ReachOutSection";
+import { type DimensionDetail } from "@/components/ScoreBreakdown";
 import { SeoAuditSection, type SeoCheckItem, type SeoRecommendation } from "@/components/SeoAuditSection";
 import { BenchmarkComparison, type BenchmarkComparisonData } from "@/components/BenchmarkComparison";
 import { ScoreRingHero } from "@/components/ScoreRingHero";
-import { EmailScoresCta } from "@/components/EmailScoresCta";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 
@@ -190,6 +190,7 @@ export default async function ResultsPage({
               ? `Top ${((refresh.benchmarkComparison as { percentile?: number })?.percentile) ?? 50}th percentile in ${refresh.industryDetected ?? "your industry"}`
               : null
           }
+          details={scoringDetails}
         />
 
         {/* Layout cards */}
@@ -215,13 +216,12 @@ export default async function ResultsPage({
           </section>
         )}
 
-        {/* Email CTA */}
-        <EmailScoresCta refreshId={id} />
-
-        {/* Score breakdown */}
-        <section className="mb-10">
-          <h2 className="text-lg font-bold text-slate-900 tracking-tight mb-4">Score by dimension</h2>
-          <ScoreBreakdown details={scoringDetails} />
+        {/* Reach out — contact form */}
+        <section className="border-t border-slate-200 pt-8 mt-2 mb-10">
+          <p className="text-muted-foreground mb-4 text-center">
+            Questions? Reach out to our team below:
+          </p>
+          <ReachOutSection refreshId={id} viewToken={token!} />
         </section>
 
         {/* Industry benchmark */}

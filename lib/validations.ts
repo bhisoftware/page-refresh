@@ -21,6 +21,13 @@ export const requestQuoteSchema = z.object({
   platform: z.string().max(50).optional(),
 });
 
+export const reachOutSchema = z.object({
+  refreshId: z.string().cuid("Invalid analysis ID"),
+  token: z.string().min(1, "Token is required"),
+  email: z.string().email("Invalid email").max(255),
+  firstName: z.string().min(1, "First name is required").max(100),
+});
+
 export const requestInstallSchema = z.object({
   refreshId: z.string().cuid("Invalid analysis ID"),
   layoutIndex: z.number().int().min(1).max(3).optional(),
