@@ -361,14 +361,7 @@ export default function Home() {
 
           {isAnalyzing && !isPreflightInProgress && (
             <div className={cn("flex flex-col items-center w-full")}>
-              <h2 className="text-xl font-semibold mb-6">
-                Analyzing <em className="not-italic text-[#6b8f71]">{url || "your website"}</em>
-              </h2>
-              {progressMessage ? (
-                <p className="text-sm text-muted-foreground mb-4 -mt-2">{progressMessage}</p>
-              ) : null}
               <ScanningExperience
-                url={url}
                 tokens={tokens}
                 currentStep={currentStep}
                 countdownSeconds={countdown ?? undefined}

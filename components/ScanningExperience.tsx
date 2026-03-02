@@ -80,7 +80,6 @@ const SEVERITY_COLOR: Record<Severity, string> = {
    ═══════════════════════════════════════════════════════════════ */
 
 export interface ScanningExperienceProps {
-  url: string;
   tokens: Record<string, Record<string, unknown>>;
   currentStep:
     | "started"
@@ -232,30 +231,11 @@ function getFindingContent(
    Sub-components
    ═══════════════════════════════════════════════════════════════ */
 
-function OrbIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <circle cx="8" cy="8" r="3" fill="white" />
-      <path
-        d="M8 2 L8 4 M8 12 L8 14 M2 8 L4 8 M12 8 L14 8"
-        stroke="white"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        opacity="0.5"
-      />
-    </svg>
-  );
-}
-
 /* ═══════════════════════════════════════════════════════════════
    Keyframes (injected once via <style>)
    ═══════════════════════════════════════════════════════════════ */
 
 const KEYFRAMES = `
-@keyframes sc-orbRing {
-  0%, 100% { transform: scale(1); opacity: 0.3; }
-  50% { transform: scale(1.15); opacity: 0; }
-}
 @keyframes sc-pillPulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
@@ -275,7 +255,6 @@ const KEYFRAMES = `
    ═══════════════════════════════════════════════════════════════ */
 
 export function ScanningExperience({
-  url,
   tokens,
   currentStep,
   countdownSeconds,
@@ -356,7 +335,7 @@ export function ScanningExperience({
     }
     const timer = setTimeout(
       () => setStreamRevealed((prev) => prev + 1),
-      22
+      45
     );
     return () => clearTimeout(timer);
   }, [streamRevealed, streamTarget, cursorActive]);
@@ -499,58 +478,16 @@ export function ScanningExperience({
         className={cn("w-full max-w-[600px] mx-auto", className)}
         style={{ fontFamily: "'Geist', sans-serif", color: "#1c1917" }}
       >
-        {/* ─── Nav ─────────────────────────────────────────── */}
-        <nav className="flex items-center justify-between mb-10">
-          <div
-            className="text-xl font-semibold"
-            style={{
-              fontFamily: "'Fraunces', serif",
-              color: "#14532d",
-              letterSpacing: "-0.5px",
-            }}
-          >
-            PageRefresh
-          </div>
-          <div
-            className="text-[13px] rounded-full px-3.5 py-1"
-            style={{
-              color: "#78716c",
-              background: "#ffffff",
-              border: "1px solid #e7e5e0",
-            }}
-          >
-            {url}
-          </div>
-        </nav>
-
         {/* ─── Thinking header ─────────────────────────────── */}
-        <div className="flex items-center gap-2.5 mb-6">
+        <div className="flex flex-col items-center gap-1 mb-6">
           <div
-            className="relative w-9 h-9 rounded-full flex items-center justify-center shrink-0"
-            style={{ background: "#14532d" }}
+            className="text-sm font-medium"
+            style={{ color: "#1c1917" }}
           >
-            <OrbIcon />
-            {!isDone && (
-              <span
-                className="absolute rounded-full pointer-events-none"
-                style={{
-                  inset: "-3px",
-                  border: "2px solid #14532d",
-                  animation: "sc-orbRing 2s ease-in-out infinite",
-                }}
-              />
-            )}
+            {thinkingLabel}
           </div>
-          <div>
-            <div
-              className="text-sm font-medium"
-              style={{ color: "#1c1917" }}
-            >
-              {thinkingLabel}
-            </div>
-            <div className="text-xs mt-px" style={{ color: "#78716c" }}>
-              {thinkingSub}
-            </div>
+          <div className="text-xs" style={{ color: "#78716c" }}>
+            {thinkingSub}
           </div>
         </div>
 
