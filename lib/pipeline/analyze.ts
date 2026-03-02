@@ -450,6 +450,9 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
         .map((img) => img.src)
         .filter((src) => isHttpUrl(src))
         .slice(0, 8),
+      teamPhotos: assetResult.assets.teamPhotos,
+      trustBadges: assetResult.assets.trustBadges,
+      eventPhotos: assetResult.assets.eventPhotos,
       colors: assetResult.assets.colors.map((c) => ("hex" in c ? c.hex : String(c))),
       fonts: assetResult.assets.fonts.map((f) => ("family" in f ? f.family : String(f))),
       navLinks: assetResult.assets.copy?.navItems ?? [],

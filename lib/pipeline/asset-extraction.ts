@@ -109,14 +109,63 @@ function identifyDownloadableUrls(
     if (content) add(content, "og_image");
   });
 
-  const firstImgInSection = $("header img, section img, main img").first();
-  if (firstImgInSection.length) {
-    const src = firstImgInSection.attr("src");
-    if (src && !seen.has(resolveAbsolute(baseUrl, src))) add(src, "hero_image");
+  // Build a set of URLs already classified as logo or favicon to skip for hero detection
+  const classifiedUrls = new Set<string>();
+  for (const c of candidates) {
+    if (c.assetType === "logo" || c.assetType === "favicon") {
+      classifiedUrls.add(c.url);
+    }
   }
-  if (!candidates.some((c) => c.assetType === "hero_image") && $("img").length) {
-    const firstImg = $("img").first().attr("src");
-    if (firstImg) add(firstImg, "hero_image");
+
+  // Hero detection: first try header images that aren't logo/favicon
+  let heroFound = false;
+  $("header img").each((_, el) => {
+    if (heroFound) return;
+    const src = $(el).attr("src");
+    if (!src || src.startsWith("data:")) return;
+    const absolute = resolveAbsolute(baseUrl, src);
+    if (classifiedUrls.has(absolute) || seen.has(absolute)) return;
+    add(src, "hero_image");
+    heroFound = true;
+  });
+
+  // Fallback: if no hero in header, pick the largest image in first <section> or <main>
+  if (!heroFound) {
+    let bestSrc: string | null = null;
+    let bestSize = -1;
+    const fallbackContainer = $("section, main").first();
+    if (fallbackContainer.length) {
+      fallbackContainer.find("img").each((_, el) => {
+        const src = $(el).attr("src");
+        if (!src || src.startsWith("data:")) return;
+        const absolute = resolveAbsolute(baseUrl, src);
+        if (classifiedUrls.has(absolute) || seen.has(absolute)) return;
+        const w = parseInt($(el).attr("width") ?? "0", 10) || 0;
+        const h = parseInt($(el).attr("height") ?? "0", 10) || 0;
+        const size = w * h;
+        if (size > bestSize) {
+          bestSize = size;
+          bestSrc = src;
+        }
+      });
+    }
+    if (bestSrc) {
+      add(bestSrc, "hero_image");
+      heroFound = true;
+    }
+  }
+
+  // Last resort: any img on the page not already classified
+  if (!heroFound && $("img").length) {
+    $("img").each((_, el) => {
+      if (heroFound) return;
+      const src = $(el).attr("src");
+      if (!src || src.startsWith("data:")) return;
+      const absolute = resolveAbsolute(baseUrl, src);
+      if (classifiedUrls.has(absolute) || seen.has(absolute)) return;
+      add(src, "hero_image");
+      heroFound = true;
+    });
   }
 
   return candidates;

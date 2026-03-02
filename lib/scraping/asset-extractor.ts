@@ -137,24 +137,100 @@ export interface ExtractedCopy {
   bodySamples?: string[];
 }
 
+export interface ClassifiedImage {
+  src: string;
+  alt?: string;
+}
+
 export interface ExtractedAssets {
   colors: ExtractedColors;
   fonts: ExtractedFonts;
   images: ExtractedImage;
   copy: ExtractedCopy;
   logo?: string;
+  teamPhotos?: ClassifiedImage[];
+  trustBadges?: ClassifiedImage[];
+  eventPhotos?: ClassifiedImage[];
 }
 
 const HEX_PATTERN = /#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})\b/g;
 const FONT_FAMILY_PATTERN = /font-family\s*:\s*([^;}"']+)/g;
 const RGB_PATTERN = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/g;
+const HSL_PATTERN = /hsla?\(\s*([\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%/g;
+const CSS_VAR_DECL_PATTERN = /--([\w-]+)\s*:\s*([^;}]+)/g;
+const FONT_IMPORT_PATTERN = /@import\s+url\(\s*['"]?([^'")\s]+fonts[^'")\s]*)['"]?\s*\)/gi;
+const FONT_LINK_PATTERN = /fonts\.googleapis\.com\/css[^'"\s)]+/gi;
+const SQUARESPACE_FONT_VAR_PATTERN = /--([\w-]*font-family[\w-]*)\s*:\s*([^;}]+)/gi;
 
 function rgbToHex(r: number, g: number, b: number): string {
   return "#" + [r, g, b].map((x) => x.toString(16).padStart(2, "0")).join("");
 }
 
+function hslToHex(h: number, s: number, l: number): string {
+  s /= 100;
+  l /= 100;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * Math.max(0, Math.min(1, color)));
+  };
+  return rgbToHex(f(0), f(8), f(4));
+}
+
+/**
+ * Parse CSS custom property declarations into a lookup map.
+ * Handles lines like: --primary-color: #2d5016; or --black-hsl: 0, 0%, 0%;
+ */
+export function parseCssCustomProperties(css: string): Map<string, string> {
+  const props = new Map<string, string>();
+  for (const match of css.matchAll(CSS_VAR_DECL_PATTERN)) {
+    props.set(`--${match[1]}`, match[2].trim());
+  }
+  return props;
+}
+
+/**
+ * Resolve var(--name) references by looking up declared values.
+ * Handles var(--name, fallback) syntax.
+ */
+export function resolveVarReferences(value: string, customProps: Map<string, string>): string {
+  return value.replace(/var\(\s*(--([\w-]+))\s*(?:,\s*([^)]+))?\s*\)/g, (_match, fullName, _name, fallback) => {
+    const resolved = customProps.get(fullName);
+    if (resolved) {
+      // Recursively resolve in case the value itself contains var()
+      return resolveVarReferences(resolved, customProps);
+    }
+    return fallback?.trim() ?? value;
+  });
+}
+
 function extractColorsFromCss(css: string): ExtractedColors {
   const colorMap = new Map<string, number>();
+  const customProps = parseCssCustomProperties(css);
+
+  // Resolve custom properties that contain color values
+  for (const [, value] of customProps) {
+    const resolved = resolveVarReferences(value, customProps);
+    // Check if resolved value is a color
+    const hexMatch = resolved.match(/#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})\b/);
+    if (hexMatch) {
+      const hex = hexMatch[1].length === 3
+        ? "#" + hexMatch[1].split("").map((c) => c + c).join("")
+        : "#" + hexMatch[1];
+      colorMap.set(hex.toLowerCase(), (colorMap.get(hex.toLowerCase()) ?? 0) + 1);
+    }
+    const rgbMatch = resolved.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    if (rgbMatch) {
+      const hex = rgbToHex(parseInt(rgbMatch[1], 10), parseInt(rgbMatch[2], 10), parseInt(rgbMatch[3], 10)).toLowerCase();
+      colorMap.set(hex, (colorMap.get(hex) ?? 0) + 1);
+    }
+    const hslMatch = resolved.match(/hsla?\(\s*([\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%/);
+    if (hslMatch) {
+      const hex = hslToHex(parseFloat(hslMatch[1]), parseFloat(hslMatch[2]), parseFloat(hslMatch[3])).toLowerCase();
+      colorMap.set(hex, (colorMap.get(hex) ?? 0) + 1);
+    }
+  }
 
   for (const match of css.matchAll(HEX_PATTERN)) {
     const hex = match[1].length === 3
@@ -168,6 +244,14 @@ function extractColorsFromCss(css: string): ExtractedColors {
     const g = parseInt(match[2], 10);
     const b = parseInt(match[3], 10);
     const hex = rgbToHex(r, g, b).toLowerCase();
+    colorMap.set(hex, (colorMap.get(hex) ?? 0) + 1);
+  }
+
+  for (const match of css.matchAll(HSL_PATTERN)) {
+    const h = parseFloat(match[1]);
+    const s = parseFloat(match[2]);
+    const l = parseFloat(match[3]);
+    const hex = hslToHex(h, s, l).toLowerCase();
     colorMap.set(hex, (colorMap.get(hex) ?? 0) + 1);
   }
 
@@ -191,13 +275,65 @@ function extractColorsFromCss(css: string): ExtractedColors {
 function extractFontsFromCss(css: string): ExtractedFonts {
   const seen = new Set<string>();
   const fonts: ExtractedFonts = [];
+  const GENERIC_FONTS = new Set(["inherit", "initial", "unset", "system-ui", "sans-serif", "serif", "monospace", "cursive", "fantasy", "ui-sans-serif", "ui-serif", "ui-monospace"]);
+  const customProps = parseCssCustomProperties(css);
 
-  for (const match of css.matchAll(FONT_FAMILY_PATTERN)) {
-    const raw = match[1].trim();
-    const families = raw.split(",").map((f) => f.trim().replace(/^["']|["']$/g, ""));
+  // Extract fonts from @import URLs (e.g., Google Fonts)
+  for (const match of css.matchAll(FONT_IMPORT_PATTERN)) {
+    const url = match[1];
+    const familyMatch = url.match(/family=([^&:]+)/);
+    if (familyMatch) {
+      const families = decodeURIComponent(familyMatch[1]).split("|");
+      for (const f of families) {
+        const name = f.replace(/\+/g, " ").trim();
+        const key = name.toLowerCase();
+        if (!seen.has(key) && !GENERIC_FONTS.has(key)) {
+          seen.add(key);
+          fonts.push({ family: name, source: "import" });
+        }
+      }
+    }
+  }
+
+  // Extract fonts from Google Fonts link URLs in CSS comments or content
+  for (const match of css.matchAll(FONT_LINK_PATTERN)) {
+    const familyMatch = match[0].match(/family=([^&:]+)/);
+    if (familyMatch) {
+      const families = decodeURIComponent(familyMatch[1]).split("|");
+      for (const f of families) {
+        const name = f.replace(/\+/g, " ").trim();
+        const key = name.toLowerCase();
+        if (!seen.has(key) && !GENERIC_FONTS.has(key)) {
+          seen.add(key);
+          fonts.push({ family: name, source: "link" });
+        }
+      }
+    }
+  }
+
+  // Extract fonts from Squarespace-style custom properties (--heading-font-font-family, --body-font-font-family)
+  for (const match of css.matchAll(SQUARESPACE_FONT_VAR_PATTERN)) {
+    const value = match[2].trim();
+    const resolved = resolveVarReferences(value, customProps);
+    const families = resolved.split(",").map((f) => f.trim().replace(/^["']|["']$/g, ""));
     for (const f of families) {
       const key = f.toLowerCase();
-      if (!seen.has(key) && !["inherit", "initial", "unset", "system-ui", "sans-serif", "serif"].includes(key)) {
+      if (!seen.has(key) && !GENERIC_FONTS.has(key) && f.length > 1) {
+        seen.add(key);
+        fonts.push({ family: f, source: "custom-property" });
+      }
+    }
+  }
+
+  // Standard font-family declarations
+  for (const match of css.matchAll(FONT_FAMILY_PATTERN)) {
+    const raw = match[1].trim();
+    // Resolve var() references in font-family values
+    const resolved = resolveVarReferences(raw, customProps);
+    const families = resolved.split(",").map((f) => f.trim().replace(/^["']|["']$/g, ""));
+    for (const f of families) {
+      const key = f.toLowerCase();
+      if (!seen.has(key) && !GENERIC_FONTS.has(key) && f.length > 1) {
         seen.add(key);
         fonts.push({ family: f });
       }
@@ -205,6 +341,46 @@ function extractFontsFromCss(css: string): ExtractedFonts {
   }
 
   return fonts.slice(0, 8);
+}
+
+const TEAM_PATTERNS = /\b(attorney|lawyer|founder|partner|ceo|director|president|owner|team|staff|headshot|portrait|about[-\s]us|dr\.|esq\.?)\b/i;
+const TRUST_PATTERNS = /\b(award|badge|rating|verified|avvo|reviews?|stars?|accreditation|certification|bbb|chamber|association|member|trusted|guarantee|seal)\b/i;
+const EVENT_PATTERNS = /\b(ceremony|event|office|conference|seminar|meeting|retreat|workshop|celebration|reception)\b/i;
+
+/**
+ * Classify images into semantic roles based on alt text, surrounding context, and URL path.
+ */
+export function classifyImages(
+  images: ExtractedImageItem[],
+  $: cheerio.CheerioAPI,
+  baseUrl: string
+): { teamPhotos: ClassifiedImage[]; trustBadges: ClassifiedImage[]; eventPhotos: ClassifiedImage[]; unclassified: ExtractedImageItem[] } {
+  const teamPhotos: ClassifiedImage[] = [];
+  const trustBadges: ClassifiedImage[] = [];
+  const eventPhotos: ClassifiedImage[] = [];
+  const unclassified: ExtractedImageItem[] = [];
+
+  for (const img of images) {
+    // Build a text signal from alt, URL path, and surrounding element text
+    const alt = img.alt ?? "";
+    const urlPath = img.src.replace(/https?:\/\/[^/]+/, "");
+    // Find the img in DOM and get parent text for extra context
+    const imgEl = $(`img[src="${img.src}"], img[src="${urlPath}"]`).first();
+    const parentText = imgEl.parent()?.text()?.trim()?.slice(0, 200) ?? "";
+    const signal = [alt, urlPath, parentText].join(" ");
+
+    if (TEAM_PATTERNS.test(signal)) {
+      teamPhotos.push({ src: img.src, alt: alt || undefined });
+    } else if (TRUST_PATTERNS.test(signal)) {
+      trustBadges.push({ src: img.src, alt: alt || undefined });
+    } else if (EVENT_PATTERNS.test(signal)) {
+      eventPhotos.push({ src: img.src, alt: alt || undefined });
+    } else {
+      unclassified.push(img);
+    }
+  }
+
+  return { teamPhotos, trustBadges, eventPhotos, unclassified };
 }
 
 function resolveUrl(base: string, href: string): string {
@@ -302,11 +478,18 @@ export function extractAssets(html: string, css: string, baseUrl: string): Extra
     logo = images[0].src;
   }
 
+  // Semantic classification of site images (skip logo)
+  const siteImages = images.filter((img) => img.src !== logo);
+  const classified = classifyImages(siteImages, $, baseUrl);
+
   return {
     colors,
     fonts,
-    images,
+    images: classified.unclassified,
     copy,
     logo,
+    ...(classified.teamPhotos.length > 0 ? { teamPhotos: classified.teamPhotos } : {}),
+    ...(classified.trustBadges.length > 0 ? { trustBadges: classified.trustBadges } : {}),
+    ...(classified.eventPhotos.length > 0 ? { eventPhotos: classified.eventPhotos } : {}),
   };
 }

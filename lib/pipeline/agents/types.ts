@@ -143,6 +143,9 @@ export interface CreativeAgentInput {
     heroImageUrl: string | null;
     additionalImageUrls: Array<{ url: string; type: string }>;
     siteImageUrls: string[];
+    teamPhotos?: Array<{ src: string; alt?: string }>;
+    trustBadges?: Array<{ src: string; alt?: string }>;
+    eventPhotos?: Array<{ src: string; alt?: string }>;
     colors: string[];
     fonts: string[];
     navLinks: string[];
