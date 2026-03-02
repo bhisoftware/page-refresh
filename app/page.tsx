@@ -95,11 +95,23 @@ export default function Home() {
         error?: string;
         errorDetail?: string;
         resolvedUrl?: string;
+        existing?: boolean;
+        refreshId?: string;
+        viewToken?: string;
       };
       if (!preflightData.ok) {
         const main = preflightData.error ?? "We couldn't reach this website. Check the URL and try again.";
         const detail = preflightData.errorDetail ? ` [${preflightData.errorDetail}]` : "";
         setError(main + detail);
+        return;
+      }
+      // Redirect immediately if a complete analysis with layouts already exists
+      if (preflightData.existing && preflightData.refreshId) {
+        const token = preflightData.viewToken;
+        const path = typeof token === "string" && token.length > 0
+          ? `/results/${preflightData.refreshId}?token=${encodeURIComponent(token)}&cached=1`
+          : `/results/${preflightData.refreshId}?cached=1`;
+        router.push(path);
         return;
       }
       // Use the URL that preflight successfully reached (may be HTTP fallback)

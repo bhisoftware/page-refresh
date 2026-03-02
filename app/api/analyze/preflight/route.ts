@@ -6,6 +6,7 @@
 
 import { NextRequest } from "next/server";
 import { normalizeWebsiteUrl } from "@/lib/utils";
+import { prisma } from "@/lib/prisma";
 
 export const maxDuration = 30;
 
@@ -81,6 +82,27 @@ export async function POST(request: NextRequest) {
         });
       }
       await res.text();
+
+      // Check for existing complete analysis with layouts
+      const existingRefresh = await prisma.refresh.findFirst({
+        where: {
+          urlProfile: { url },
+          status: "complete",
+          layout1Html: { not: "" },
+        },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, viewToken: true },
+      });
+
+      if (existingRefresh) {
+        return Response.json({
+          ok: true,
+          existing: true,
+          refreshId: existingRefresh.id,
+          viewToken: existingRefresh.viewToken,
+        });
+      }
+
       // Return the URL that actually worked so the pipeline uses it
       return Response.json({ ok: true, resolvedUrl: tryUrl });
     } catch (e) {

@@ -21,9 +21,8 @@ export function LayoutSection({ refreshId, viewToken, layouts }: LayoutSectionPr
   if (!layouts.length) return null;
 
   return (
-    <section className="mb-10 -mx-4 sm:-mx-6 lg:-mx-8">
-      {/* heading removed */}
-      <div className="px-4 sm:px-6 lg:px-8">
+    <section className="mb-10 relative w-screen left-1/2 -translate-x-1/2 overflow-hidden">
+      <div className="px-4 sm:px-8 lg:px-12 max-w-[1400px] mx-auto">
         <LayoutTabbedViewer
           refreshId={refreshId}
           viewToken={viewToken}

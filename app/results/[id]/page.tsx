@@ -103,10 +103,10 @@ export default async function ResultsPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ token?: string }>;
+  searchParams: Promise<{ token?: string; cached?: string }>;
 }) {
   const { id } = await params;
-  const { token } = await searchParams;
+  const { token, cached } = await searchParams;
   const refresh = await getRefresh(id);
 
   if (!refresh) notFound();
@@ -151,17 +151,32 @@ export default async function ResultsPage({
   const hasLayouts = layoutsWithContent.length > 0;
 
   const summaryText = buildSummaryText(overallScore, scoringDetails);
+  const isCached = cached === "1";
+  const ranDate = isCached
+    ? new Date(refresh.createdAt).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null;
 
   return (
-    <main className="min-h-screen bg-slate-50">
+    <main className="min-h-screen bg-slate-50 overflow-x-hidden">
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to home
-        </Link>
+        <div className="flex items-center justify-between mb-8">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to home
+          </Link>
+          {ranDate && (
+            <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs font-medium text-amber-800">
+              Results last ran on {ranDate}
+            </span>
+          )}
+        </div>
 
         {/* Score Hero Card */}
         <ScoreRingHero
