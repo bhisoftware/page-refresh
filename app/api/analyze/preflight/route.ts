@@ -6,6 +6,7 @@
 
 import { NextRequest } from "next/server";
 import { normalizeWebsiteUrl } from "@/lib/utils";
+import { normalizeUrl } from "@/lib/pipeline/url-profile";
 import { prisma } from "@/lib/prisma";
 
 export const maxDuration = 30;
@@ -84,9 +85,11 @@ export async function POST(request: NextRequest) {
       await res.text();
 
       // Check for existing complete analysis with layouts
+      // Use normalizeUrl (same as UrlProfile storage) for consistent matching
+      const profileUrl = normalizeUrl(url);
       const existingRefresh = await prisma.refresh.findFirst({
         where: {
-          urlProfile: { url },
+          urlProfile: { url: profileUrl },
           status: "complete",
           layout1Html: { not: "" },
         },
