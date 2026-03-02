@@ -278,7 +278,7 @@ export default function Home() {
         <>
           <div className="space-y-3">
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
-              PageRefresh
+              Page Refresh
             </h1>
             <p className="text-lg text-muted-foreground max-w-md mx-auto">
               $50,000 refresh in 5 minutes

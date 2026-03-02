@@ -38,7 +38,7 @@ export function EmailScoresCta({ refreshId }: EmailScoresCtaProps) {
   };
 
   return (
-    <div className="relative rounded-3xl bg-slate-900 p-12 text-center text-white overflow-hidden mb-10">
+    <div className="relative rounded-3xl bg-slate-900 p-6 sm:p-12 text-center text-white overflow-hidden mb-10">
       {/* Decorative gradient accents */}
       <div
         className="absolute pointer-events-none"
@@ -83,7 +83,7 @@ export function EmailScoresCta({ refreshId }: EmailScoresCtaProps) {
           </p>
           <form
             onSubmit={handleSubmit}
-            className="flex max-w-md mx-auto"
+            className="flex flex-col sm:flex-row max-w-md mx-auto w-full"
           >
             <input
               type="email"
@@ -94,16 +94,20 @@ export function EmailScoresCta({ refreshId }: EmailScoresCtaProps) {
                 setEmail(e.target.value);
                 if (status === "error") setStatus("idle");
               }}
-              className="flex-1 px-5 py-3 bg-white/[0.06] border border-white/10 text-white
-                         placeholder:text-slate-500 rounded-l-xl outline-none
+              className="w-full min-w-0 flex-1 px-5 py-3 bg-white/[0.06] border border-white/10 text-white
+                         placeholder:text-slate-500 outline-none
+                         rounded-t-xl rounded-b-none rounded-l-none rounded-r-none
+                         sm:rounded-t-none sm:rounded-b-none sm:rounded-l-xl sm:rounded-r-none
                          focus:border-indigo-500 focus:bg-white/[0.08] transition-colors
                          text-sm font-medium"
             />
             <button
               type="submit"
               disabled={status === "submitting"}
-              className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold
-                         rounded-r-xl text-sm whitespace-nowrap transition-all
+              className="w-full sm:w-auto shrink-0 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold
+                         text-sm whitespace-nowrap transition-all
+                         rounded-b-xl rounded-t-none rounded-l-none rounded-r-none
+                         sm:rounded-t-none sm:rounded-b-none sm:rounded-r-xl sm:rounded-l-none
                          shadow-[0_0_24px_rgba(79,70,229,0.4)]
                          hover:shadow-[0_0_32px_rgba(79,70,229,0.6)]
                          hover:-translate-y-0.5
