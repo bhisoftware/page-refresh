@@ -47,7 +47,7 @@ export async function runScoreAgent(
 
   const apiKey = await getApiKey("anthropic");
   const client = new Anthropic({ apiKey });
-  const model = skill.modelOverride ?? "claude-sonnet-4-6";
+  const model = skill.modelOverride ?? "claude-sonnet-4-20250514";
   const maxTokens = skill.maxTokens ?? 8192;
   const temperature = skill.temperature ?? 0.3;
 
