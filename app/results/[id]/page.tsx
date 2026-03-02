@@ -59,6 +59,8 @@ async function getRefresh(id: string) {
       createdAt: true,
       processingTime: true,
       benchmarkComparison: true,
+      stripePaymentStatus: true,
+      stripeSessionId: true,
     },
   });
 }
@@ -172,8 +174,8 @@ export default async function ResultsPage({
             Back to home
           </Link>
           {ranDate && (
-            <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs font-medium text-amber-800">
-              Results last ran on {ranDate}
+            <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-medium text-emerald-700">
+              Analysis Report · {ranDate}
             </span>
           )}
         </div>
@@ -193,7 +195,13 @@ export default async function ResultsPage({
         {/* Layout cards */}
         {hasLayouts ? (
           <LayoutSectionErrorBoundary>
-            <LayoutSection refreshId={id} viewToken={token!} layouts={layoutsWithContent} />
+            <LayoutSection
+              refreshId={id}
+              viewToken={token!}
+              layouts={layoutsWithContent}
+              stripePaymentStatus={refresh.stripePaymentStatus ?? undefined}
+              stripeSessionId={refresh.stripeSessionId ?? undefined}
+            />
           </LayoutSectionErrorBoundary>
         ) : (
           <section className="mb-10 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 p-6">
