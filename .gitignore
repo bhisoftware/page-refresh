@@ -40,5 +40,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Screenshots & mockups (one-off references)
+/*.png
+/mockups/
+
 # Prisma
 prisma/migrations/**/migration_lock.toml
