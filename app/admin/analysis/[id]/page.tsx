@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScoreBreakdown, type DimensionDetail } from "@/components/ScoreBreakdown";
 import { ScoreRingHero } from "@/components/ScoreRingHero";
 import { InstallCtaCard } from "@/components/InstallCtaCard";
+import { AdminLayoutViewer } from "@/components/AdminLayoutViewer";
+import type { LayoutItem } from "@/components/LayoutSection";
 import { AdminNotesSection } from "./AdminNotesSection";
 import { AdminPromptLogs } from "./AdminPromptLogs";
 import { ArrowLeft } from "lucide-react";
@@ -43,6 +45,35 @@ export default async function AdminAnalysisPage({
   const contactEmail = refresh.contactEmail || profile?.customerEmail;
   const contactPhone = refresh.contactPhone || profile?.contactPhone;
   const hostingPlatform = refresh.hostingPlatform || profile?.hostingPlatform;
+
+  const layoutRows: LayoutItem[] = [
+    {
+      layoutIndex: 1 as const,
+      templateName: (refresh.layout1Template as string) ?? "Layout 1",
+      layoutHtml: refresh.layout1Html as string,
+      layoutCss: (refresh.layout1Css as string) ?? "",
+      layoutCopyRefreshed: (refresh.layout1CopyRefreshed as string) ?? (refresh.layout1Html as string),
+      rationale: (refresh.layout1Rationale as string) || undefined,
+    },
+    {
+      layoutIndex: 2 as const,
+      templateName: (refresh.layout2Template as string) ?? "Layout 2",
+      layoutHtml: refresh.layout2Html as string,
+      layoutCss: (refresh.layout2Css as string) ?? "",
+      layoutCopyRefreshed: (refresh.layout2CopyRefreshed as string) ?? (refresh.layout2Html as string),
+      rationale: (refresh.layout2Rationale as string) || undefined,
+    },
+    {
+      layoutIndex: 3 as const,
+      templateName: (refresh.layout3Template as string) ?? "Layout 3",
+      layoutHtml: refresh.layout3Html as string,
+      layoutCss: (refresh.layout3Css as string) ?? "",
+      layoutCopyRefreshed: (refresh.layout3CopyRefreshed as string) ?? (refresh.layout3Html as string),
+      rationale: (refresh.layout3Rationale as string) || undefined,
+    },
+  ];
+  const layoutsWithContent = layoutRows.filter((r) => r.layoutHtml?.trim());
+  const hasLayouts = layoutsWithContent.length > 0;
 
   return (
     <main className="min-h-screen bg-background">
@@ -174,6 +205,18 @@ export default async function AdminAnalysisPage({
             timeZone: "America/New_York",
           })}
         />
+
+        {/* Layout Preview & Export (Admin) */}
+        {hasLayouts && (
+          <section className="mb-8">
+            <h2 className="text-xl font-semibold mb-4">Layout Previews</h2>
+            <AdminLayoutViewer
+              refreshId={id}
+              viewToken={refresh.viewToken}
+              layouts={layoutsWithContent}
+            />
+          </section>
+        )}
 
         {/* Score breakdown */}
         <section className="mb-8">

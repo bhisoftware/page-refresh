@@ -72,6 +72,18 @@ model Refresh {
   hostingPlatform   String?  // For install request
   notes             String?  @db.Text
 
+  // Stripe Payment
+  stripeSessionId     String?
+  stripePaymentStatus String?   @default("pending")
+  paidAt              DateTime?
+  paidEmail           String?
+  selectedLayoutPaid  Int?
+
+  // Installation booking
+  bookingDate         DateTime?
+  bookingTimeSlot     String?     // 'morning' | 'afternoon' | 'evening'
+  bookingConfirmed    Boolean     @default(false)
+
   // Pipeline status
   status            String   @default("pending")  // pending | fetching | analyzing | scoring | generating | complete | failed
   errorMessage      String?  @db.Text  // Last error message from pipeline
