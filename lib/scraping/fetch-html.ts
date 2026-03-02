@@ -1,25 +1,35 @@
 /**
  * Fetch HTML via fetch() with timeout and bot-evasion headers.
- * Replaces Puppeteer for HTML retrieval (~2s instead of 15-20s).
+ * Falls back to Firecrawl for bot-protected sites (403/401).
  */
 
 import { validateUrlForScreenshot } from "@/lib/scraping/url-validator";
+import { BROWSER_HEADERS } from "@/lib/scraping/browser-headers";
+import { scrapeWithFirecrawl } from "@/lib/scraping/firecrawl-scrape";
 
 const FETCH_TIMEOUT_MS = 15000;
-const CHROME_USER_AGENT =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-const ACCEPT_HEADER =
-  "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
 
 export interface FetchHtmlResult {
   html: string;
   url: string;
 }
 
-export async function fetchHtml(url: string): Promise<FetchHtmlResult> {
-  validateUrlForScreenshot(url);
+/** Check if an error indicates bot-blocking (403/401/Cloudflare). */
+function isBotBlocked(err: Error): boolean {
+  const msg = err.message.toLowerCase();
+  return (
+    msg.includes("blocks automated access") ||
+    msg.includes("blocked") ||
+    msg.includes("captcha") ||
+    msg.includes("cloudflare") ||
+    msg.includes("access denied") ||
+    msg.includes("403") ||
+    msg.includes("401")
+  );
+}
 
-  // Try HTTPS first; fall back to HTTP if HTTPS times out or refuses connection
+/** Plain fetch with HTTPS→HTTP fallback. Throws on bot-blocking. */
+async function fetchHtmlDirect(url: string): Promise<FetchHtmlResult> {
   const urlsToTry = [url];
   if (url.startsWith("https://")) {
     urlsToTry.push(url.replace("https://", "http://"));
@@ -34,10 +44,7 @@ export async function fetchHtml(url: string): Promise<FetchHtmlResult> {
     try {
       const res = await fetch(tryUrl, {
         signal: controller.signal,
-        headers: {
-          "User-Agent": CHROME_USER_AGENT,
-          Accept: ACCEPT_HEADER,
-        },
+        headers: BROWSER_HEADERS,
         redirect: "follow",
       });
 
@@ -106,4 +113,21 @@ export async function fetchHtml(url: string): Promise<FetchHtmlResult> {
   }
 
   throw lastError ?? new Error("Could not reach website. Check the URL and try again.");
+}
+
+export async function fetchHtml(url: string): Promise<FetchHtmlResult> {
+  validateUrlForScreenshot(url);
+
+  try {
+    return await fetchHtmlDirect(url);
+  } catch (err) {
+    // Only try Firecrawl for bot-blocking errors
+    if (err instanceof Error && isBotBlocked(err)) {
+      const html = await scrapeWithFirecrawl(url);
+      if (html) {
+        return { html, url };
+      }
+    }
+    throw err;
+  }
 }

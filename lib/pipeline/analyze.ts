@@ -389,6 +389,18 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     },
   });
 
+  // Update URL profile now (before layout generation) so it survives pipeline timeouts
+  await prisma.urlProfile.update({
+    where: { id: urlProfile.id },
+    data: {
+      analysisCount: { increment: 1 },
+      lastAnalyzedAt: new Date(),
+      latestScore: scoreResult.scores.overall,
+      bestScore: Math.max(urlProfile.bestScore ?? 0, scoreResult.scores.overall),
+      ...(urlProfile.industryLocked ? {} : { industry }),
+    },
+  });
+
   // Emit score token
   const scoreEntries = Object.entries(scoreResult.scores).filter(([k]) => k !== "overall");
   const bestDim = scoreEntries.reduce((a, b) => (b[1] > a[1] ? b : a));
@@ -546,20 +558,11 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     where: { id: refreshId },
     data: {
       status: "complete",
+      errorStep: null,
+      errorMessage: null,
       screenshotUrl,
       skillVersions: skillVersions as object,
       processingTime: Math.round((Date.now() - startTime) / 1000),
-    },
-  });
-
-  await prisma.urlProfile.update({
-    where: { id: urlProfile.id },
-    data: {
-      analysisCount: { increment: 1 },
-      lastAnalyzedAt: new Date(),
-      latestScore: scoreResult.scores.overall,
-      bestScore: Math.max(urlProfile.bestScore ?? 0, scoreResult.scores.overall),
-      ...(urlProfile.industryLocked ? {} : { industry }),
     },
   });
 

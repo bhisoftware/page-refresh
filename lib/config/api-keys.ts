@@ -10,6 +10,7 @@ const ENV_MAP: Record<string, string> = {
   anthropic: "ANTHROPIC_API_KEY",
   openai: "OPENAI_API_KEY",
   screenshotone: "SCREENSHOTONE_API_KEY",
+  firecrawl: "FIRECRAWL_API_KEY",
 };
 
 /**

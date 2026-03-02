@@ -8,14 +8,12 @@ import { NextRequest } from "next/server";
 import { normalizeWebsiteUrl } from "@/lib/utils";
 import { normalizeUrl } from "@/lib/pipeline/url-profile";
 import { prisma } from "@/lib/prisma";
+import { BROWSER_HEADERS } from "@/lib/scraping/browser-headers";
+import { isFirecrawlConfigured } from "@/lib/scraping/firecrawl-scrape";
 
 export const maxDuration = 30;
 
 const PREFLIGHT_TIMEOUT_MS = 12_000;
-const CHROME_USER_AGENT =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-const ACCEPT_HEADER =
-  "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
 
 export async function POST(request: NextRequest) {
   let body: { url?: string };
@@ -49,15 +47,15 @@ export async function POST(request: NextRequest) {
       const res = await fetch(tryUrl, {
         method: "GET",
         signal: controller.signal,
-        headers: {
-          "User-Agent": CHROME_USER_AGENT,
-          Accept: ACCEPT_HEADER,
-        },
+        headers: BROWSER_HEADERS,
         redirect: "follow",
       });
       clearTimeout(timeoutId);
 
       if (res.status === 403 || res.status === 401) {
+        if (isFirecrawlConfigured()) {
+          return Response.json({ ok: true, resolvedUrl: tryUrl });
+        }
         return Response.json({
           ok: false,
           error: "This website blocks automated access.",
