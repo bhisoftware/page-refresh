@@ -92,10 +92,16 @@ export async function POST(request: NextRequest) {
           layout1Html: { not: "" },
         },
         orderBy: { createdAt: "desc" },
-        select: { id: true, viewToken: true },
+        select: {
+          id: true,
+          viewToken: true,
+          urlProfile: { select: { lastAnalyzedAt: true } },
+        },
       });
 
-      if (existingRefresh) {
+      // If cooldown was reset (lastAnalyzedAt cleared), don't serve cached — run a fresh analysis
+      const cooldownReset = existingRefresh?.urlProfile?.lastAnalyzedAt == null;
+      if (existingRefresh && !cooldownReset) {
         return Response.json({
           ok: true,
           existing: true,
