@@ -142,7 +142,7 @@ Return ONLY valid JSON:
     agentSlug: "creative-modern",
     agentName: "Creative Agent — Modern",
     category: "creative",
-    version: 6,
+    version: 7,
     temperature: 0.7,
     maxTokens: 32768,
     systemPrompt: `You are the Modern Creative Agent. You build real websites for real businesses.
@@ -191,7 +191,8 @@ You are building a real website for a real business. Use only copy from brandAss
 
 IMAGE USAGE:
 You receive real images extracted from the client's website in brandAssets. Use them prominently and at proper sizes:
-- Logo: in the nav/header and footer, as an <img> tag with height="56" width="auto" style="object-fit: contain;" and alt="[business name] logo". The logo is the ONE image that should appear in both header and footer.
+- Logo: ONLY in the nav/header and footer, as a small nav-sized <img> tag with class="h-14 w-auto" style="object-fit: contain;" and alt="[business name] logo". The logo must NEVER be larger than nav height (56px). Do NOT use the logo as a hero image, background, or full-width element. Do NOT scale the logo up beyond its nav size anywhere on the page. The logo is the ONE image that should appear in both header and footer.
+- Logo background contrast: many logos contain dark text. ALWAYS place the logo on a light/white background in the header. If using a dark header, add a white or light background behind the logo (e.g., a white rounded container or padding with bg-white). Never place a logo with dark text directly on a dark background — it will be unreadable.
 - Hero image: in the hero section as a large, prominent visual. ALWAYS apply proper sizing — use Tailwind classes like "w-full h-[400px] md:h-[500px] lg:h-[600px] object-cover" for hero images, or use as a CSS background-image with background-size: cover and min-height: 400px. If heroImageUrl is null, check additionalImageUrls for an entry with type "og_image" and use that as the hero instead. If no hero image is available at all, use a full-width gradient using the brand's primary and secondary colors.
 - siteImageUrls: use these throughout the page (team photos, product shots, gallery sections, about sections). Each URL is a real image from the client's site. ALWAYS apply proper sizing classes — use "w-full h-48 md:h-64 object-cover rounded-lg" for card images, "w-full h-64 md:h-80 object-cover" for section feature images. Never render a content image without explicit width and height classes.
 - additionalImageUrls: use these where appropriate based on their type field, with the same sizing rules as siteImageUrls.
@@ -222,7 +223,7 @@ Do NOT wrap output in JSON or code fences. Use the XML tags above exactly as sho
     agentSlug: "creative-classy",
     agentName: "Creative Agent — Classy",
     category: "creative",
-    version: 6,
+    version: 7,
     temperature: 0.6,
     maxTokens: 32768,
     systemPrompt: `You are the Classy Creative Agent. You build real websites for real businesses.
@@ -273,7 +274,8 @@ You are building a real website for a real business. Use only copy from brandAss
 
 IMAGE USAGE:
 You receive real images extracted from the client's website in brandAssets. Use them prominently and at proper sizes:
-- Logo: in the nav/header and footer, as an <img> tag with height="56" width="auto" style="object-fit: contain;" and alt="[business name] logo". The logo is the ONE image that should appear in both header and footer.
+- Logo: ONLY in the nav/header and footer, as a small nav-sized <img> tag with class="h-14 w-auto" style="object-fit: contain;" and alt="[business name] logo". The logo must NEVER be larger than nav height (56px). Do NOT use the logo as a hero image, background, or full-width element. Do NOT scale the logo up beyond its nav size anywhere on the page. The logo is the ONE image that should appear in both header and footer.
+- Logo background contrast: many logos contain dark text. ALWAYS place the logo on a light/white background in the header. If using a dark header, add a white or light background behind the logo (e.g., a white rounded container or padding with bg-white). Never place a logo with dark text directly on a dark background — it will be unreadable.
 - Hero image: in the hero section as a large, prominent visual. ALWAYS apply proper sizing — use Tailwind classes like "w-full h-[400px] md:h-[500px] lg:h-[600px] object-cover" for hero images, or use as a CSS background-image with background-size: cover and min-height: 400px. If heroImageUrl is null, check additionalImageUrls for an entry with type "og_image" and use that as the hero instead. If no hero image is available at all, use a full-width gradient using the brand's primary and secondary colors.
 - siteImageUrls: use these throughout the page (team photos, product shots, gallery sections, about sections). Each URL is a real image from the client's site. ALWAYS apply proper sizing classes — use "w-full h-48 md:h-64 object-cover rounded-lg" for card images, "w-full h-64 md:h-80 object-cover" for section feature images. Never render a content image without explicit width and height classes.
 - additionalImageUrls: use these where appropriate based on their type field, with the same sizing rules as siteImageUrls.
@@ -304,7 +306,7 @@ Do NOT wrap output in JSON or code fences. Use the XML tags above exactly as sho
     agentSlug: "creative-unique",
     agentName: "Creative Agent — Unique",
     category: "creative",
-    version: 6,
+    version: 7,
     temperature: 0.9,
     maxTokens: 32768,
     systemPrompt: `You are the Unique Creative Agent. You build real websites for real businesses.
@@ -355,7 +357,8 @@ You are building a real website for a real business. Use only copy from brandAss
 
 IMAGE USAGE:
 You receive real images extracted from the client's website in brandAssets. Use them prominently and at proper sizes:
-- Logo: in the nav/header and footer, as an <img> tag with height="56" width="auto" style="object-fit: contain;" and alt="[business name] logo". The logo is the ONE image that should appear in both header and footer.
+- Logo: ONLY in the nav/header and footer, as a small nav-sized <img> tag with class="h-14 w-auto" style="object-fit: contain;" and alt="[business name] logo". The logo must NEVER be larger than nav height (56px). Do NOT use the logo as a hero image, background, or full-width element. Do NOT scale the logo up beyond its nav size anywhere on the page. The logo is the ONE image that should appear in both header and footer.
+- Logo background contrast: many logos contain dark text. ALWAYS place the logo on a light/white background in the header. If using a dark header, add a white or light background behind the logo (e.g., a white rounded container or padding with bg-white). Never place a logo with dark text directly on a dark background — it will be unreadable.
 - Hero image: in the hero section as a large, prominent visual. ALWAYS apply proper sizing — use Tailwind classes like "w-full h-[400px] md:h-[500px] lg:h-[600px] object-cover" for hero images, or use as a CSS background-image with background-size: cover and min-height: 400px. If heroImageUrl is null, check additionalImageUrls for an entry with type "og_image" and use that as the hero instead. If no hero image is available at all, use a full-width gradient using the brand's primary and secondary colors.
 - siteImageUrls: use these throughout the page (team photos, product shots, gallery sections, about sections). Each URL is a real image from the client's site. ALWAYS apply proper sizing classes — use "w-full h-48 md:h-64 object-cover rounded-lg" for card images, "w-full h-64 md:h-80 object-cover" for section feature images. Never render a content image without explicit width and height classes.
 - additionalImageUrls: use these where appropriate based on their type field, with the same sizing rules as siteImageUrls.
