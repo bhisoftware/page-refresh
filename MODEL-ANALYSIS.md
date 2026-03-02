@@ -75,6 +75,48 @@ Extraction agents (screenshot-analysis, industry-seo) remain on `claude-haiku-4-
 
 The `modelOverride` DB field on each `AgentSkill` record still takes precedence, so individual agents can be upgraded to Sonnet 4.6 via the admin UI for testing without a code change.
 
+## Post-Fix Verification
+
+**Test run:** acehardware.com (fresh analysis, not cached) — Mar 2, 2026
+
+### Prompt Log Detail
+
+| Step | Response Time | Output Tokens | Model |
+|---|---|---|---|
+| screenshot_analysis | 2,527ms | 5,767 | `claude-haiku-4-5-20251001` |
+| industry_seo | 6,900ms | 9,987 | `claude-haiku-4-5-20251001` |
+| score | **26,053ms** | 2,987 | `claude-sonnet-4-20250514` |
+| creative_classy | 95,544ms | 11,584 | `claude-sonnet-4-20250514` |
+| creative_modern | 98,564ms | 11,816 | `claude-sonnet-4-20250514` |
+| creative_unique | 109,119ms | 12,819 | `claude-sonnet-4-20250514` |
+
+### Results
+
+- **Total pipeline time:** 149s
+- **Status:** complete (no errors)
+- **Layouts generated:** 3/3
+- **Score:** 72/100
+
+### Before vs After Comparison
+
+| Metric | Sonnet 4.6 (broken) | Sonnet 4.0 (fixed) | Improvement |
+|---|---|---|---|
+| Score step | 64–75s | **26s** | 2.5–3x faster |
+| Creative agents (each) | 163–195s | **96–109s** | 1.7–1.8x faster |
+| Creative output tokens | 17,000–20,500 | **11,500–12,800** | ~40% fewer tokens |
+| Total pipeline | 273–285s (timeout) | **149s** | 46% reduction |
+| Layouts generated | 0/3 or partial | **3/3** | 100% success |
+| Pipeline timeout rate | 90% | **0%** | Resolved |
+| Time margin remaining | -5 to +7s | **+131s** | Comfortable buffer |
+
+### Desktop and Mobile Verification
+
+Tested on deployed production build (`6c0bec4`):
+
+- **Desktop (1280x720):** Homepage loads, cached results render with 3 layout tabs and score tiles, layout iframe renders full page content
+- **Mobile (390x844):** Homepage clean and responsive, fresh analysis completed successfully, all 3 layout tabs switch correctly with distinct layout content in each iframe, email CTA and 8 score dimension tiles render correctly with color-coded progress bars
+- **Console:** Zero errors on all pages (only expected Tailwind CDN warning in layout iframes)
+
 ## Recommendations for Future Model Evaluation
 
 ### 1. Establish a Model Test Protocol
@@ -127,3 +169,130 @@ The `modelOverride` field on each `AgentSkill` enables per-agent model testing w
 2. Run 3–5 analyses and compare that agent's timing vs the other two
 3. If acceptable, roll out to remaining creative agents
 4. Only change the code default after validating in production
+
+---
+
+## API Call Concurrency: Evolution & Architecture
+
+The creative agent concurrency strategy changed 3 times in 2 days. Each change was a reaction to a real production failure. This section exists so we don't repeat the cycle.
+
+### Timeline
+
+| # | Commit | Strategy | What broke |
+|---|--------|----------|------------|
+| 1 | `d6d0a96` (Feb 24) | **Fully parallel** — all 3 via `Promise.allSettled` | Nothing yet — initial impl |
+| 2 | `cce2939` (Feb 25, ~2:47am) | **Fully sequential** — 2s delay between each | 429 rate limit errors from Anthropic when 3 agents hit the API simultaneously |
+| 3 | `94d1d64` (Feb 25, ~10:31am) | **Back to parallel** | Sequential was too slow: 45–80s for Step 3 instead of 15–25s |
+| 4 | `3c3a035` (Feb 25, ~10:44am) | **Parallel with 3s stagger** | 529 overload errors from launching all 3 simultaneously |
+
+### Current approach (staggered parallel)
+
+```typescript
+// lib/pipeline/analyze.ts — Step 3
+const CREATIVE_STAGGER_MS = 3000;
+
+const creativeResults = await Promise.allSettled(
+  creativeSlugs.map(async (slug, i) => {
+    if (i > 0) await new Promise((r) => setTimeout(r, i * CREATIVE_STAGGER_MS));
+    return await runCreativeAgent({ slug, ... });
+  })
+);
+```
+
+- Agent 0 starts at **0s**, Agent 1 at **3s**, Agent 2 at **6s**
+- All 3 run concurrently once launched — total wall time ≈ slowest single agent + 6s
+- `Promise.allSettled` means partial failure is OK (1 or 2 layouts still get saved)
+
+### Why this is the right tradeoff
+
+| | Fully parallel | Fully sequential | Staggered parallel |
+|---|---|---|---|
+| Step 3 wall time | 15–25s | 45–80s | 20–30s |
+| 429/529 risk | High | None | Low |
+| Partial failure handling | Yes (`allSettled`) | Manual | Yes (`allSettled`) |
+
+---
+
+## Pipeline Step Concurrency Map
+
+| Step | What runs | Concurrency | Why |
+|------|-----------|-------------|-----|
+| 0 | URL fetch + screenshot | `Promise.all` (fully parallel) | Independent I/O, no API calls |
+| 1 | Screenshot Analysis + Industry/SEO + Asset Extraction | `Promise.all` (fully parallel) | 3 agents analyzing the same input — no dependency between them |
+| 2 | Score Agent | Sequential (waits for Step 1) | Needs analysis results as input |
+| 3 | 3 Creative Agents | `Promise.allSettled` with 3s stagger | Balances speed vs. API rate limits |
+| 4 | Screenshot compress + finalize | Sequential | Writes final status |
+
+---
+
+## Retry & Error Handling
+
+**File:** `lib/ai/retry.ts`
+
+Every API call is wrapped in `withRetry()`:
+
+```
+Attempt 0 → fail → wait 10s → Attempt 1 → fail → wait 30s → Attempt 2 → fail → throw
+```
+
+### Retryable errors
+
+| Error | Source |
+|-------|--------|
+| 429 (rate limited) | Anthropic API |
+| 529 (overloaded) | Anthropic API |
+| 5xx (server error) | Anthropic API |
+| `rate_limit_error` type | Anthropic error body |
+| Connection errors (EPIPE, ECONNRESET, socket hang up) | Network |
+
+### Non-retryable errors
+
+| Error | Why |
+|-------|-----|
+| Quota/billing exceeded | Will never resolve with retries |
+| 4xx (except 429) | Client error — retrying won't help |
+
+### Progress during retries
+
+The `onRetry` callback sends a neutral SSE message (`"Still working on your designs..."`) so the user sees activity and the Vercel SSE connection doesn't time out from 60s inactivity.
+
+---
+
+## Rate Limiting (Two Layers)
+
+### Layer 1: Application-level (per-user)
+
+**File:** `lib/rate-limiter.ts`
+
+- **Limit:** 5 requests per 60 seconds per key (IP-based)
+- **Production:** Upstash Redis sliding window (shared across all Vercel instances)
+- **Local dev:** In-memory sliding window fallback
+- **Purpose:** Prevent a single user from overwhelming the pipeline
+
+### Layer 2: API-level (per-provider)
+
+- **Mechanism:** 3s stagger between creative agent launches (`CREATIVE_STAGGER_MS`)
+- **Purpose:** Prevent simultaneous API calls from triggering Anthropic rate limits
+- **Scope:** Only applies to Step 3 (creative agents) — Step 1 agents are different enough in token size/timing that simultaneous launch hasn't caused issues
+
+These two layers are independent. Layer 1 gates whether a pipeline run starts at all. Layer 2 controls how API calls are spaced within a single pipeline run.
+
+---
+
+## Design Principles for Backend API Calls
+
+Extracted from the production failures documented above. Apply these when adding new agents or modifying the pipeline.
+
+1. **Stagger > simultaneous** for multiple concurrent API calls to the same provider. Even a 2–3s gap between launches dramatically reduces 429/529 risk.
+
+2. **Use `Promise.allSettled`, not `Promise.all`**, when running multiple agents. A single agent failure shouldn't crash the entire pipeline. Persist what you have.
+
+3. **Persist results after every step.** If the pipeline times out or crashes mid-execution, the user still has partial results. Each step writes to the DB before the next step starts.
+
+4. **Stream long-running API calls.** Creative agents use streaming to avoid Vercel/serverless function timeout errors on large `max_tokens` responses.
+
+5. **Keep SSE alive during waits.** Any time the server waits (retries, stagger delays), send a progress message. Vercel's 60s SSE idle timeout will kill the connection otherwise.
+
+6. **Separate retryable from terminal errors.** Don't retry quota/billing errors — they'll never succeed and just burn time. Do retry rate limits and connection errors with backoff.
+
+7. **Don't over-parallelize identical agents.** Step 1's 3 agents are fine in full parallel because they're different types (vision, text, asset extraction) with different token profiles. Step 3's 3 creative agents are identical in shape — launching all 3 simultaneously triggers rate limits.
