@@ -40,7 +40,7 @@ export function isCreativeSlug(slug: string): slug is CreativeSlug {
   return CREATIVE_SLUGS.includes(slug as CreativeSlug);
 }
 
-/** Warn about and strip leaked scoring data from generated HTML. */
+/** Warn about and strip leaked scoring data and dangerous links from generated HTML. */
 function cleanLeakedScores(result: CreativeAgentOutput, slug: string): CreativeAgentOutput {
   const scan = scanHtmlForLeakedScores(result.html);
   if (scan.matches.length > 0) {
@@ -51,8 +51,10 @@ function cleanLeakedScores(result: CreativeAgentOutput, slug: string): CreativeA
       `[creative] ${slug} score leak scan: ${high.length} high, ${med.length} medium.` +
       (details ? ` High: ${details}` : "")
     );
-    result.html = stripLeakedContent(result.html);
   }
+  // Always strip dangerous links and leaked text, even when no score patterns
+  // were detected — the AI may embed result URLs without visible score data.
+  result.html = stripLeakedContent(result.html);
   return result;
 }
 
