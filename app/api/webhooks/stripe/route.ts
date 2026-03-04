@@ -73,6 +73,7 @@ export async function POST(request: Request) {
               stripePaymentStatus: "paid",
               paidAt: new Date(),
               paidEmail: session.customer_details?.email ?? null,
+              contactEmail: session.customer_details?.email ?? undefined,
               selectedLayoutPaid: layoutIndex ? parseInt(layoutIndex, 10) : null,
               targetPlatform,
             },

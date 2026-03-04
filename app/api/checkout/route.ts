@@ -33,8 +33,9 @@ export async function POST(request: NextRequest) {
     select: {
       id: true,
       viewToken: true,
+      contactEmail: true,
       stripePaymentStatus: true,
-      urlProfile: { select: { cms: true } },
+      urlProfile: { select: { cms: true, customerEmail: true } },
     },
   });
 
@@ -64,12 +65,20 @@ export async function POST(request: NextRequest) {
       select: { key: true, label: true },
     });
 
+    // Use known email to pre-fill checkout and ensure Stripe sends a receipt
+    const knownEmail =
+      refresh.urlProfile?.customerEmail ?? refresh.contactEmail ?? undefined;
+
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: "payment",
       line_items: [{ price: process.env.STRIPE_PRICE_ID!, quantity: 1 }],
       metadata: { refreshId, layoutIndex: String(layoutIndex) },
       success_url: `${appUrl}/refreshed-layout?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/results/${refreshId}?token=${token}`,
+      ...(knownEmail && {
+        customer_email: knownEmail,
+        payment_intent_data: { receipt_email: knownEmail },
+      }),
     };
 
     if (platforms.length > 0) {
