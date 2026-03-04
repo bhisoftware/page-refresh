@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pricing Page Playground</title>
+<style>
+  :root {
+    --ui-bg: #1a1a2e;
+    --ui-surface: #16213e;
+    --ui-border: #2a2a4a;
+    --ui-text: #e0e0e0;
+    --ui-muted: #8888aa;
+    --ui-accent: #4fc3f7;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--ui-bg);
+    color: var(--ui-text);
+    height: 100vh;
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    grid-template-rows: 1fr auto;
+    overflow: hidden;
+  }
+
+  /* Controls Panel */
+  .controls {
+    grid-row: 1 / 3;
+    background: var(--ui-surface);
+    border-right: 1px solid var(--ui-border);
+    overflow-y: auto;
+    padding: 20px;
+  }
+
+  .controls h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--ui-muted);
+    margin: 20px 0 10px;
+  }
+
+  .controls h2:first-child { margin-top: 0; }
+
+  .control-group {
+    margin-bottom: 12px;
+  }
+
+  .control-group label {
+    display: block;
+    font-size: 12px;
+    color: var(--ui-muted);
+    margin-bottom: 4px;
+  }
+
+  .control-group input[type="range"] {
+    width: 100%;
+    accent-color: var(--ui-accent);
+  }
+
+  .control-group input[type="color"] {
+    width: 40px;
+    height: 28px;
+    border: 1px solid var(--ui-border);
+    background: transparent;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+
+  .control-group input[type="text"],
+  .control-group input[type="number"],
+  .control-group textarea {
+    width: 100%;
+    padding: 6px 8px;
+    background: var(--ui-bg);
+    border: 1px solid var(--ui-border);
+    color: var(--ui-text);
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: inherit;
+  }
+
+  .control-group textarea {
+    resize: vertical;
+    min-height: 48px;
+  }
+
+  .control-group select {
+    width: 100%;
+    padding: 6px 8px;
+    background: var(--ui-bg);
+    border: 1px solid var(--ui-border);
+    color: var(--ui-text);
+    border-radius: 4px;
+    font-size: 13px;
+  }
+
+  .inline-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .inline-row label { flex-shrink: 0; }
+  .inline-row input[type="color"] { flex-shrink: 0; }
+
+  .value-display {
+    font-size: 11px;
+    color: var(--ui-accent);
+    float: right;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  /* Presets */
+  .presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .preset-btn {
+    padding: 5px 10px;
+    background: var(--ui-bg);
+    border: 1px solid var(--ui-border);
+    color: var(--ui-text);
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .preset-btn:hover {
+    border-color: var(--ui-accent);
+    color: var(--ui-accent);
+  }
+
+  .preset-btn.active {
+    background: var(--ui-accent);
+    color: #111;
+    border-color: var(--ui-accent);
+  }
+
+  /* Preview */
+  .preview-area {
+    overflow-y: auto;
+    padding: 0;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+  }
+
+  .preview-frame {
+    width: 100%;
+    min-height: 100%;
+  }
+
+  /* Prompt output */
+  .prompt-area {
+    background: var(--ui-surface);
+    border-top: 1px solid var(--ui-border);
+    padding: 12px 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .prompt-text {
+    flex: 1;
+    font-size: 13px;
+    font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+    color: var(--ui-text);
+    line-height: 1.5;
+    max-height: 80px;
+    overflow-y: auto;
+  }
+
+  .copy-btn {
+    flex-shrink: 0;
+    padding: 6px 14px;
+    background: var(--ui-accent);
+    color: #111;
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .copy-btn:hover { opacity: 0.85; }
+
+  /* Toggle */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .toggle {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    background: var(--ui-border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+
+  .toggle.on { background: var(--ui-accent); }
+
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+  }
+
+  .toggle.on::after { transform: translateX(16px); }
+
+  .toggle-label {
+    font-size: 13px;
+    color: var(--ui-text);
+  }
+
+  .section-collapse {
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .section-collapse::before {
+    content: '▸ ';
+    display: inline;
+  }
+
+  .section-collapse.open::before {
+    content: '▾ ';
+  }
+
+  .collapsible { display: none; }
+  .collapsible.open { display: block; }
+</style>
+</head>
+<body>
+
+<!-- Controls -->
+<div class="controls">
+  <h2>Presets</h2>
+  <div class="presets">
+    <button class="preset-btn active" onclick="applyPreset('clean')">Clean</button>
+    <button class="preset-btn" onclick="applyPreset('bold')">Bold</button>
+    <button class="preset-btn" onclick="applyPreset('gradient')">Gradient</button>
+    <button class="preset-btn" onclick="applyPreset('minimal')">Minimal</button>
+    <button class="preset-btn" onclick="applyPreset('dark')">Dark</button>
+  </div>
+
+  <h2>Colors</h2>
+  <div class="control-group">
+    <div class="inline-row">
+      <label>Background</label>
+      <input type="color" id="bgColor" value="#ffffff" oninput="state.bgColor=this.value;updateAll()">
+    </div>
+  </div>
+  <div class="control-group">
+    <div class="inline-row">
+      <label>Accent</label>
+      <input type="color" id="accentColor" value="#2563eb" oninput="state.accentColor=this.value;updateAll()">
+    </div>
+  </div>
+  <div class="control-group">
+    <div class="inline-row">
+      <label>Text</label>
+      <input type="color" id="textColor" value="#1e293b" oninput="state.textColor=this.value;updateAll()">
+    </div>
+  </div>
+  <div class="control-group">
+    <div class="inline-row">
+      <label>Card BG</label>
+      <input type="color" id="cardBg" value="#ffffff" oninput="state.cardBg=this.value;updateAll()">
+    </div>
+  </div>
+
+  <h2>Typography</h2>
+  <div class="control-group">
+    <label>Heading Font</label>
+    <select id="headingFont" onchange="state.headingFont=this.value;updateAll()">
+      <option value="'Inter', system-ui, sans-serif">Inter / System</option>
+      <option value="'Georgia', serif">Georgia</option>
+      <option value="'Courier New', monospace">Monospace</option>
+      <option value="'Trebuchet MS', sans-serif">Trebuchet</option>
+    </select>
+  </div>
+  <div class="control-group">
+    <label>Base Font Size <span class="value-display" id="fontSizeVal">16px</span></label>
+    <input type="range" min="13" max="20" value="16" id="fontSize" oninput="state.fontSize=+this.value;document.getElementById('fontSizeVal').textContent=this.value+'px';updateAll()">
+  </div>
+
+  <h2>Layout</h2>
+  <div class="control-group">
+    <label>Card Radius <span class="value-display" id="radiusVal">12px</span></label>
+    <input type="range" min="0" max="28" value="12" id="radius" oninput="state.radius=+this.value;document.getElementById('radiusVal').textContent=this.value+'px';updateAll()">
+  </div>
+  <div class="control-group">
+    <label>Card Padding <span class="value-display" id="paddingVal">32px</span></label>
+    <input type="range" min="16" max="48" value="32" id="cardPadding" oninput="state.cardPadding=+this.value;document.getElementById('paddingVal').textContent=this.value+'px';updateAll()">
+  </div>
+  <div class="control-group">
+    <label>Shadow Depth <span class="value-display" id="shadowVal">2</span></label>
+    <input type="range" min="0" max="5" value="2" id="shadow" oninput="state.shadow=+this.value;document.getElementById('shadowVal').textContent=this.value;updateAll()">
+  </div>
+  <div class="control-group">
+    <label>Card Border Width <span class="value-display" id="borderVal">1px</span></label>
+    <input type="range" min="0" max="3" value="1" id="borderWidth" oninput="state.borderWidth=+this.value;document.getElementById('borderVal').textContent=this.value+'px';updateAll()">
+  </div>
+
+  <div class="toggle-row">
+    <div class="toggle on" id="toggleHighlight" onclick="toggleSwitch(this,'highlightPremium')"></div>
+    <span class="toggle-label">Highlight Premium</span>
+  </div>
+  <div class="toggle-row">
+    <div class="toggle" id="toggleBadge" onclick="toggleSwitch(this,'showBadge')"></div>
+    <span class="toggle-label">Show "Popular" Badge</span>
+  </div>
+
+  <h2 class="section-collapse" onclick="toggleSection(this)">Copy & Pricing</h2>
+  <div class="collapsible" id="copySection">
+    <div class="control-group">
+      <label>Page Heading</label>
+      <input type="text" id="pageHeading" value="Simple, transparent pricing" oninput="state.pageHeading=this.value;updateAll()">
+    </div>
+    <div class="control-group">
+      <label>Page Subheading</label>
+      <input type="text" id="pageSubheading" value="Choose the plan that fits your business" oninput="state.pageSubheading=this.value;updateAll()">
+    </div>
+    <div class="control-group">
+      <label>Refresh Price ($)</label>
+      <input type="number" id="refreshPrice" value="799" oninput="state.refreshPrice=+this.value;updateAll()">
+    </div>
+    <div class="control-group">
+      <label>Premium 2026 ($)</label>
+      <input type="number" id="premium2026" value="3000" oninput="state.premium2026=+this.value;updateAll()">
+    </div>
+    <div class="control-group">
+      <label>Premium 2027 ($)</label>
+      <input type="number" id="premium2027" value="4000" oninput="state.premium2027=+this.value;updateAll()">
+    </div>
+    <div class="control-group">
+      <label>Core Cost ($)</label>
+      <input type="number" id="coreCost" value="2000" oninput="state.coreCost=+this.value;updateAll()">
+    </div>
+    <div class="control-group">
+      <label>CTA Text (Refresh)</label>
+      <input type="text" id="ctaRefresh" value="Get Started" oninput="state.ctaRefresh=this.value;updateAll()">
+    </div>
+    <div class="control-group">
+      <label>CTA Text (Premium)</label>
+      <input type="text" id="ctaPremium" value="Go Premium" oninput="state.ctaPremium=this.value;updateAll()">
+    </div>
+  </div>
+</div>
+
+<!-- Preview -->
+<div class="preview-area">
+  <iframe class="preview-frame" id="previewFrame" frameborder="0"></iframe>
+</div>
+
+<!-- Prompt -->
+<div class="prompt-area">
+  <div class="prompt-text" id="promptOutput"></div>
+  <button class="copy-btn" onclick="copyPrompt()">Copy</button>
+</div>
+
+<script>
+const DEFAULTS = {
+  bgColor: '#ffffff',
+  accentColor: '#2563eb',
+  textColor: '#1e293b',
+  cardBg: '#ffffff',
+  headingFont: "'Inter', system-ui, sans-serif",
+  fontSize: 16,
+  radius: 12,
+  cardPadding: 32,
+  shadow: 2,
+  borderWidth: 1,
+  highlightPremium: true,
+  showBadge: false,
+  pageHeading: 'Simple, transparent pricing',
+  pageSubheading: 'Choose the plan that fits your business',
+  refreshPrice: 799,
+  premium2026: 3000,
+  premium2027: 4000,
+  coreCost: 2000,
+  ctaRefresh: 'Get Started',
+  ctaPremium: 'Go Premium'
+};
+
+const state = { ...DEFAULTS };
+
+const PRESETS = {
+  clean: {
+    bgColor: '#ffffff', accentColor: '#2563eb', textColor: '#1e293b', cardBg: '#ffffff',
+    radius: 12, cardPadding: 32, shadow: 2, borderWidth: 1, highlightPremium: true, showBadge: false
+  },
+  bold: {
+    bgColor: '#0f172a', accentColor: '#f59e0b', textColor: '#f1f5f9', cardBg: '#1e293b',
+    radius: 16, cardPadding: 36, shadow: 4, borderWidth: 2, highlightPremium: true, showBadge: true
+  },
+  gradient: {
+    bgColor: '#faf5ff', accentColor: '#8b5cf6', textColor: '#1e1b4b', cardBg: '#ffffff',
+    radius: 20, cardPadding: 36, shadow: 3, borderWidth: 0, highlightPremium: true, showBadge: true
+  },
+  minimal: {
+    bgColor: '#fafafa', accentColor: '#18181b', textColor: '#18181b', cardBg: '#ffffff',
+    radius: 4, cardPadding: 28, shadow: 0, borderWidth: 1, highlightPremium: false, showBadge: false
+  },
+  dark: {
+    bgColor: '#09090b', accentColor: '#22d3ee', textColor: '#e4e4e7', cardBg: '#18181b',
+    radius: 12, cardPadding: 32, shadow: 3, borderWidth: 1, highlightPremium: true, showBadge: false
+  }
+};
+
+function applyPreset(name) {
+  const p = PRESETS[name];
+  Object.assign(state, p);
+  syncControls();
+  updateAll();
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+function syncControls() {
+  document.getElementById('bgColor').value = state.bgColor;
+  document.getElementById('accentColor').value = state.accentColor;
+  document.getElementById('textColor').value = state.textColor;
+  document.getElementById('cardBg').value = state.cardBg;
+  document.getElementById('radius').value = state.radius;
+  document.getElementById('radiusVal').textContent = state.radius + 'px';
+  document.getElementById('cardPadding').value = state.cardPadding;
+  document.getElementById('paddingVal').textContent = state.cardPadding + 'px';
+  document.getElementById('shadow').value = state.shadow;
+  document.getElementById('shadowVal').textContent = state.shadow;
+  document.getElementById('borderWidth').value = state.borderWidth;
+  document.getElementById('borderVal').textContent = state.borderWidth + 'px';
+
+  const hlToggle = document.getElementById('toggleHighlight');
+  hlToggle.classList.toggle('on', state.highlightPremium);
+  const bdgToggle = document.getElementById('toggleBadge');
+  bdgToggle.classList.toggle('on', state.showBadge);
+}
+
+function toggleSwitch(el, key) {
+  state[key] = !state[key];
+  el.classList.toggle('on', state[key]);
+  updateAll();
+}
+
+function toggleSection(el) {
+  el.classList.toggle('open');
+  const section = el.nextElementSibling;
+  section.classList.toggle('open');
+}
+
+function fmt(n) {
+  return new Intl.NumberFormat('en-US').format(n);
+}
+
+function shadowCSS(depth) {
+  if (depth === 0) return 'none';
+  const shadows = [
+    '0 1px 2px rgba(0,0,0,0.05)',
+    '0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)',
+    '0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06)',
+    '0 10px 15px rgba(0,0,0,0.08), 0 4px 6px rgba(0,0,0,0.05)',
+    '0 20px 25px rgba(0,0,0,0.08), 0 10px 10px rgba(0,0,0,0.04)',
+    '0 25px 50px rgba(0,0,0,0.12)'
+  ];
+  return shadows[depth] || shadows[5];
+}
+
+function accentFG(hex) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return (r*0.299 + g*0.587 + b*0.114) > 150 ? '#111' : '#fff';
+}
+
+function mutedColor(hex, opacity) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${opacity})`;
+}
+
+function renderPreview() {
+  const s = state;
+  const borderStyle = s.borderWidth > 0 ? `${s.borderWidth}px solid ${mutedColor(s.textColor, 0.12)}` : 'none';
+  const premiumBorder = s.highlightPremium ? `2px solid ${s.accentColor}` : borderStyle;
+  const premiumShadow = s.highlightPremium ? `${shadowCSS(Math.min(s.shadow+1, 5))}, 0 0 0 1px ${mutedColor(s.accentColor, 0.15)}` : shadowCSS(s.shadow);
+  const refreshSavings = s.premium2026 > 0 ? Math.round(((s.premium2026 - s.coreCost) / s.premium2026) * 100) : 0;
+
+  const html = `<!DOCTYPE html>
+<html><head><style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: ${s.headingFont};
+    font-size: ${s.fontSize}px;
+    background: ${s.bgColor};
+    color: ${s.textColor};
+    padding: 48px 24px;
+    min-height: 100vh;
+  }
+  .header { text-align:center; margin-bottom:48px; }
+  .header h1 { font-size:2.2em; font-weight:700; margin-bottom:8px; letter-spacing:-0.02em; }
+  .header p { font-size:1.1em; opacity:0.65; }
+  .grid {
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    max-width: 820px;
+    margin: 0 auto;
+    align-items: start;
+  }
+  .card {
+    background: ${s.cardBg};
+    border-radius: ${s.radius}px;
+    padding: ${s.cardPadding}px;
+    border: ${borderStyle};
+    box-shadow: ${shadowCSS(s.shadow)};
+    position: relative;
+  }
+  .card.premium {
+    border: ${premiumBorder};
+    box-shadow: ${premiumShadow};
+    ${s.highlightPremium ? `transform: scale(1.03);` : ''}
+  }
+  .badge {
+    position: absolute;
+    top: -12px;
+    right: 20px;
+    background: ${s.accentColor};
+    color: ${accentFG(s.accentColor)};
+    font-size: 0.7em;
+    font-weight: 600;
+    padding: 4px 14px;
+    border-radius: 20px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    display: ${s.showBadge ? 'block' : 'none'};
+  }
+  .plan-name {
+    font-size: 0.85em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.5;
+    margin-bottom: 8px;
+  }
+  .price {
+    font-size: 2.8em;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    margin-bottom: 4px;
+  }
+  .price sup { font-size: 0.45em; vertical-align: super; opacity: 0.7; }
+  .price-note { font-size: 0.85em; opacity: 0.5; margin-bottom: 20px; }
+  .divider {
+    height: 1px;
+    background: ${mutedColor(s.textColor, 0.1)};
+    margin: 20px 0;
+  }
+  .features { list-style: none; margin-bottom: 24px; }
+  .features li {
+    padding: 7px 0;
+    font-size: 0.9em;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    line-height: 1.4;
+  }
+  .features li .check {
+    color: ${s.accentColor};
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .cta {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    border-radius: ${Math.max(s.radius - 4, 4)}px;
+    font-size: 0.95em;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    border: 2px solid ${s.accentColor};
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .cta-outline {
+    background: transparent;
+    color: ${s.accentColor};
+  }
+  .cta-filled {
+    background: ${s.accentColor};
+    color: ${accentFG(s.accentColor)};
+    border-color: ${s.accentColor};
+  }
+  /* Breakdown table for premium */
+  .breakdown {
+    margin: 16px 0;
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .breakdown-title {
+    font-size: 0.8em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    opacity: 0.45;
+    margin-bottom: 10px;
+  }
+  .breakdown tr td {
+    padding: 6px 0;
+    font-size: 0.85em;
+  }
+  .breakdown tr td:last-child {
+    text-align: right;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .breakdown tr.total-row td {
+    border-top: 1px solid ${mutedColor(s.textColor, 0.12)};
+    padding-top: 10px;
+    font-weight: 700;
+    font-size: 0.95em;
+  }
+  .year-label {
+    display: inline-block;
+    background: ${mutedColor(s.accentColor, 0.1)};
+    color: ${s.accentColor};
+    font-size: 0.7em;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+  }
+  .renewal-note {
+    margin-top: 16px;
+    padding: 12px 14px;
+    background: ${mutedColor(s.accentColor, 0.06)};
+    border-radius: ${Math.max(s.radius - 4, 4)}px;
+    font-size: 0.82em;
+    line-height: 1.5;
+    opacity: 0.8;
+  }
+  .renewal-note strong { font-weight: 600; }
+</style></head><body>
+  <div class="header">
+    <h1>${s.pageHeading}</h1>
+    <p>${s.pageSubheading}</p>
+  </div>
+  <div class="grid">
+    <!-- Page Refresh -->
+    <div class="card">
+      <div class="plan-name">Page Refresh</div>
+      <div class="price"><sup>$</sup>${fmt(s.refreshPrice)}</div>
+      <div class="price-note">one-time</div>
+      <div class="divider"></div>
+      <ul class="features">
+        <li><span class="check">&#10003;</span> Full page redesign</li>
+        <li><span class="check">&#10003;</span> Modern, mobile-ready layout</li>
+        <li><span class="check">&#10003;</span> AI-powered design analysis</li>
+        <li><span class="check">&#10003;</span> 3 unique layout concepts</li>
+        <li><span class="check">&#10003;</span> Production-ready HTML/CSS</li>
+      </ul>
+      <a class="cta cta-outline">${s.ctaRefresh}</a>
+    </div>
+
+    <!-- Premium -->
+    <div class="card premium">
+      <div class="badge">Most Popular</div>
+      <div class="plan-name">Premium</div>
+      <div class="price"><sup>$</sup>${fmt(s.premium2026)}</div>
+      <div class="divider"></div>
+      <ul class="features">
+        <li><span class="check">&#10003;</span> Custom site build &amp; installation</li>
+        <li><span class="check">&#10003;</span> 5-day delivery</li>
+        <li><span class="check">&#10003;</span> 90-day design refresh</li>
+        <li><span class="check">&#10003;</span> 12-month annual refresh</li>
+        <li><span class="check">&#10003;</span> Priority support</li>
+      </ul>
+
+      <a class="cta cta-filled">${s.ctaPremium}</a>
+    </div>
+  </div>
+</body></html>`;
+
+  const frame = document.getElementById('previewFrame');
+  const doc = frame.contentDocument || frame.contentWindow.document;
+  doc.open();
+  doc.write(html);
+  doc.close();
+}
+
+function updatePrompt() {
+  const s = state;
+  const parts = [];
+
+  parts.push(`Build a pricing page with two columns: a "Page Refresh" plan at $${fmt(s.refreshPrice)} (one-time) and a "Premium" plan at $${fmt(s.premium2026)}/yr (2026), renewing at $${fmt(s.premium2027)}/yr (2027) with a core cost of $${fmt(s.coreCost)}.`);
+
+  parts.push(`Premium includes: custom site build & installation, 5-day delivery, 90-day refresh, and 12-month annual refresh. Show a transparent cost breakdown table.`);
+
+  if (s.radius !== DEFAULTS.radius) parts.push(`Use ${s.radius}px border-radius on cards.`);
+  if (s.shadow !== DEFAULTS.shadow) {
+    const desc = s.shadow === 0 ? 'no shadow' : s.shadow <= 2 ? 'subtle shadow' : 'pronounced shadow';
+    parts.push(`Cards should have ${desc}.`);
+  }
+  if (s.highlightPremium) parts.push(`Visually emphasize the Premium card with an accent border and slight scale.`);
+  if (s.showBadge) parts.push(`Add a "Most Popular" badge on the Premium card.`);
+  if (s.bgColor !== DEFAULTS.bgColor || s.cardBg !== DEFAULTS.cardBg) {
+    parts.push(`Page background: ${s.bgColor}, card background: ${s.cardBg}.`);
+  }
+  if (s.accentColor !== DEFAULTS.accentColor) parts.push(`Accent color: ${s.accentColor}.`);
+  if (s.textColor !== DEFAULTS.textColor) parts.push(`Text color: ${s.textColor}.`);
+  if (s.borderWidth !== DEFAULTS.borderWidth) parts.push(`Card border: ${s.borderWidth}px.`);
+
+  document.getElementById('promptOutput').textContent = parts.join(' ');
+}
+
+function copyPrompt() {
+  const text = document.getElementById('promptOutput').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+  });
+}
+
+function updateAll() {
+  renderPreview();
+  updatePrompt();
+}
+
+// Init
+updateAll();
+</script>
+</body>
+</html>

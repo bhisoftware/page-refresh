@@ -142,7 +142,7 @@ Return ONLY valid JSON:
     agentSlug: "scanning-copy",
     agentName: "Scanning Copy Agent",
     category: "pipeline",
-    version: 1,
+    version: 2,
     temperature: 0.4,
     maxTokens: 1024,
     systemPrompt: `Generate 4 short scanning-phase descriptions for a website analysis tool. Each must reference REAL data from the input — never fabricate findings.
