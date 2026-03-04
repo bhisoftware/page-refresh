@@ -30,7 +30,12 @@ export async function POST(request: NextRequest) {
 
   const refresh = await prisma.refresh.findUnique({
     where: { id: refreshId },
-    select: { id: true, viewToken: true, stripePaymentStatus: true },
+    select: {
+      id: true,
+      viewToken: true,
+      stripePaymentStatus: true,
+      urlProfile: { select: { cms: true } },
+    },
   });
 
   if (!refresh || refresh.viewToken !== token) {
@@ -52,13 +57,54 @@ export async function POST(request: NextRequest) {
   try {
     const stripe = getStripe();
 
-    const session = await stripe.checkout.sessions.create({
+    // Fetch enabled delivery platforms for the checkout dropdown
+    const platforms = await prisma.deliveryPlatform.findMany({
+      where: { enabled: true },
+      orderBy: { sortOrder: "asc" },
+      select: { key: true, label: true },
+    });
+
+    const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: "payment",
       line_items: [{ price: process.env.STRIPE_PRICE_ID!, quantity: 1 }],
       metadata: { refreshId, layoutIndex: String(layoutIndex) },
       success_url: `${appUrl}/refreshed-layout?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/results/${refreshId}?token=${token}`,
-    });
+    };
+
+    if (platforms.length > 0) {
+      const platformKeys = platforms.map((p) => p.key);
+
+      // Map detected CMS to a platform key for the default selection
+      const detectedCms = refresh.urlProfile?.cms?.toLowerCase() ?? "";
+      const cmsToKey: Record<string, string> = {
+        squarespace: "squarespace",
+        wordpress: "wordpress",
+        "wordpress.com": "wordpress",
+        "wordpress.org": "wordpress",
+        wix: "wix",
+        webflow: "webflow",
+      };
+      const defaultKey = cmsToKey[detectedCms];
+      const defaultValue = defaultKey && platformKeys.includes(defaultKey) ? defaultKey : undefined;
+
+      sessionParams.custom_fields = [
+        {
+          key: "target_platform",
+          label: { type: "custom", custom: "Where will you publish this page?" },
+          type: "dropdown",
+          dropdown: {
+            default_value: defaultValue,
+            options: platforms.map((p) => ({
+              label: p.label,
+              value: p.key,
+            })),
+          },
+        },
+      ];
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
 
     await prisma.refresh.update({
       where: { id: refreshId },

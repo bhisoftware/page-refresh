@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { ScoreRingHero } from "@/components/ScoreRingHero";
 import { BrandAssetsPanel } from "@/components/admin/BrandAssetsPanel";
 import { ProfileEditableFields } from "./ProfileEditableFields";
@@ -33,6 +34,11 @@ export default async function AdminProfilePage({
           overallScore: true,
           processingTime: true,
           createdAt: true,
+          stripePaymentStatus: true,
+          badgeLastSeenAt: true,
+          badgeHitCount: true,
+          paidEmail: true,
+          targetPlatform: true,
         },
       },
     },
@@ -118,6 +124,72 @@ export default async function AdminProfilePage({
             </CardContent>
           </Card>
         </div>
+
+        {/* Badge tracking — only visible when profile has paid refreshes */}
+        {profile.analyses.some((a) => a.stripePaymentStatus === "paid") && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Badge tracking</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="text-left p-3 font-medium">Date</th>
+                      <th className="text-left p-3 font-medium">Email</th>
+                      <th className="text-left p-3 font-medium">Platform</th>
+                      <th className="text-left p-3 font-medium">Badge status</th>
+                      <th className="text-left p-3 font-medium">Hits</th>
+                      <th className="text-left p-3 font-medium">Last seen</th>
+                      <th className="text-left p-3 font-medium">View</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {profile.analyses
+                      .filter((a) => a.stripePaymentStatus === "paid")
+                      .map((a) => (
+                        <tr key={a.id} className="border-b hover:bg-muted/30">
+                          <td className="p-3 text-muted-foreground">
+                            {new Date(a.createdAt).toLocaleDateString(undefined, { timeZone: "America/New_York" })}
+                          </td>
+                          <td className="p-3 text-muted-foreground text-xs">
+                            {a.paidEmail ?? "—"}
+                          </td>
+                          <td className="p-3 text-muted-foreground">
+                            {a.targetPlatform ?? "—"}
+                          </td>
+                          <td className="p-3">
+                            {a.badgeHitCount > 0 ? (
+                              <Badge variant="default" className="bg-green-600 text-xs">Active</Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-xs">Not detected</Badge>
+                            )}
+                          </td>
+                          <td className="p-3 text-muted-foreground">{a.badgeHitCount}</td>
+                          <td className="p-3 text-muted-foreground text-xs">
+                            {a.badgeLastSeenAt
+                              ? new Date(a.badgeLastSeenAt).toLocaleString(undefined, { timeZone: "America/New_York" })
+                              : "—"}
+                          </td>
+                          <td className="p-3">
+                            <Link
+                              href={`/results/${a.id}?token=${encodeURIComponent(a.viewToken)}`}
+                              className="text-primary hover:underline"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              Results
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>

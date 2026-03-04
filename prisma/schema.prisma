@@ -85,6 +85,15 @@ model Refresh {
   bookingTimeSlot     String?     // 'morning' | 'afternoon' | 'evening'
   bookingConfirmed    Boolean     @default(false)
 
+  // ZIP delivery
+  targetPlatform      String?     // platform key selected at checkout (e.g. "squarespace")
+  zipS3Key            String?     // S3 object key for the generated ZIP
+  zipGeneratedAt      DateTime?   // when the ZIP was built
+
+  // Badge tracking (attribution pixel on customer's live site)
+  badgeLastSeenAt     DateTime?
+  badgeHitCount       Int         @default(0)
+
   // Pipeline status
   status            String   @default("pending")  // pending | fetching | analyzing | scoring | generating | complete | failed
   errorMessage      String?  @db.Text  // Last error message from pipeline
@@ -387,4 +396,20 @@ model AppSetting {
   key       String   @id
   value     String   @db.Text
   updatedAt DateTime @updatedAt
+}
+
+model DeliveryPlatform {
+  id              String   @id @default(cuid())
+  key             String   @unique   // "squarespace", "wordpress", "wix", "webflow", "html"
+  label           String              // Shown to user at checkout
+  enabled         Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  sectionSplit    Boolean  @default(false)  // Split HTML into per-<section> files
+  readmeTemplate  String   @db.Text         // Supports {businessName} {primaryColor} etc.
+  platformNotes   String   @db.Text         // CMS-specific guidance in README + email
+  folderStructure String   @db.Text         // JSON describing expected ZIP layout
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([enabled, sortOrder])
 }

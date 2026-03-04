@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { exportLayout, type Platform } from "@/lib/exports/platform-exporter";
 import { exportSchema } from "@/lib/validations";
+import { injectAttributionBadge } from "@/lib/layout-badge";
 
 export async function POST(request: Request) {
   try {
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
       fullPageParts.push(html.trim());
       fullPageCssParts.push(((refresh[cssKeys[i]] ?? "") as string).trim());
     }
-    const fullPageHtml = fullPageParts.join("\n");
+    let fullPageHtml = fullPageParts.join("\n");
     const fullPageCss = fullPageCssParts.join("\n\n");
 
     if (!fullPageHtml) {
@@ -60,6 +61,9 @@ export async function POST(request: Request) {
         { status: 404 }
       );
     }
+
+    // Inject attribution badge into exported HTML
+    fullPageHtml = injectAttributionBadge(fullPageHtml, refreshId);
 
     const result = await exportLayout(
       platform as Platform,

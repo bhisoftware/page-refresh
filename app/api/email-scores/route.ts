@@ -5,6 +5,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { sendScoreBreakdown } from "@/lib/email";
 
 const schema = z.object({
   refreshId: z.string().min(1),
@@ -26,7 +27,20 @@ export async function POST(request: NextRequest) {
 
   const refresh = await prisma.refresh.findUnique({
     where: { id: refreshId },
-    select: { id: true, urlProfileId: true },
+    select: {
+      id: true,
+      urlProfileId: true,
+      url: true,
+      overallScore: true,
+      clarityScore: true,
+      visualScore: true,
+      hierarchyScore: true,
+      trustScore: true,
+      conversionScore: true,
+      contentScore: true,
+      mobileScore: true,
+      performanceScore: true,
+    },
   });
 
   if (!refresh) {
@@ -46,7 +60,18 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // TODO: Send actual email with dimension breakdown once email infra is set up.
+  sendScoreBreakdown(email, {
+    url: refresh.url,
+    overallScore: refresh.overallScore,
+    clarityScore: refresh.clarityScore,
+    visualScore: refresh.visualScore,
+    hierarchyScore: refresh.hierarchyScore,
+    trustScore: refresh.trustScore,
+    conversionScore: refresh.conversionScore,
+    contentScore: refresh.contentScore,
+    mobileScore: refresh.mobileScore,
+    performanceScore: refresh.performanceScore,
+  }).catch((err) => console.error("Score email error:", err));
 
   return Response.json({ success: true });
 }

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
+import { s3GetSignedUrl } from "@/lib/storage/s3";
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -21,6 +22,7 @@ export async function GET(request: NextRequest) {
       id: true,
       stripePaymentStatus: true,
       selectedLayoutPaid: true,
+      zipS3Key: true,
     },
   });
 
@@ -45,10 +47,15 @@ export async function GET(request: NextRequest) {
           },
         });
 
+        const zipDownloadUrl = refresh.zipS3Key
+          ? await s3GetSignedUrl(refresh.zipS3Key, 60 * 60 * 24 * 7)
+          : null;
+
         return Response.json({
           status: "paid",
           refreshId: refresh.id,
           layoutIndex: refresh.selectedLayoutPaid,
+          zipDownloadUrl,
         });
       }
     } catch (err) {
@@ -57,9 +64,14 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const zipDownloadUrl = refresh.zipS3Key
+    ? await s3GetSignedUrl(refresh.zipS3Key, 60 * 60 * 24 * 7)
+    : null;
+
   return Response.json({
     status: refresh.stripePaymentStatus ?? "pending",
     refreshId: refresh.id,
     layoutIndex: refresh.selectedLayoutPaid,
+    zipDownloadUrl,
   });
 }

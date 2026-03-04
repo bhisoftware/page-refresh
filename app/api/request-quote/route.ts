@@ -5,6 +5,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requestQuoteSchema } from "@/lib/validations";
+import { sendQuoteRequestConfirmation } from "@/lib/email";
 
 const VALID_LAYOUT_INDEXES = [1, 2, 3] as const;
 
@@ -50,6 +51,10 @@ export async function POST(request: NextRequest) {
       hostingPlatform: platform ?? undefined,
     },
   });
+
+  sendQuoteRequestConfirmation(email).catch((err) =>
+    console.error("Quote request email error:", err),
+  );
 
   return Response.json({ success: true });
 }

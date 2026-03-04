@@ -1,14 +1,15 @@
 import { prisma } from "@/lib/prisma";
+import { s3GetSignedUrl } from "@/lib/storage/s3";
 import { RefreshedLayoutClient } from "./RefreshedLayoutClient";
 
 export default async function RefreshedLayoutPage({
   searchParams,
 }: {
-  searchParams: Promise<{ session_id?: string }>;
+  searchParams: Promise<{ session_id?: string; refreshId?: string }>;
 }) {
-  const { session_id } = await searchParams;
+  const { session_id, refreshId: refreshIdParam } = await searchParams;
 
-  if (!session_id) {
+  if (!session_id && !refreshIdParam) {
     return (
       <main className="min-h-screen flex items-center justify-center">
         <p className="text-muted-foreground">Invalid link — no session ID provided.</p>
@@ -16,24 +17,53 @@ export default async function RefreshedLayoutPage({
     );
   }
 
-  const refresh = await prisma.refresh.findFirst({
-    where: { stripeSessionId: session_id, stripePaymentStatus: "paid" },
-    select: {
-      id: true,
-      selectedLayoutPaid: true,
-      paidEmail: true,
-      layout1Html: true,
-      layout1Css: true,
-      layout2Html: true,
-      layout2Css: true,
-      layout3Html: true,
-      layout3Css: true,
-      bookingConfirmed: true,
-    },
-  });
+  // Support both session_id (from Stripe redirect) and refreshId (from email link)
+  const refresh = session_id
+    ? await prisma.refresh.findFirst({
+        where: { stripeSessionId: session_id, stripePaymentStatus: "paid" },
+        select: {
+          id: true,
+          selectedLayoutPaid: true,
+          paidEmail: true,
+          layout1Html: true,
+          layout1Css: true,
+          layout2Html: true,
+          layout2Css: true,
+          layout3Html: true,
+          layout3Css: true,
+          bookingConfirmed: true,
+          zipS3Key: true,
+          stripeSessionId: true,
+        },
+      })
+    : await prisma.refresh.findFirst({
+        where: { id: refreshIdParam!, stripePaymentStatus: "paid" },
+        select: {
+          id: true,
+          selectedLayoutPaid: true,
+          paidEmail: true,
+          layout1Html: true,
+          layout1Css: true,
+          layout2Html: true,
+          layout2Css: true,
+          layout3Html: true,
+          layout3Css: true,
+          bookingConfirmed: true,
+          zipS3Key: true,
+          stripeSessionId: true,
+        },
+      });
 
   if (!refresh) {
-    return <RefreshedLayoutClient sessionId={session_id} initialStatus="pending" />;
+    // Only show pending/polling state if we have a session_id to poll with
+    if (session_id) {
+      return <RefreshedLayoutClient sessionId={session_id} initialStatus="pending" />;
+    }
+    return (
+      <main className="min-h-screen flex items-center justify-center">
+        <p className="text-muted-foreground">Payment not found or not yet confirmed.</p>
+      </main>
+    );
   }
 
   const layoutIndex = refresh.selectedLayoutPaid ?? 1;
@@ -42,15 +72,21 @@ export default async function RefreshedLayoutPage({
   const layoutHtml = (refresh[layoutHtmlKey] as string) ?? "";
   const layoutCss = (refresh[layoutCssKey] as string) ?? "";
 
+  // Generate a fresh signed URL (the stored one expires after 7 days)
+  const zipDownloadUrl = refresh.zipS3Key
+    ? (await s3GetSignedUrl(refresh.zipS3Key, 60 * 60 * 24 * 7)) ?? undefined
+    : undefined;
+
   return (
     <RefreshedLayoutClient
-      sessionId={session_id}
+      sessionId={session_id ?? refresh.stripeSessionId ?? ""}
       initialStatus="paid"
       refreshId={refresh.id}
       layoutHtml={layoutHtml}
       layoutCss={layoutCss}
       email={refresh.paidEmail ?? undefined}
       alreadyBooked={refresh.bookingConfirmed}
+      zipDownloadUrl={zipDownloadUrl}
     />
   );
 }

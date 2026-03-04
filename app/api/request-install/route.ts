@@ -5,6 +5,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requestInstallSchema } from "@/lib/validations";
+import { sendInstallRequestConfirmation } from "@/lib/email";
 
 const VALID_LAYOUT_INDEXES = [1, 2, 3] as const;
 
@@ -81,6 +82,10 @@ export async function POST(request: NextRequest) {
       },
     });
   }
+
+  sendInstallRequestConfirmation(email, hostingPlatform).catch((err) =>
+    console.error("Install request email error:", err),
+  );
 
   return Response.json({ success: true });
 }

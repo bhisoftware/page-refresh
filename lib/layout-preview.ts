@@ -1,8 +1,12 @@
+import { injectAttributionBadge } from "@/lib/layout-badge";
+
 export interface WrapInDocumentOptions {
   /** Inject viewport meta for desktop-width rendering (e.g. width=1280). */
   desktopViewport?: boolean;
   /** Scale factor (0–1) applied to body so content fits without horizontal scroll. */
   scaleToFit?: number;
+  /** If provided, injects the "Refreshed by Page Refresh" attribution badge with tracking pixel. */
+  refreshId?: string;
 }
 
 /**
@@ -21,7 +25,13 @@ export function wrapInDocument(
   css: string,
   options?: WrapInDocumentOptions
 ): string {
-  const trimmed = html.trim();
+  let trimmed = html.trim();
+
+  // Inject attribution badge if refreshId is provided
+  if (options?.refreshId) {
+    trimmed = injectAttributionBadge(trimmed, options.refreshId);
+  }
+
   const hasHtml = /^\s*<!DOCTYPE|^\s*<html/i.test(trimmed);
   if (hasHtml) {
     // Full document from AI — inject link-disable script before </body> or </html>

@@ -5,6 +5,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { reachOutSchema } from "@/lib/validations";
+import { sendReachOutConfirmation } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
@@ -50,6 +51,10 @@ export async function POST(request: NextRequest) {
       },
     });
   }
+
+  sendReachOutConfirmation(email.trim(), firstName.trim()).catch((err) =>
+    console.error("Reach-out email error:", err),
+  );
 
   return Response.json({ success: true });
 }

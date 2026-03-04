@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -72,6 +72,18 @@ type HistoryEntry = {
   createdAt: string;
 };
 
+type DeliveryPlatformItem = {
+  id: string;
+  key: string;
+  label: string;
+  enabled: boolean;
+  sortOrder: number;
+  sectionSplit: boolean;
+  readmeTemplate: string;
+  platformNotes: string;
+  folderStructure: string;
+};
+
 export default function AdminSettingsPage() {
   const [configs, setConfigs] = useState<ConfigsResponse | null>(null);
   const [testResult, setTestResult] = useState<Record<string, { success: boolean; error?: string; latency?: number }>>({});
@@ -89,6 +101,19 @@ export default function AdminSettingsPage() {
     maxTokens: "",
     temperature: "",
   });
+
+  // Delivery platforms
+  const [platforms, setPlatforms] = useState<DeliveryPlatformItem[]>([]);
+  const [selectedPlatformId, setSelectedPlatformId] = useState<string | null>(null);
+  const [platformForm, setPlatformForm] = useState({
+    label: "",
+    enabled: true,
+    sectionSplit: false,
+    platformNotes: "",
+    readmeTemplate: "",
+    folderStructure: "",
+  });
+  const [platformSaving, setPlatformSaving] = useState(false);
 
   // General settings
   const [cooldownDays, setCooldownDays] = useState("");
@@ -119,6 +144,69 @@ export default function AdminSettingsPage() {
       }
     } finally {
       setCooldownSaving(false);
+    }
+  }
+
+  // Fetch delivery platforms
+  const fetchPlatforms = useCallback(() => {
+    fetch("/api/admin/delivery-platforms")
+      .then((r) => r.json())
+      .then((data) => setPlatforms(data.platforms ?? []))
+      .catch(() => setPlatforms([]));
+  }, []);
+
+  useEffect(() => { fetchPlatforms(); }, [fetchPlatforms]);
+
+  useEffect(() => {
+    if (!selectedPlatformId) return;
+    const p = platforms.find((pl) => pl.id === selectedPlatformId);
+    if (p) {
+      setPlatformForm({
+        label: p.label,
+        enabled: p.enabled,
+        sectionSplit: p.sectionSplit,
+        platformNotes: p.platformNotes,
+        readmeTemplate: p.readmeTemplate,
+        folderStructure: p.folderStructure,
+      });
+    }
+  }, [selectedPlatformId, platforms]);
+
+  async function handleTogglePlatform(id: string, currentEnabled: boolean) {
+    const res = await fetch(`/api/admin/delivery-platforms/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: !currentEnabled }),
+    });
+    if (res.ok) {
+      setPlatforms((prev) => prev.map((p) => (p.id === id ? { ...p, enabled: !currentEnabled } : p)));
+    }
+  }
+
+  async function handleSavePlatform() {
+    if (!selectedPlatformId) return;
+    setPlatformSaving(true);
+    try {
+      const res = await fetch(`/api/admin/delivery-platforms/${selectedPlatformId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(platformForm),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setPlatforms((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+      }
+    } finally {
+      setPlatformSaving(false);
+    }
+  }
+
+  async function handleDeletePlatform(id: string) {
+    if (!confirm("Delete this delivery platform? This cannot be undone.")) return;
+    const res = await fetch(`/api/admin/delivery-platforms/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setPlatforms((prev) => prev.filter((p) => p.id !== id));
+      if (selectedPlatformId === id) setSelectedPlatformId(null);
     }
   }
 
@@ -571,6 +659,123 @@ export default function AdminSettingsPage() {
               </>
             ) : (
               <p className="text-muted-foreground text-sm">Select an agent to edit.</p>
+            )}
+          </div>
+        </div>
+        <h1 className="text-2xl font-semibold mb-6 mt-10">Delivery Platforms</h1>
+        <div className="flex flex-1 min-h-0 gap-4 border rounded-lg border-border bg-card p-4">
+          <div className="w-56 shrink-0 border-r border-border pr-4 overflow-y-auto">
+            <ul className="space-y-1">
+              {platforms.map((p) => (
+                <li key={p.id} className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPlatformId(p.id)}
+                    className={cn(
+                      "flex-1 text-left px-2 py-1.5 rounded text-sm",
+                      selectedPlatformId === p.id
+                        ? "bg-primary text-primary-foreground"
+                        : "hover:bg-muted",
+                      !p.enabled && "opacity-50 line-through"
+                    )}
+                  >
+                    {p.label}
+                  </button>
+                  <button
+                    type="button"
+                    title={p.enabled ? "Disable platform" : "Enable platform"}
+                    onClick={() => handleTogglePlatform(p.id, p.enabled)}
+                    className={cn(
+                      "shrink-0 w-7 h-4 rounded-full relative transition-colors",
+                      p.enabled ? "bg-green-500" : "bg-muted-foreground/30"
+                    )}
+                  >
+                    <span className={cn(
+                      "absolute top-0.5 h-3 w-3 rounded-full bg-white transition-transform",
+                      p.enabled ? "left-3.5" : "left-0.5"
+                    )} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="flex-1 overflow-y-auto space-y-4 min-w-0">
+            {selectedPlatformId ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">{platforms.find((p) => p.id === selectedPlatformId)?.key}</h3>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => handleDeletePlatform(selectedPlatformId)}
+                    >
+                      Delete
+                    </Button>
+                    <Button size="sm" onClick={handleSavePlatform} disabled={platformSaving}>
+                      {platformSaving ? "Saving..." : "Save Changes"}
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Label</Label>
+                  <Input
+                    value={platformForm.label}
+                    onChange={(e) => setPlatformForm((f) => ({ ...f, label: e.target.value }))}
+                  />
+                </div>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={platformForm.enabled}
+                      onChange={(e) => setPlatformForm((f) => ({ ...f, enabled: e.target.checked }))}
+                      className="rounded"
+                    />
+                    Enabled
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={platformForm.sectionSplit}
+                      onChange={(e) => setPlatformForm((f) => ({ ...f, sectionSplit: e.target.checked }))}
+                      className="rounded"
+                    />
+                    Section split (Squarespace-style)
+                  </label>
+                </div>
+                <div className="space-y-2">
+                  <Label>Platform notes</Label>
+                  <textarea
+                    value={platformForm.platformNotes}
+                    onChange={(e) => setPlatformForm((f) => ({ ...f, platformNotes: e.target.value }))}
+                    className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>README template</Label>
+                  <textarea
+                    value={platformForm.readmeTemplate}
+                    onChange={(e) => setPlatformForm((f) => ({ ...f, readmeTemplate: e.target.value }))}
+                    className="w-full min-h-[200px] rounded-md border border-input bg-background px-3 py-2 font-mono text-sm"
+                    spellCheck={false}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Folder structure <span className="text-muted-foreground font-normal">(JSON)</span></Label>
+                  <textarea
+                    value={platformForm.folderStructure}
+                    onChange={(e) => setPlatformForm((f) => ({ ...f, folderStructure: e.target.value }))}
+                    className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 font-mono text-sm"
+                    spellCheck={false}
+                  />
+                </div>
+              </>
+            ) : (
+              <p className="text-muted-foreground text-sm">Select a platform to edit.</p>
             )}
           </div>
         </div>

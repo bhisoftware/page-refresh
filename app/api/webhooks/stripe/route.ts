@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { sendPaymentConfirmation } from "@/lib/email";
+import { buildAndDeliverLayout } from "@/lib/zip-builder";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -35,6 +36,11 @@ export async function POST(request: Request) {
       const refreshId = session.metadata?.refreshId;
       const layoutIndex = session.metadata?.layoutIndex;
 
+      // Extract target platform from custom fields dropdown
+      const targetPlatform =
+        session.custom_fields?.find((f) => f.key === "target_platform")
+          ?.dropdown?.value ?? null;
+
       if (refreshId) {
         try {
           // Idempotency: skip if already paid
@@ -55,6 +61,7 @@ export async function POST(request: Request) {
               paidAt: new Date(),
               paidEmail: session.customer_details?.email ?? null,
               selectedLayoutPaid: layoutIndex ? parseInt(layoutIndex, 10) : null,
+              targetPlatform,
             },
             select: { urlProfileId: true },
           });
@@ -70,6 +77,13 @@ export async function POST(request: Request) {
             sendPaymentConfirmation(session.customer_details.email, refreshId).catch(
               (err) => console.error("Email send error:", err),
             );
+          }
+
+          // Fire-and-forget: build ZIP, upload to S3, send delivery email
+          if (targetPlatform) {
+            const selectedLayout = layoutIndex ? parseInt(layoutIndex, 10) : 1;
+            buildAndDeliverLayout(refreshId, selectedLayout, targetPlatform)
+              .catch((err) => console.error("[ZIP delivery failed]", err));
           }
         } catch (err) {
           console.error(`Stripe webhook DB error for refresh ${refreshId}:`, err);
