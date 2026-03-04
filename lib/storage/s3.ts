@@ -103,11 +103,18 @@ export async function s3Download(
  */
 export async function s3GetSignedUrl(
   key: string,
-  expiresIn = 3600
+  expiresIn = 3600,
+  downloadFilename?: string,
 ): Promise<string | null> {
   const client = getClient();
   if (!client) return null;
-  const command = new GetObjectCommand({ Bucket: getBucket(), Key: key });
+  const command = new GetObjectCommand({
+    Bucket: getBucket(),
+    Key: key,
+    ...(downloadFilename && {
+      ResponseContentDisposition: `attachment; filename="${downloadFilename}"`,
+    }),
+  });
   return getSignedUrl(client, command, { expiresIn });
 }
 

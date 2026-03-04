@@ -18,40 +18,31 @@ export default async function RefreshedLayoutPage({
   }
 
   // Support both session_id (from Stripe redirect) and refreshId (from email link)
+  const selectFields = {
+    id: true,
+    url: true,
+    selectedLayoutPaid: true,
+    paidEmail: true,
+    layout1Html: true,
+    layout1Css: true,
+    layout2Html: true,
+    layout2Css: true,
+    layout3Html: true,
+    layout3Css: true,
+    bookingConfirmed: true,
+    zipS3Key: true,
+    stripeSessionId: true,
+    urlProfile: { select: { domain: true } },
+  } as const;
+
   const refresh = session_id
     ? await prisma.refresh.findFirst({
         where: { stripeSessionId: session_id, stripePaymentStatus: "paid" },
-        select: {
-          id: true,
-          selectedLayoutPaid: true,
-          paidEmail: true,
-          layout1Html: true,
-          layout1Css: true,
-          layout2Html: true,
-          layout2Css: true,
-          layout3Html: true,
-          layout3Css: true,
-          bookingConfirmed: true,
-          zipS3Key: true,
-          stripeSessionId: true,
-        },
+        select: selectFields,
       })
     : await prisma.refresh.findFirst({
         where: { id: refreshIdParam!, stripePaymentStatus: "paid" },
-        select: {
-          id: true,
-          selectedLayoutPaid: true,
-          paidEmail: true,
-          layout1Html: true,
-          layout1Css: true,
-          layout2Html: true,
-          layout2Css: true,
-          layout3Html: true,
-          layout3Css: true,
-          bookingConfirmed: true,
-          zipS3Key: true,
-          stripeSessionId: true,
-        },
+        select: selectFields,
       });
 
   if (!refresh) {
@@ -73,8 +64,12 @@ export default async function RefreshedLayoutPage({
   const layoutCss = (refresh[layoutCssKey] as string) ?? "";
 
   // Generate a fresh signed URL (the stored one expires after 7 days)
+  const domain = refresh.urlProfile?.domain
+    ?? new URL(refresh.url).hostname.replace(/^www\./, "");
+  const safeDomain = domain.replace(/[^a-z0-9-_]/gi, "-").toLowerCase();
+  const downloadFilename = `${safeDomain}-page-refresh-layout-${layoutIndex}.zip`;
   const zipDownloadUrl = refresh.zipS3Key
-    ? (await s3GetSignedUrl(refresh.zipS3Key, 60 * 60 * 24 * 7)) ?? undefined
+    ? (await s3GetSignedUrl(refresh.zipS3Key, 60 * 60 * 24 * 7, downloadFilename)) ?? undefined
     : undefined;
 
   return (

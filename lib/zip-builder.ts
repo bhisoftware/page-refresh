@@ -442,7 +442,8 @@ ${processedHtml}
 
   // 7. Generate signed URL (7 days — S3v4 max; re-generate on demand for longer access)
   const expiresIn = 60 * 60 * 24 * 7; // 7 days (S3v4 signature max)
-  const downloadUrl = await s3GetSignedUrl(s3Key, expiresIn);
+  const downloadFilename = `${safeName}-page-refresh-layout-${layoutIndex}.zip`;
+  const downloadUrl = await s3GetSignedUrl(s3Key, expiresIn, downloadFilename);
   if (!downloadUrl) {
     console.error(`${prefix} Failed to generate signed URL`);
     return;

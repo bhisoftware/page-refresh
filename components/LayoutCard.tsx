@@ -53,15 +53,14 @@ export function LayoutCard({
       <Card className={cn("flex flex-col overflow-hidden", className)}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-lg">
-            Layout {layoutIndex}
-            {templateName ? ` — ${templateName}` : ""}
+            {templateName || `Layout ${layoutIndex}`}
           </CardTitle>
         </CardHeader>
         <CardContent className="flex-1 p-0">
           <div className="relative w-full bg-muted/30" style={{ height: "80vh" }}>
             {/* allow-scripts required: Creative agents generate HTML with Tailwind CDN (a JS runtime). Without allow-scripts, Tailwind classes are ignored and layouts render unstyled. Safe because HTML is our own agent output, not user-supplied. */}
             <iframe
-              title={`Layout ${layoutIndex}${templateName ? ` — ${templateName}` : ""} preview`}
+              title={`${templateName || `Layout ${layoutIndex}`} preview`}
               srcDoc={srcdoc}
               className="absolute inset-0 h-full w-full border-0"
               sandbox="allow-scripts"

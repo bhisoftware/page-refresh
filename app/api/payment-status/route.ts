@@ -22,14 +22,23 @@ export async function GET(request: NextRequest) {
     where: { stripeSessionId: sessionId },
     select: {
       id: true,
+      url: true,
       stripePaymentStatus: true,
       selectedLayoutPaid: true,
       zipS3Key: true,
+      urlProfile: { select: { domain: true } },
     },
   });
 
   if (!refresh) {
     return Response.json({ status: "not_found" });
+  }
+
+  function zipFilename(layoutIdx: number) {
+    const domain = refresh!.urlProfile?.domain
+      ?? new URL(refresh!.url).hostname.replace(/^www\./, "");
+    const safe = domain.replace(/[^a-z0-9-_]/gi, "-").toLowerCase();
+    return `${safe}-page-refresh-layout-${layoutIdx}.zip`;
   }
 
   // Fallback: if DB still says pending, check Stripe directly.
@@ -67,8 +76,9 @@ export async function GET(request: NextRequest) {
           }
         });
 
+        const selectedIdx = layoutIndex ? parseInt(layoutIndex, 10) : 1;
         const zipDownloadUrl = refresh.zipS3Key
-          ? await s3GetSignedUrl(refresh.zipS3Key, 60 * 60 * 24 * 7)
+          ? await s3GetSignedUrl(refresh.zipS3Key, 60 * 60 * 24 * 7, zipFilename(selectedIdx))
           : null;
 
         return Response.json({
@@ -85,7 +95,7 @@ export async function GET(request: NextRequest) {
   }
 
   const zipDownloadUrl = refresh.zipS3Key
-    ? await s3GetSignedUrl(refresh.zipS3Key, 60 * 60 * 24 * 7)
+    ? await s3GetSignedUrl(refresh.zipS3Key, 60 * 60 * 24 * 7, zipFilename(refresh.selectedLayoutPaid ?? 1))
     : null;
 
   return Response.json({
