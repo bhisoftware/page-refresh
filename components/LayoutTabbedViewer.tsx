@@ -146,9 +146,9 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts, stripePaymen
         {layouts.length > 1 && (
           <div className="sticky top-0 z-30 bg-slate-50/95 backdrop-blur-sm border-b border-border/50 py-2 mb-2 -mx-4 sm:-mx-8 lg:-mx-12 px-4 sm:px-8 lg:px-12">
             <TabsList className="mx-auto flex w-fit">
-              {layouts.map((_, i) => (
+              {layouts.map((layout, i) => (
                 <TabsTrigger key={i + 1} value={String(i + 1)} className="px-8 py-2.5 text-base font-semibold">
-                  Layout {i + 1}
+                  {layout.templateName || `Layout ${i + 1}`}
                 </TabsTrigger>
               ))}
             </TabsList>
