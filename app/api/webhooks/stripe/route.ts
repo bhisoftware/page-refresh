@@ -1,10 +1,11 @@
 import Stripe from "stripe";
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendPaymentConfirmation } from "@/lib/email";
 import { buildAndDeliverLayout } from "@/lib/zip-builder";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -43,14 +44,26 @@ export async function POST(request: Request) {
 
       if (refreshId) {
         try {
-          // Idempotency: skip if already paid
+          // Idempotency: skip DB update if already paid, but still ensure ZIP was built
           const existing = await prisma.refresh.findUnique({
             where: { id: refreshId },
-            select: { stripePaymentStatus: true },
+            select: { stripePaymentStatus: true, zipS3Key: true },
           });
 
           if (existing?.stripePaymentStatus === "paid") {
-            console.log(`Stripe webhook: refresh ${refreshId} already paid, skipping duplicate`);
+            if (!existing.zipS3Key) {
+              // Fallback marked paid but ZIP wasn't built yet — trigger it
+              const selectedLayout = layoutIndex ? parseInt(layoutIndex, 10) : 1;
+              const platform = targetPlatform ?? "custom";
+              after(async () => {
+                try {
+                  await buildAndDeliverLayout(refreshId, selectedLayout, platform);
+                } catch (err) {
+                  console.error("[ZIP delivery failed via webhook retry]", err);
+                }
+              });
+            }
+            console.log(`Stripe webhook: refresh ${refreshId} already paid, skipping DB update`);
             break;
           }
 
@@ -74,17 +87,26 @@ export async function POST(request: Request) {
           }
 
           if (session.customer_details?.email) {
-            sendPaymentConfirmation(session.customer_details.email, refreshId).catch(
-              (err) => console.error("Email send error:", err),
-            );
+            const emailTo = session.customer_details.email;
+            after(async () => {
+              try {
+                await sendPaymentConfirmation(emailTo, refreshId);
+              } catch (err) {
+                console.error("Email send error:", err);
+              }
+            });
           }
 
-          // Fire-and-forget: build ZIP, upload to S3, send delivery email
-          if (targetPlatform) {
-            const selectedLayout = layoutIndex ? parseInt(layoutIndex, 10) : 1;
-            buildAndDeliverLayout(refreshId, selectedLayout, targetPlatform)
-              .catch((err) => console.error("[ZIP delivery failed]", err));
-          }
+          // Build ZIP, upload to S3, send delivery email (runs after response)
+          const selectedLayout = layoutIndex ? parseInt(layoutIndex, 10) : 1;
+          const platform = targetPlatform ?? "custom";
+          after(async () => {
+            try {
+              await buildAndDeliverLayout(refreshId, selectedLayout, platform);
+            } catch (err) {
+              console.error("[ZIP delivery failed]", err);
+            }
+          });
         } catch (err) {
           console.error(`Stripe webhook DB error for refresh ${refreshId}:`, err);
           // Return 200 anyway to prevent Stripe retries

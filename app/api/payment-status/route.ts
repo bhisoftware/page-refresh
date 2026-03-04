@@ -1,7 +1,9 @@
 import { NextRequest } from "next/server";
+import { after } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { s3GetSignedUrl } from "@/lib/storage/s3";
+import { buildAndDeliverLayout } from "@/lib/zip-builder";
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -38,13 +40,31 @@ export async function GET(request: NextRequest) {
       const session = await stripe.checkout.sessions.retrieve(sessionId);
 
       if (session.payment_status === "paid") {
+        const layoutIndex = session.metadata?.layoutIndex;
+        const targetPlatform =
+          session.custom_fields?.find((f: { key: string }) => f.key === "target_platform")
+            ?.dropdown?.value ?? null;
+
         await prisma.refresh.update({
           where: { id: refresh.id },
           data: {
             stripePaymentStatus: "paid",
             paidAt: new Date(),
             paidEmail: session.customer_details?.email ?? null,
+            selectedLayoutPaid: layoutIndex ? parseInt(layoutIndex, 10) : null,
+            targetPlatform,
           },
+        });
+
+        // Trigger ZIP build (runs after response)
+        const selectedLayout = layoutIndex ? parseInt(layoutIndex, 10) : 1;
+        const platform = targetPlatform ?? "custom";
+        after(async () => {
+          try {
+            await buildAndDeliverLayout(refresh.id, selectedLayout, platform);
+          } catch (err) {
+            console.error("[ZIP delivery failed via fallback]", err);
+          }
         });
 
         const zipDownloadUrl = refresh.zipS3Key
@@ -54,7 +74,7 @@ export async function GET(request: NextRequest) {
         return Response.json({
           status: "paid",
           refreshId: refresh.id,
-          layoutIndex: refresh.selectedLayoutPaid,
+          layoutIndex: layoutIndex ? parseInt(layoutIndex, 10) : null,
           zipDownloadUrl,
         });
       }

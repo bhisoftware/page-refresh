@@ -84,8 +84,11 @@ export function RefreshedLayoutClient({
       }
     }, 3000);
 
-    // Stop polling after 2 minutes
-    const timeout = setTimeout(() => clearInterval(interval), 120_000);
+    // Auto-reload after 2 minutes so SSR picks up the URL (or polling restarts)
+    const timeout = setTimeout(() => {
+      clearInterval(interval);
+      window.location.reload();
+    }, 120_000);
 
     return () => {
       clearInterval(interval);
