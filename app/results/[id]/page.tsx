@@ -16,6 +16,8 @@ async function getRefresh(id: string) {
     select: {
       id: true,
       viewToken: true,
+      shareToken: true,
+      shareExpiry: true,
       url: true,
       targetWebsite: true,
       screenshotUrl: true,
@@ -105,18 +107,31 @@ export default async function ResultsPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ token?: string; cached?: string }>;
+  searchParams: Promise<{ token?: string; share?: string; cached?: string }>;
 }) {
   const { id } = await params;
-  const { token, cached } = await searchParams;
+  const { token, share, cached } = await searchParams;
   const refresh = await getRefresh(id);
 
   if (!refresh) notFound();
-  const tokenValid =
+
+  const viewTokenValid =
     typeof token === "string" &&
     token.length > 0 &&
     refresh.viewToken === token;
-  if (!tokenValid) forbidden();
+
+  const shareTokenValid =
+    typeof share === "string" &&
+    share.length > 0 &&
+    refresh.shareToken === share &&
+    refresh.shareExpiry != null &&
+    new Date(refresh.shareExpiry) > new Date();
+
+  if (!viewTokenValid && !shareTokenValid) forbidden();
+
+  // Share-link visitors don't have the viewToken in the URL, but downstream
+  // components (checkout, reach-out) need it for server-side validation.
+  const effectiveToken = viewTokenValid ? token! : refresh.viewToken;
 
   const overallScore = Number(refresh.overallScore) || 0;
   const rawScoringDetails = refresh.scoringDetails;
@@ -199,7 +214,7 @@ export default async function ResultsPage({
           <LayoutSectionErrorBoundary>
             <LayoutSection
               refreshId={id}
-              viewToken={token!}
+              viewToken={effectiveToken}
               layouts={layoutsWithContent}
               stripePaymentStatus={refresh.stripePaymentStatus ?? undefined}
               stripeSessionId={refresh.stripeSessionId ?? undefined}
@@ -222,7 +237,7 @@ export default async function ResultsPage({
           <p className="text-muted-foreground mb-4 text-center">
             Questions? Reach out to our team below:
           </p>
-          <ReachOutSection refreshId={id} viewToken={token!} />
+          <ReachOutSection refreshId={id} viewToken={effectiveToken} />
         </section>
 
         {/* Industry benchmark */}

@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScoreBreakdown, type DimensionDetail } from "@/components/ScoreBreakdown";
 import { ScoreRingHero } from "@/components/ScoreRingHero";
 import { InstallCtaCard } from "@/components/InstallCtaCard";
-import { AdminLayoutViewer } from "@/components/AdminLayoutViewer";
+import { LayoutTabbedViewer } from "@/components/LayoutTabbedViewer";
 import type { LayoutItem } from "@/components/LayoutSection";
 import { EmailScoresCta } from "@/components/EmailScoresCta";
+import { ShareReportButton } from "./ShareReportButton";
 import { AdminNotesSection } from "./AdminNotesSection";
 import { AdminPromptLogs } from "./AdminPromptLogs";
 import { Badge } from "@/components/ui/badge";
@@ -108,6 +109,11 @@ export default async function AdminAnalysisPage({
               View URL profile →
             </Link>
           )}
+          <ShareReportButton
+            refreshId={id}
+            initialShareToken={refresh.shareToken}
+            initialShareExpiry={refresh.shareExpiry?.toISOString() ?? null}
+          />
         </div>
 
         {/* Site details */}
@@ -279,10 +285,12 @@ export default async function AdminAnalysisPage({
         {hasLayouts && (
           <section className="mb-8">
             <h2 className="text-xl font-semibold mb-4">Layout Previews</h2>
-            <AdminLayoutViewer
+            <LayoutTabbedViewer
               refreshId={id}
               viewToken={refresh.viewToken}
               layouts={layoutsWithContent}
+              stripePaymentStatus={refresh.stripePaymentStatus ?? undefined}
+              stripeSessionId={refresh.stripeSessionId ?? undefined}
             />
           </section>
         )}

@@ -107,6 +107,10 @@ model Refresh {
   // Access: token required to view results (link-level, not guessable)
   viewToken         String   @unique @default(cuid())
 
+  // Admin share link (time-limited, regenerable)
+  shareToken        String?  @unique
+  shareExpiry       DateTime?
+
   // URL Profile link (Phase 2 sets this at pipeline start)
   urlProfileId      String?
   urlProfile        UrlProfile? @relation(fields: [urlProfileId], references: [id])
