@@ -43,7 +43,7 @@ const PROVIDERS = [
   { id: "screenshotone", name: "ScreenshotOne" },
 ] as const;
 
-const PIPELINE_SLUGS = ["screenshot-analysis", "industry-seo", "score"];
+const PIPELINE_SLUGS = ["screenshot-analysis", "industry-seo", "score", "scanning-copy"];
 const CREATIVE_SLUGS = ["creative-modern", "creative-classy", "creative-unique"];
 
 const ANTHROPIC_MODELS = [

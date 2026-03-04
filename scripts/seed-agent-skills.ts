@@ -1,5 +1,5 @@
 /**
- * Seed 6 agent skills. Upsert by agentSlug.
+ * Seed 7 agent skills. Upsert by agentSlug.
  * Version-gated prompt updates: if the seed version is higher than the DB version,
  * systemPrompt is overwritten and the old prompt is archived to AgentSkillHistory.
  * Otherwise, systemPrompt is preserved (admin edits survive).
