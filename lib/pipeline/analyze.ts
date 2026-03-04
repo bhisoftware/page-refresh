@@ -204,13 +204,50 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     },
   });
   const refreshId = refresh.id;
+  let pipelineCompleted = false;
   onRefreshCreated?.(refreshId, refresh.viewToken);
 
-  const [fetchResult, screenshotBuffer] = await Promise.all([
-    fetchHtml(rawUrl).then((r) => r.html),
-    captureScreenshotCloud(rawUrl).catch(() => null),
-  ]);
-  const html = fetchResult;
+  try {
+  // ---- begin guarded pipeline ----
+
+  let html: string;
+  let screenshotBuffer: Buffer | null;
+  let fetchRetryCount = 0;
+
+  try {
+    const [fetchResult, ssBuffer] = await Promise.all([
+      fetchHtml(rawUrl).then((r) => r.html),
+      captureScreenshotCloud(rawUrl).catch(() => null),
+    ]);
+    html = fetchResult;
+    screenshotBuffer = ssBuffer;
+  } catch (firstErr) {
+    // Auto-retry fetchHtml once after a short delay (screenshot is non-critical)
+    console.warn("[pipeline] Fetch failed, retrying once in 3s:", firstErr instanceof Error ? firstErr.message : String(firstErr));
+    fetchRetryCount = 1;
+    try {
+      await new Promise((r) => setTimeout(r, 3000));
+      const [retryResult, ssBuffer] = await Promise.all([
+        fetchHtml(rawUrl).then((r) => r.html),
+        captureScreenshotCloud(rawUrl).catch(() => null),
+      ]);
+      html = retryResult;
+      screenshotBuffer = ssBuffer;
+    } catch (retryErr) {
+      const msg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+      console.error("[pipeline] Fetch phase failed after retry:", msg);
+      onProgress?.({ step: "error", message: msg });
+      await prisma.refresh.update({
+        where: { id: refreshId },
+        data: { status: "failed", errorStep: "fetching", errorMessage: msg.slice(0, 2000) },
+      }).catch(() => {});
+      await prisma.urlProfile.update({
+        where: { id: urlProfile.id },
+        data: { lastFetchRetries: fetchRetryCount },
+      }).catch(() => {});
+      throw retryErr;
+    }
+  }
 
   const inlineCss = extractInlineCss(html);
   const externalCss = await fetchExternalCss(html, rawUrl, 3);
@@ -397,6 +434,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
       lastAnalyzedAt: new Date(),
       latestScore: scoreResult.scores.overall,
       bestScore: Math.max(urlProfile.bestScore ?? 0, scoreResult.scores.overall),
+      lastFetchRetries: fetchRetryCount,
       ...(urlProfile.industryLocked ? {} : { industry }),
     },
   });
@@ -569,7 +607,35 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     },
   });
 
+  pipelineCompleted = true;
   const elapsedSec = Math.round((Date.now() - startTime) / 1000);
   console.log("[pipeline] completed", { refreshId, elapsedSec });
   return refreshId;
+
+  // ---- end guarded pipeline ----
+  } catch (pipelineErr) {
+    // If the pipeline crashes at any point after refresh creation, ensure
+    // the status moves out of transient states so the user doesn't see a stale page.
+    if (!pipelineCompleted) {
+      const currentRefresh = await prisma.refresh.findUnique({
+        where: { id: refreshId },
+        select: { status: true },
+      }).catch(() => null);
+      const transientStatuses = ["fetching", "analyzing", "scoring", "generating"];
+      if (currentRefresh && transientStatuses.includes(currentRefresh.status)) {
+        const msg = pipelineErr instanceof Error ? pipelineErr.message : String(pipelineErr);
+        await prisma.refresh.update({
+          where: { id: refreshId },
+          data: {
+            status: "failed",
+            errorStep: currentRefresh.status,
+            errorMessage: (currentRefresh.status === "fetching" ? msg : `Pipeline crashed during ${currentRefresh.status}: ${msg}`).slice(0, 2000),
+            processingTime: Math.round((Date.now() - startTime) / 1000),
+          },
+        }).catch(() => {});
+        console.error(`[pipeline] Crash during "${currentRefresh.status}":`, msg);
+      }
+    }
+    throw pipelineErr;
+  }
 }

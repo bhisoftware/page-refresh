@@ -257,10 +257,11 @@ model UrlProfile {
   contactPhone    String?
   hostingPlatform String?
 
-  analysisCount   Int       @default(0)
-  lastAnalyzedAt  DateTime?
-  bestScore       Int?
-  latestScore     Int?
+  analysisCount      Int       @default(0)
+  lastAnalyzedAt     DateTime?
+  bestScore          Int?
+  latestScore        Int?
+  lastFetchRetries   Int       @default(0)
 
   customerEmail     String?
   customerFirstName String?

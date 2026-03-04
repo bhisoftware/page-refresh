@@ -9,6 +9,7 @@ import { BenchmarkComparison, type BenchmarkComparisonData } from "@/components/
 import { ScoreRingHero } from "@/components/ScoreRingHero";
 import { ArrowLeft } from "lucide-react";
 import { Logo } from "@/components/Logo";
+import { FailedAnalysisRedirect } from "@/components/FailedAnalysisRedirect";
 import { prisma } from "@/lib/prisma";
 
 async function getRefresh(id: string) {
@@ -16,6 +17,8 @@ async function getRefresh(id: string) {
     where: { id },
     select: {
       id: true,
+      status: true,
+      errorStep: true,
       viewToken: true,
       shareToken: true,
       shareExpiry: true,
@@ -108,10 +111,10 @@ export default async function ResultsPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ token?: string; share?: string; cached?: string }>;
+  searchParams: Promise<{ token?: string; share?: string; cached?: string; retried?: string }>;
 }) {
   const { id } = await params;
-  const { token, share, cached } = await searchParams;
+  const { token, share, cached, retried } = await searchParams;
   const refresh = await getRefresh(id);
 
   if (!refresh) notFound();
@@ -133,6 +136,36 @@ export default async function ResultsPage({
   // Share-link visitors don't have the viewToken in the URL, but downstream
   // components (checkout, reach-out) need it for server-side validation.
   const effectiveToken = viewTokenValid ? token! : refresh.viewToken;
+
+  // Detect fetch-phase failure: status stuck at "fetching" or explicitly failed with no scores
+  const isFetchFailed =
+    (refresh.status === "fetching" || (refresh.status === "failed" && refresh.errorStep === "fetching")) &&
+    Number(refresh.overallScore) === 0;
+
+  if (isFetchFailed) {
+    // First attempt: auto-redirect to homepage to silently re-run
+    if (retried !== "1") {
+      return <FailedAnalysisRedirect url={refresh.url} />;
+    }
+    // Already retried once: show static fallback with manual retry button
+    return (
+      <main className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50">
+        <div className="text-center space-y-4 max-w-md">
+          <h1 className="text-xl font-semibold">Analysis could not complete</h1>
+          <p className="text-muted-foreground">
+            We were unable to analyze this website after multiple attempts.
+            This can happen if the site blocks automated access or is temporarily unavailable.
+          </p>
+          <Link
+            href={`/?url=${encodeURIComponent(refresh.url)}`}
+            className="inline-flex items-center justify-center rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Try Again
+          </Link>
+        </div>
+      </main>
+    );
+  }
 
   const overallScore = Number(refresh.overallScore) || 0;
   const rawScoringDetails = refresh.scoringDetails;
