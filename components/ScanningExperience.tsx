@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
@@ -40,7 +40,7 @@ const PHASE_ORDER: VisualPhase[] = [
 ];
 
 const PILL_CONFIG = [
-  { key: "scanning" as const, label: "Fetching site" },
+  { key: "scanning" as const, label: "Accessing site" },
   { key: "industry" as const, label: "Industry" },
   { key: "brand" as const, label: "Brand" },
   { key: "competitors" as const, label: "Competitors" },
@@ -48,13 +48,21 @@ const PILL_CONFIG = [
   { key: "designing" as const, label: "Designing" },
 ];
 
-/** Fixed finding slots with phase association and stagger delay. */
-const FINDING_SLOTS = [
-  { key: "industry:0", phase: "industry" as VisualPhase, delay: 800 },
-  { key: "brand:0", phase: "brand" as VisualPhase, delay: 800 },
-  { key: "brand:1", phase: "brand" as VisualPhase, delay: 1600 },
-  { key: "competitors:0", phase: "competitors" as VisualPhase, delay: 800 },
-  { key: "scoring:0", phase: "scoring" as VisualPhase, delay: 800 },
+/** Analysis findings — one per timed phase, shown after streaming text finishes. */
+const ANALYSIS_FINDINGS = [
+  { key: "industry", phase: "industry" as VisualPhase, label: "Homepage Analyzed" },
+  { key: "brand", phase: "brand" as VisualPhase, label: "Industry Detected" },
+  { key: "competitors", phase: "competitors" as VisualPhase, label: "5-Second Clarity Test" },
+  { key: "scoring", phase: "scoring" as VisualPhase, label: "Finding Conversion Blockers" },
+];
+
+/** Design-phase progress items — staggered 30s apart. */
+const DESIGN_FINDINGS = [
+  { key: "design:0", delay: 0, label: "Enhancing Design System" },
+  { key: "design:1", delay: 30000, label: "Boosting Trust Signals For Your Industry" },
+  { key: "design:2", delay: 60000, label: "Rebuilding Page Layouts" },
+  { key: "design:3", delay: 90000, label: "Tuning for Google and Local SEO" },
+  { key: "design:4", delay: 120000, label: "Making page AI-discoverable" },
 ];
 
 const SEVERITY_ICON: Record<Severity, string> = {
@@ -124,7 +132,7 @@ function getPhaseContent(
   switch (phase) {
     case "scanning":
       return {
-        eyebrow: "Fetching site",
+        eyebrow: "Accessing site",
         text: "Reading your page structure and visual layout\u2026",
       };
     case "industry": {
@@ -180,83 +188,30 @@ function getPhaseContent(
   }
 }
 
-/** Resolve a finding slot key to content from the latest tokens. */
-function getFindingContent(
-  slotKey: string,
+/** Resolve an analysis finding key to display content. */
+function getAnalysisFindingContent(
+  key: string,
   tokens: Record<string, Record<string, unknown>>
-): FindingContent | null {
-  switch (slotKey) {
-    case "industry:0": {
-      const d = tokens.industry as
-        | { name?: string; confidence?: number }
-        | undefined;
-      if (!d?.name) return null;
+): FindingContent {
+  switch (key) {
+    case "industry":
+      return { severity: "ok", label: "Homepage Analyzed", detail: "" };
+    case "brand": {
+      const d = tokens.industry as { name?: string } | undefined;
       return {
         severity: "ok",
-        label: "Industry detected:",
-        detail: d.name,
-        note: `${Math.round(d.confidence ?? 0)}% confidence`,
+        label: "Industry Detected",
+        detail: d?.name ? `\u2014 ${d.name}` : "",
       };
     }
-    case "brand:0": {
-      const d = tokens.structure as
-        | { checks?: Array<{ label: string; status: string; value: string }> }
-        | undefined;
-      const hit = d?.checks?.find(
-        (c) => c.status === "warn" || c.status === "bad"
-      );
-      if (!hit) return null;
-      return {
-        severity: hit.status as Severity,
-        label: hit.label + ":",
-        detail: hit.value,
-      };
-    }
-    case "brand:1": {
-      const c = tokens.colors as { palette?: unknown[] } | undefined;
-      const f = tokens.fonts as { detected?: unknown[] } | undefined;
-      if (!c?.palette && !f?.detected) return null;
-      return {
-        severity: "ok",
-        label: "Brand extracted:",
-        detail: `${c?.palette?.length ?? 0} colors, ${f?.detected?.length ?? 0} fonts`,
-        note: "consistent identity detected",
-      };
-    }
-    case "competitors:0": {
-      const d = tokens.scores as
-        | { bottom?: { name: string; score: number } }
-        | undefined;
-      if (!d?.bottom) return null;
-      return {
-        severity: d.bottom.score < 40 ? "bad" : "warn",
-        label: `Weakest area \u2014 ${d.bottom.name}:`,
-        detail: `${d.bottom.score}/100`,
-        note: "focus area for improvement",
-      };
-    }
-    case "scoring:0": {
-      const d = tokens.seo as
-        | { checks?: Array<{ label: string; status: string; value: string }> }
-        | undefined;
-      const hit = d?.checks?.find(
-        (c) => c.status === "warn" || c.status === "bad"
-      );
-      if (!hit) return null;
-      return {
-        severity: hit.status as Severity,
-        label: hit.label + ":",
-        detail: hit.value,
-      };
-    }
+    case "competitors":
+      return { severity: "ok", label: "5-Second Clarity Test", detail: "" };
+    case "scoring":
+      return { severity: "ok", label: "Finding Conversion Blockers", detail: "" };
     default:
-      return null;
+      return { severity: "ok", label: "", detail: "" };
   }
 }
-
-/* ═══════════════════════════════════════════════════════════════
-   Sub-components
-   ═══════════════════════════════════════════════════════════════ */
 
 /* ═══════════════════════════════════════════════════════════════
    Keyframes (injected once via <style>)
@@ -291,18 +246,27 @@ export function ScanningExperience({
   const [visualPhase, setVisualPhase] = useState<VisualPhase>("scanning");
 
   /* ─── Streaming text ────────────────────────────────────── */
-  const [streamEyebrow, setStreamEyebrow] = useState("Fetching site");
+  const [streamEyebrow, setStreamEyebrow] = useState("Accessing site");
   const [streamTarget, setStreamTarget] = useState("");
   const [streamRevealed, setStreamRevealed] = useState(0);
   const [cursorActive, setCursorActive] = useState(false);
 
-  /* ─── Findings visibility (slot keys) ───────────────────── */
-  const [visibleSlots, setVisibleSlots] = useState<Set<string>>(new Set());
+  /* ─── Findings visibility ───────────────────────────────── */
+  const [visibleAnalysisFindings, setVisibleAnalysisFindings] = useState<Set<string>>(new Set());
+  const [visibleDesignFindings, setVisibleDesignFindings] = useState<Set<string>>(new Set());
+
+  /* Ref to track previous cursorActive value for edge detection */
+  const prevCursorActiveRef = useRef(false);
 
   /* ─── Phase transitions driven by currentStep ───────────── */
   useEffect(() => {
     if (currentStep === "started" || currentStep === "retry") {
       setVisualPhase("scanning");
+      setStreamRevealed(0);
+      setCursorActive(false);
+      setVisibleAnalysisFindings(new Set());
+      setVisibleDesignFindings(new Set());
+      prevCursorActiveRef.current = false;
       return;
     }
     if (currentStep === "generating") {
@@ -359,28 +323,57 @@ export function ScanningExperience({
     return () => clearTimeout(timer);
   }, [streamRevealed, streamTarget, cursorActive]);
 
-  /* ─── Schedule finding slot visibility on phase change ──── */
+  /* ─── Show analysis finding when streaming text finishes ── */
+  useEffect(() => {
+    // Detect falling edge: cursorActive went from true → false
+    const wasPreviouslyActive = prevCursorActiveRef.current;
+    prevCursorActiveRef.current = cursorActive;
+
+    if (cursorActive || !wasPreviouslyActive) return;
+    if (visualPhase === "designing" || visualPhase === "done") return;
+
+    const finding = ANALYSIS_FINDINGS.find((f) => f.phase === visualPhase);
+    if (!finding) return;
+
+    const timer = setTimeout(() => {
+      setVisibleAnalysisFindings((prev) => {
+        if (prev.has(finding.key)) return prev;
+        return new Set([...prev, finding.key]);
+      });
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [cursorActive, visualPhase]);
+
+  /* ─── Ensure past-phase findings are visible ────────────── */
   useEffect(() => {
     const currentIdx = getPhaseIndex(visualPhase);
-    const timers: ReturnType<typeof setTimeout>[] = [];
-
-    for (const slot of FINDING_SLOTS) {
-      const slotIdx = getPhaseIndex(slot.phase);
-
-      if (slotIdx < currentIdx) {
-        // Past phase — show immediately
-        setVisibleSlots((prev) => {
-          if (prev.has(slot.key)) return prev;
-          return new Set([...prev, slot.key]);
+    for (const finding of ANALYSIS_FINDINGS) {
+      const findingIdx = getPhaseIndex(finding.phase);
+      if (findingIdx < currentIdx) {
+        setVisibleAnalysisFindings((prev) => {
+          if (prev.has(finding.key)) return prev;
+          return new Set([...prev, finding.key]);
         });
-      } else if (slotIdx === currentIdx) {
-        // Current phase — stagger in
-        timers.push(
-          setTimeout(() => {
-            setVisibleSlots((prev) => new Set([...prev, slot.key]));
-          }, slot.delay)
-        );
       }
+    }
+  }, [visualPhase]);
+
+  /* ─── Design phase findings — stagger every 30s ─────────── */
+  useEffect(() => {
+    if (visualPhase !== "designing" && visualPhase !== "done") {
+      setVisibleDesignFindings(new Set());
+      return;
+    }
+    if (visualPhase === "done") return;
+
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    for (const item of DESIGN_FINDINGS) {
+      timers.push(
+        setTimeout(() => {
+          setVisibleDesignFindings((prev) => new Set([...prev, item.key]));
+        }, item.delay)
+      );
     }
 
     return () => timers.forEach(clearTimeout);
@@ -399,23 +392,25 @@ export function ScanningExperience({
     ? `Analysis complete \u2014 ${layoutCount} designs ready`
     : isDesigning
       ? "Designing 3 refreshed pages\u2026"
-      : "Analyzing your website\u2026";
+      : "Analyzing your web presence\u2026";
   const thinkingSub = isDone
     ? "Results are waiting for you"
     : countdownSeconds != null && countdownSeconds > 0
       ? formatCountdown(countdownSeconds)
       : "Finishing up\u2026";
 
-  // Collect renderable findings
-  const renderableFindings = useMemo(() => {
-    return FINDING_SLOTS.map((slot) => ({
-      slot,
-      content: getFindingContent(slot.key, tokens),
-    })).filter(
-      (f): f is { slot: typeof FINDING_SLOTS[number]; content: FindingContent } =>
-        f.content !== null
-    );
-  }, [tokens]);
+  // Analysis findings to render
+  const analysisFindings = useMemo(() => {
+    return ANALYSIS_FINDINGS.filter((f) => visibleAnalysisFindings.has(f.key)).map((f) => ({
+      key: f.key,
+      content: getAnalysisFindingContent(f.key, tokens),
+    }));
+  }, [visibleAnalysisFindings, tokens]);
+
+  // Design findings to render
+  const designFindings = useMemo(() => {
+    return DESIGN_FINDINGS.filter((f) => visibleDesignFindings.has(f.key));
+  }, [visibleDesignFindings]);
 
   /* ─── Error state ───────────────────────────────────────── */
   if (isError) {
@@ -561,50 +556,68 @@ export function ScanningExperience({
             </div>
           </div>
 
-          {/* Findings */}
-          {renderableFindings.length > 0 && (
+          {/* Analysis Findings (visible during analysis phases) */}
+          {visualPhase !== "designing" && !isDone && analysisFindings.length > 0 && (
             <div
               className="flex flex-col gap-2.5 px-5 py-4 sm:px-8 sm:py-5"
               style={{ borderBottom: "1px solid #e7e5e0" }}
             >
-              {renderableFindings.map(({ slot, content }) => {
-                const isVisible = visibleSlots.has(slot.key);
-                if (!isVisible) return null;
-                return (
+              {analysisFindings.map(({ key, content }) => (
+                <div
+                  key={key}
+                  className="flex items-start gap-2.5"
+                  style={{ animation: "sc-findingIn 0.35s ease forwards" }}
+                >
                   <div
-                    key={slot.key}
-                    className="flex items-start gap-2.5"
+                    className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 mt-px"
                     style={{
-                      animation: "sc-findingIn 0.35s ease forwards",
+                      background: SEVERITY_BG[content.severity],
+                      color: SEVERITY_COLOR[content.severity],
                     }}
                   >
-                    <div
-                      className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 mt-px"
-                      style={{
-                        background: SEVERITY_BG[content.severity],
-                        color: SEVERITY_COLOR[content.severity],
-                      }}
-                    >
-                      {SEVERITY_ICON[content.severity]}
-                    </div>
-                    <div
-                      className="text-[13px] leading-normal"
-                      style={{ color: "#1c1917" }}
-                    >
-                      <strong className="font-semibold">
-                        {content.label}
-                      </strong>{" "}
-                      {content.detail}
-                      {content.note && (
-                        <span style={{ color: "#78716c" }}>
-                          {" "}
-                          &mdash; {content.note}
-                        </span>
-                      )}
-                    </div>
+                    {SEVERITY_ICON[content.severity]}
                   </div>
-                );
-              })}
+                  <div
+                    className="text-[13px] leading-normal"
+                    style={{ color: "#1c1917" }}
+                  >
+                    <strong className="font-semibold">{content.label}</strong>
+                    {content.detail && <> {content.detail}</>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Design Findings (visible during design phase) */}
+          {(isDesigning || isDone) && designFindings.length > 0 && (
+            <div
+              className="flex flex-col gap-2.5 px-5 py-4 sm:px-8 sm:py-5"
+              style={{ borderBottom: "1px solid #e7e5e0" }}
+            >
+              {designFindings.map((item) => (
+                <div
+                  key={item.key}
+                  className="flex items-start gap-2.5"
+                  style={{ animation: "sc-findingIn 0.35s ease forwards" }}
+                >
+                  <div
+                    className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 mt-px"
+                    style={{
+                      background: SEVERITY_BG["ok"],
+                      color: SEVERITY_COLOR["ok"],
+                    }}
+                  >
+                    {SEVERITY_ICON["ok"]}
+                  </div>
+                  <div
+                    className="text-[13px] leading-normal"
+                    style={{ color: "#1c1917" }}
+                  >
+                    <strong className="font-semibold">{item.label}</strong>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
