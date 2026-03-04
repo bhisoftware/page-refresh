@@ -88,15 +88,15 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts, stripePaymen
 
   return (
     <>
-      {/* Icy install button styles */}
+      {/* Page Refresh brand green install button styles */}
       <style>{`
         .icy-install-btn {
-          background: linear-gradient(135deg, #e0f7fa 0%, #80deea 50%, #4dd0e1 100%);
-          color: #006064;
-          border: 2px solid #80deea;
+          background: linear-gradient(135deg, #7faa8e 0%, #2d5a3d 50%, #1e4a2e 100%);
+          color: #f5f0eb;
+          border: 2px solid #2d5a3d;
           box-shadow:
-            0 4px 14px rgba(77, 208, 225, 0.4),
-            0 0 20px rgba(128, 222, 234, 0.3);
+            0 4px 14px rgba(45, 90, 61, 0.4),
+            0 0 20px rgba(45, 90, 61, 0.3);
           animation: icyPulse 2s ease-in-out infinite;
           overflow: hidden;
         }
@@ -110,19 +110,19 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts, stripePaymen
           background: linear-gradient(
             45deg,
             transparent 30%,
-            rgba(255, 255, 255, 0.4) 50%,
+            rgba(255, 255, 255, 0.25) 50%,
             transparent 70%
           );
           transform: rotate(45deg);
           animation: iceShimmer 3s ease-in-out infinite;
         }
         .icy-install-btn:hover {
-          background: linear-gradient(135deg, #b2ebf2 0%, #4dd0e1 50%, #26c6da 100%);
-          color: #004d40;
+          background: linear-gradient(135deg, #2d5a3d 0%, #1e4a2e 50%, #1a3d28 100%);
+          color: #fff;
           transform: translateY(-2px);
           box-shadow:
-            0 6px 20px rgba(77, 208, 225, 0.5),
-            0 0 30px rgba(128, 222, 234, 0.5);
+            0 6px 20px rgba(45, 90, 61, 0.5),
+            0 0 30px rgba(45, 90, 61, 0.5);
         }
         .icy-install-btn:disabled {
           opacity: 0.7;
@@ -132,14 +132,14 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts, stripePaymen
         @keyframes icyPulse {
           0%, 100% {
             box-shadow:
-              0 4px 14px rgba(77, 208, 225, 0.4),
-              0 0 20px rgba(128, 222, 234, 0.3);
+              0 4px 14px rgba(45, 90, 61, 0.4),
+              0 0 20px rgba(45, 90, 61, 0.3);
           }
           50% {
             box-shadow:
-              0 4px 20px rgba(77, 208, 225, 0.6),
-              0 0 35px rgba(128, 222, 234, 0.5),
-              0 0 50px rgba(224, 247, 250, 0.3);
+              0 4px 20px rgba(45, 90, 61, 0.6),
+              0 0 35px rgba(45, 90, 61, 0.5),
+              0 0 50px rgba(127, 170, 142, 0.3);
           }
         }
         @keyframes iceShimmer {
@@ -193,10 +193,10 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts, stripePaymen
               type="button"
               onClick={handleInstallClick}
               disabled={checkoutLoading}
-              className="icy-install-btn absolute bottom-6 right-0 z-20 px-6 py-3 rounded-xl
-                         font-bold text-sm cursor-pointer transition-all"
+              className="icy-install-btn absolute bottom-6 right-0 z-20 px-7 py-3.5 rounded-xl
+                         font-bold text-base cursor-pointer transition-all"
             >
-              {checkoutLoading ? "Loading…" : isPaid ? "View Your Layout" : "Install This Layout"}
+              {checkoutLoading ? "Loading…" : isPaid ? "View Your Layout" : "Select This Refreshed Page"}
             </button>
           </div>
         </div>
