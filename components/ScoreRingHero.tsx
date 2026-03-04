@@ -14,7 +14,7 @@ interface ScoreRingHeroProps {
   benchmarkBadge?: string | null;
   /** Optional subtitle below the summary (e.g. date/time, industry) */
   subtitle?: string | null;
-  /** Optional dimension details; when provided, shows expandable "Score by dimension" */
+  /** Optional dimension details; when provided, shows expandable "See why you scored a {score}" */
   details?: DimensionDetail[];
 }
 
@@ -90,7 +90,7 @@ export function ScoreRingHero({
               className="mt-4 flex items-center gap-2 text-sm font-semibold text-foreground hover:text-muted-foreground transition-colors"
               aria-expanded={expanded}
             >
-              Score by dimension
+              See why you scored a {score}
               <ChevronDown
                 className={cn("h-4 w-4 shrink-0 transition-transform", expanded && "rotate-180")}
               />
@@ -101,7 +101,7 @@ export function ScoreRingHero({
 
       {hasDetails && expanded ? (
         <div className="mt-6 pt-6 border-t">
-          <h3 className="text-lg font-bold text-slate-900 tracking-tight mb-4">Score by dimension</h3>
+          <h3 className="text-lg font-bold text-slate-900 tracking-tight mb-4">See why you scored a {score}</h3>
           <ScoreBreakdown details={details} />
         </div>
       ) : null}
