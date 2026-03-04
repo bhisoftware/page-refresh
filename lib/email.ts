@@ -47,7 +47,10 @@ function emailLayout(title: string, body: string): string {
 <body>
   <div class="container">
     <div class="card">
-      <div class="logo">Page Refresh</div>
+      <div class="logo" style="display:flex;align-items:center;gap:8px;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2d5a3d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+        Page Refresh
+      </div>
       ${body}
     </div>
     <div class="footer">

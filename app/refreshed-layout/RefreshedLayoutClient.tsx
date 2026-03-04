@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { wrapInDocument } from "@/lib/layout-preview";
 import { ScheduleInstallModal } from "@/components/ScheduleInstallModal";
+import { Logo } from "@/components/Logo";
 
 interface RefreshedLayoutClientProps {
   sessionId: string;
@@ -138,6 +140,12 @@ export function RefreshedLayoutClient({
   return (
     <main className="min-h-screen bg-slate-50">
       <div className="px-4 sm:px-8 lg:px-12 max-w-[1400px] mx-auto py-8">
+        <Link
+          href="/"
+          className="inline-block text-sm text-muted-foreground hover:text-foreground mb-4"
+        >
+          <Logo iconSize={18} className="gap-1.5" />
+        </Link>
         <h1 className="text-2xl sm:text-3xl font-semibold mb-6" style={{ fontFamily: "Fraunces, serif" }}>
           Let&apos;s connect your new page
         </h1>

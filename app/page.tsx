@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { type PipelineStep } from "@/components/AnalysisProgress";
 import { ScanningExperience } from "@/components/ScanningExperience";
 import { Loader2 } from "lucide-react";
+import { LogoIcon } from "@/components/Logo";
 import { cn, normalizeWebsiteUrl } from "@/lib/utils";
 
 function isUnreachableWebsiteError(message: string): boolean {
@@ -289,7 +290,8 @@ export default function Home() {
       <div className="w-full max-w-xl mx-auto text-center space-y-8">
         <>
           <div className="space-y-3">
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground inline-flex items-center justify-center gap-2">
+              <LogoIcon size={32} />
               Page Refresh
             </h1>
             <p className="text-lg text-muted-foreground max-w-md mx-auto">

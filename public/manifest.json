@@ -1,0 +1,15 @@
+{
+  "name": "Page Refresh",
+  "short_name": "Page Refresh",
+  "icons": [
+    {
+      "src": "/logo-icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    }
+  ],
+  "start_url": "/",
+  "display": "browser",
+  "theme_color": "#2d5a3d",
+  "background_color": "#ffffff"
+}

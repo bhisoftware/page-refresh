@@ -8,6 +8,7 @@ import { SeoAuditSection, type SeoCheckItem, type SeoRecommendation } from "@/co
 import { BenchmarkComparison, type BenchmarkComparisonData } from "@/components/BenchmarkComparison";
 import { ScoreRingHero } from "@/components/ScoreRingHero";
 import { ArrowLeft } from "lucide-react";
+import { Logo } from "@/components/Logo";
 import { prisma } from "@/lib/prisma";
 
 async function getRefresh(id: string) {
@@ -181,13 +182,14 @@ export default async function ResultsPage({
     <main className="min-h-screen bg-slate-50 overflow-x-hidden">
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-8">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to home
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/"
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              <Logo iconSize={18} className="gap-1.5" />
+            </Link>
+          </div>
           {ranDate && (
             <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-medium text-emerald-700">
               Analysis Report · {ranDate}

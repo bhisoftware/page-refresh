@@ -7,6 +7,15 @@ export const metadata: Metadata = {
   title: "Page Refresh - Refresh Your Homepage",
   description:
     "Paste your website and get a $50,000 quality refresh in 5 minutes.",
+  openGraph: {
+    siteName: "Page Refresh",
+    type: "website",
+    locale: "en_US",
+    title: "Page Refresh - Refresh Your Homepage",
+    description:
+      "Paste your website and get a $50,000 quality refresh in 5 minutes.",
+  },
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
