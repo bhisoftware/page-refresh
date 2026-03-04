@@ -28,14 +28,20 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts, stripePaymen
 
   const currentLayout = layoutByTab[activeTab] ?? layouts[0];
 
-  const srcdoc = useMemo(
-    () =>
-      wrapInDocument(currentLayout.layoutHtml, currentLayout.layoutCss ?? "", {
-        desktopViewport: true,
-        scaleToFit: 0.85,
-      }),
-    [currentLayout.layoutHtml, currentLayout.layoutCss]
-  );
+  // Rewrite absolute blob URLs so they resolve to the current origin,
+  // regardless of what NEXT_PUBLIC_APP_URL was when the pipeline ran.
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const srcdoc = useMemo(() => {
+    const html = (currentLayout.layoutHtml ?? "").replace(
+      /https?:\/\/[^/]+\/api\/blob\//g,
+      `${origin}/api/blob/`
+    );
+    return wrapInDocument(html, currentLayout.layoutCss ?? "", {
+      desktopViewport: true,
+      scaleToFit: 0.85,
+      baseUrl: origin,
+    });
+  }, [currentLayout.layoutHtml, currentLayout.layoutCss, origin]);
 
   const isPaid = stripePaymentStatus === "paid";
 

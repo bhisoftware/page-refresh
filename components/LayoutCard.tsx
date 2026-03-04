@@ -43,10 +43,14 @@ export function LayoutCard({
   const [exportLoading, setExportLoading] = useState(false);
 
   // AI-generated pages: copy is already integrated; Design/Copy toggle hidden (Option A)
-  const srcdoc = useMemo(
-    () => wrapInDocument(layoutHtml, layoutCss),
-    [layoutHtml, layoutCss]
-  );
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const srcdoc = useMemo(() => {
+    const html = (layoutHtml ?? "").replace(
+      /https?:\/\/[^/]+\/api\/blob\//g,
+      `${origin}/api/blob/`
+    );
+    return wrapInDocument(html, layoutCss, { baseUrl: origin });
+  }, [layoutHtml, layoutCss, origin]);
 
   return (
     <>

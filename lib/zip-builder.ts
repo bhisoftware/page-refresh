@@ -85,7 +85,13 @@ function extractReferencedAssetUrls(html: string, css: string): string[] {
 /** Download asset bytes from a URL. Returns null on failure. */
 async function fetchAssetBytes(url: string): Promise<{ data: Buffer; filename: string } | null> {
   try {
-    const res = await fetch(url, { redirect: "follow" });
+    // Resolve root-relative URLs (e.g. /api/blob/...) to absolute for server-side fetch
+    let fetchUrl = url;
+    if (url.startsWith("/")) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://pagerefresh.ai";
+      fetchUrl = `${appUrl}${url}`;
+    }
+    const res = await fetch(fetchUrl, { redirect: "follow" });
     if (!res.ok) return null;
     const bytes = Buffer.from(await res.arrayBuffer());
     // Extract filename from URL

@@ -98,16 +98,22 @@ export function RefreshedLayoutClient({
     };
   }, [status, zipDownloadUrl, sessionId]);
 
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
   const srcdoc = useMemo(
-    () =>
-      layoutHtml
-        ? wrapInDocument(layoutHtml, layoutCss ?? "", {
-            desktopViewport: true,
-            scaleToFit: 0.85,
-            refreshId,
-          })
-        : "",
-    [layoutHtml, layoutCss, refreshId],
+    () => {
+      if (!layoutHtml) return "";
+      const html = layoutHtml.replace(
+        /https?:\/\/[^/]+\/api\/blob\//g,
+        `${origin}/api/blob/`
+      );
+      return wrapInDocument(html, layoutCss ?? "", {
+        desktopViewport: true,
+        scaleToFit: 0.85,
+        refreshId,
+        baseUrl: origin,
+      });
+    },
+    [layoutHtml, layoutCss, refreshId, origin],
   );
 
   if (status === "pending") {

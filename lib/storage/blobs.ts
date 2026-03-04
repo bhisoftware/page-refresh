@@ -7,6 +7,11 @@
 import { isS3Configured, s3Upload, s3UploadString } from "./s3";
 
 function blobUrl(key: string): string {
+  return `/api/blob/${encodeURIComponent(key)}`;
+}
+
+/** Absolute blob URL for contexts that need a full URL (emails, zip downloads). */
+export function absoluteBlobUrl(key: string): string {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://pagerefresh.ai";
   return `${baseUrl}/api/blob/${encodeURIComponent(key)}`;
 }

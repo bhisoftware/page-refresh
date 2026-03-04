@@ -7,6 +7,8 @@ export interface WrapInDocumentOptions {
   scaleToFit?: number;
   /** If provided, injects the "Refreshed by Page Refresh" attribution badge with tracking pixel. */
   refreshId?: string;
+  /** Base URL for resolving relative paths in srcdoc iframes (e.g. window.location.origin). */
+  baseUrl?: string;
 }
 
 /**
@@ -32,9 +34,16 @@ export function wrapInDocument(
     trimmed = injectAttributionBadge(trimmed, options.refreshId);
   }
 
+  // Inject <base> tag so relative URLs resolve correctly in srcdoc iframes
+  const baseTag = options?.baseUrl ? `<base href="${options.baseUrl}/">` : "";
+
   const hasHtml = /^\s*<!DOCTYPE|^\s*<html/i.test(trimmed);
   if (hasHtml) {
-    // Full document from AI — inject link-disable script before </body> or </html>
+    // Full document from AI — inject <base> tag into <head>
+    if (baseTag && /<head([^>]*)>/i.test(trimmed)) {
+      trimmed = trimmed.replace(/<head([^>]*)>/i, `<head$1>${baseTag}`);
+    }
+    // Inject link-disable script before </body> or </html>
     if (/<\/body\s*>/i.test(trimmed)) {
       return trimmed.replace(/<\/body\s*>/i, `${LINK_DISABLE_SCRIPT}</body>`);
     }
@@ -53,5 +62,5 @@ export function wrapInDocument(
     options?.scaleToFit != null && options.scaleToFit > 0 && options.scaleToFit <= 1
       ? `<style>html{zoom:${options.scaleToFit};}</style>`
       : "";
-  return `<!DOCTYPE html><html><head><meta charset="utf-8">${viewportMeta}${scaleStyle}<style>${css}</style></head><body>${safe}${LINK_DISABLE_SCRIPT}</body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8">${baseTag}${viewportMeta}${scaleStyle}<style>${css}</style></head><body>${safe}${LINK_DISABLE_SCRIPT}</body></html>`;
 }
