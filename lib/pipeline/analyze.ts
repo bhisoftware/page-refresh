@@ -18,7 +18,8 @@ import { runScreenshotAnalysisAgent } from "@/lib/pipeline/agents/screenshot-ana
 import { runIndustrySeoAgent } from "@/lib/pipeline/agents/industry-seo";
 import { runScoreAgent } from "@/lib/pipeline/agents/score";
 import { runCreativeAgent, type CreativeSlug } from "@/lib/pipeline/agents/creative";
-import type { CreativeAgentInput } from "@/lib/pipeline/agents/types";
+import { runScanningCopyAgent } from "@/lib/pipeline/agents/scanning-copy";
+import type { CreativeAgentInput, ScanningCopyOutput } from "@/lib/pipeline/agents/types";
 import type { AgentSkill } from "@prisma/client";
 import { getAnalysisCooldownDays } from "@/lib/config/app-settings";
 
@@ -348,6 +349,25 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   onProgress?.({ step: "token", key: "fonts", data: { detected: fontList } });
   onProgress?.({ step: "token", key: "industry", data: { name: industry, confidence: industrySeo.industry?.confidence ?? 0 } });
 
+  // Run scanning-copy agent in parallel with Step 2 (non-blocking)
+  const scanningCopyPromise = runScanningCopyAgent({
+    skills,
+    input: {
+      url: rawUrl,
+      industry,
+      seoChecks: seoChecks,
+      structureChecks: structureChecks,
+      colorCount: palette.length,
+      fontCount: fontList.length,
+      headline: industrySeo.copy?.headline ?? null,
+    },
+    refreshId,
+    onRetry,
+  }).catch((err) => {
+    console.warn("[pipeline] scanning-copy agent failed:", err);
+    return {} as ScanningCopyOutput;
+  });
+
   // --- Step 2: Score Agent ---
   onProgress?.({ step: "scoring", message: "Scoring against industry benchmarks..." });
 
@@ -448,6 +468,12 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     top: { name: bestDim[0], score: bestDim[1] },
     bottom: { name: worstDim[0], score: worstDim[1] },
   }});
+
+  // Await scanning-copy result (should already be done by now) and emit token
+  const scanningCopy = await scanningCopyPromise;
+  if (scanningCopy.industry_text || scanningCopy.competitor_text || scanningCopy.scoring_text) {
+    onProgress?.({ step: "token", key: "scanningCopy", data: scanningCopy as Record<string, unknown> });
+  }
 
   // --- Step 3: Creative Agents ---
   console.log("[pipeline] step 3: creative agents");

@@ -134,6 +134,14 @@ export interface DesignDirection {
   technicalRequirements: string[];
 }
 
+// --- Scanning Copy Agent ---
+export interface ScanningCopyOutput {
+  industry_text?: string;
+  competitor_text?: string;
+  scoring_text?: string;
+  designing_text?: string;
+}
+
 // --- Creative Agent ---
 export interface CreativeAgentInput {
   designDirection: DesignDirection;

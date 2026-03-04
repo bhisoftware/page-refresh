@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
@@ -102,6 +102,15 @@ function getPhaseIndex(phase: VisualPhase): number {
   return PHASE_ORDER.indexOf(phase);
 }
 
+function formatCountdown(seconds: number): string {
+  if (seconds >= 60) {
+    const mins = Math.floor(seconds / 60);
+    const secs = String(seconds % 60).padStart(2, "0");
+    return `About ${mins}:${secs} remaining`;
+  }
+  return `About ${seconds}s remaining`;
+}
+
 function getPhaseContent(
   phase: VisualPhase,
   tokens: Record<string, Record<string, unknown>>
@@ -118,13 +127,16 @@ function getPhaseContent(
         eyebrow: "Fetching site",
         text: "Reading your page structure and visual layout\u2026",
       };
-    case "industry":
+    case "industry": {
+      const copy = tokens.scanningCopy as { industry_text?: string } | undefined;
       return {
         eyebrow: "Industry identified",
-        text: industry?.name
-          ? `We identified your business as ${industry.name}. Your customers come here looking for expertise and a provider they can trust.`
-          : "Identifying your industry and understanding what your customers expect when they visit\u2026",
+        text: copy?.industry_text
+          ?? (industry?.name
+            ? `We identified your business as ${industry.name}. Now we're benchmarking your site against the best in this space.`
+            : "Identifying your industry and understanding what your customers expect when they visit\u2026"),
       };
+    }
     case "brand":
       return {
         eyebrow: "Brand analysis",
@@ -133,21 +145,36 @@ function getPhaseContent(
             ? `Extracting your color palette${colors?.palette ? ` (${colors.palette.length} colors)` : ""}, typography${fonts?.detected ? ` (${fonts.detected.length} fonts)` : ""}, and visual identity to preserve your brand in the redesign.`
             : "Extracting your color palette, typography, and visual identity to preserve your brand in the redesign.",
       };
-    case "competitors":
+    case "competitors": {
+      const copy = tokens.scanningCopy as { competitor_text?: string } | undefined;
+      const industryName = (tokens.industry as { name?: string } | undefined)?.name;
       return {
         eyebrow: "Competitor scan",
-        text: "Scanning businesses in your area to understand what top-performing sites do differently\u2026",
+        text: copy?.competitor_text
+          ?? (industryName
+            ? `Comparing your site against top-performing ${industryName.toLowerCase()} businesses to see where you stand\u2026`
+            : "Scanning businesses in your area to understand what top-performing sites do differently\u2026"),
       };
-    case "scoring":
+    }
+    case "scoring": {
+      const copy = tokens.scanningCopy as { scoring_text?: string } | undefined;
+      const scores = tokens.scores as { bottom?: { name: string; score: number } } | undefined;
       return {
         eyebrow: "Key finding",
-        text: "Most visitors decide whether to stay or leave within 5 seconds. Right now, your homepage headline gives them no reason to stay.",
+        text: copy?.scoring_text
+          ?? (scores?.bottom
+            ? `Your weakest area is ${scores.bottom.name.toLowerCase()}, scoring ${scores.bottom.score} out of 100. This is where the biggest improvements will be made.`
+            : "Evaluating your site against industry standards to identify the areas with the most room for improvement\u2026"),
       };
-    case "designing":
+    }
+    case "designing": {
+      const copy = tokens.scanningCopy as { designing_text?: string } | undefined;
       return {
         eyebrow: "Generating designs",
-        text: `Creating ${layoutCount} unique redesigns that fix these issues while keeping your brand identity intact.`,
+        text: copy?.designing_text
+          ?? `Creating ${layoutCount} unique redesigns that fix these issues while keeping your brand identity intact.`,
       };
+    }
     default:
       return { eyebrow: "", text: "" };
   }
@@ -272,20 +299,10 @@ export function ScanningExperience({
   /* ─── Findings visibility (slot keys) ───────────────────── */
   const [visibleSlots, setVisibleSlots] = useState<Set<string>>(new Set());
 
-  /* ─── Score animation ───────────────────────────────────── */
-  const [showScoreStrip, setShowScoreStrip] = useState(false);
-  const [displayScore, setDisplayScore] = useState(0);
-  const rafRef = useRef<number>(0);
-  const scoreAnimatedRef = useRef(false);
-
   /* ─── Phase transitions driven by currentStep ───────────── */
   useEffect(() => {
     if (currentStep === "started" || currentStep === "retry") {
       setVisualPhase("scanning");
-      return;
-    }
-    if (currentStep === "scoring") {
-      setVisualPhase("scoring");
       return;
     }
     if (currentStep === "generating") {
@@ -298,11 +315,13 @@ export function ScanningExperience({
     }
     if (currentStep === "analyzing") {
       setVisualPhase("industry");
-      const t1 = setTimeout(() => setVisualPhase("brand"), 3500);
-      const t2 = setTimeout(() => setVisualPhase("competitors"), 7000);
+      const t1 = setTimeout(() => setVisualPhase("brand"), 20000);
+      const t2 = setTimeout(() => setVisualPhase("competitors"), 40000);
+      const t3 = setTimeout(() => setVisualPhase("scoring"), 60000);
       return () => {
         clearTimeout(t1);
         clearTimeout(t2);
+        clearTimeout(t3);
       };
     }
   }, [currentStep]);
@@ -335,7 +354,7 @@ export function ScanningExperience({
     }
     const timer = setTimeout(
       () => setStreamRevealed((prev) => prev + 1),
-      45
+      55
     );
     return () => clearTimeout(timer);
   }, [streamRevealed, streamTarget, cursorActive]);
@@ -367,60 +386,25 @@ export function ScanningExperience({
     return () => timers.forEach(clearTimeout);
   }, [visualPhase]);
 
-  /* ─── Score counter animation ───────────────────────────── */
-  useEffect(() => {
-    if (!tokens.scores) return;
-    if (getPhaseIndex(visualPhase) < getPhaseIndex("scoring")) return;
-    if (scoreAnimatedRef.current) return;
-
-    scoreAnimatedRef.current = true;
-    const target =
-      (tokens.scores as { overall?: number }).overall ?? 0;
-    const delay = visualPhase === "scoring" ? 1500 : 0;
-
-    const delayTimer = setTimeout(() => {
-      setShowScoreStrip(true);
-      const duration = 1400;
-      const startTime = performance.now();
-
-      function frame(now: number) {
-        const elapsed = now - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        const eased = 1 - Math.pow(1 - progress, 3); // cubic ease-out
-        setDisplayScore(Math.round(eased * target));
-        if (progress < 1) {
-          rafRef.current = requestAnimationFrame(frame);
-        }
-      }
-
-      rafRef.current = requestAnimationFrame(frame);
-    }, delay);
-
-    return () => {
-      clearTimeout(delayTimer);
-      cancelAnimationFrame(rafRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visualPhase, tokens.scores]);
-
   /* ─── Derived values ────────────────────────────────────── */
   const currentPhaseIdx = getPhaseIndex(visualPhase);
   const isDone = visualPhase === "done";
   const isError = currentStep === "error";
-  const overallScore =
-    (tokens.scores as { overall?: number } | undefined)?.overall ?? 0;
   const layoutCount =
     (tokens.layouts as { options?: unknown[] } | undefined)?.options
       ?.length ?? 3;
 
+  const isDesigning = visualPhase === "designing";
   const thinkingLabel = isDone
     ? `Analysis complete \u2014 ${layoutCount} designs ready`
-    : "Analyzing your website\u2026";
+    : isDesigning
+      ? "Designing 3 refreshed pages\u2026"
+      : "Analyzing your website\u2026";
   const thinkingSub = isDone
     ? "Results are waiting for you"
     : countdownSeconds != null && countdownSeconds > 0
-      ? `About ${countdownSeconds}s remaining`
-      : "This takes about 45 seconds";
+      ? formatCountdown(countdownSeconds)
+      : "Finishing up\u2026";
 
   // Collect renderable findings
   const renderableFindings = useMemo(() => {
@@ -624,55 +608,6 @@ export function ScanningExperience({
             </div>
           )}
 
-          {/* Score strip */}
-          <div
-            className="flex items-center gap-5 px-5 py-4 sm:px-8 sm:py-5"
-            style={{
-              background: "#14532d",
-              borderRadius: "0 0 15px 15px",
-              opacity: showScoreStrip ? 1 : 0,
-              transition: "opacity 0.5s ease",
-              pointerEvents: showScoreStrip ? "auto" : "none",
-            }}
-          >
-            <div
-              className="leading-none"
-              style={{
-                fontFamily: "'Fraunces', serif",
-                fontSize: "52px",
-                fontWeight: 300,
-                color: "#ffffff",
-                letterSpacing: "-2px",
-              }}
-            >
-              {displayScore}
-            </div>
-            <div className="flex-1">
-              <div
-                className="text-[11px] font-medium uppercase tracking-wider mb-2"
-                style={{
-                  color: "rgba(255,255,255,0.5)",
-                  letterSpacing: "1px",
-                }}
-              >
-                Overall score
-              </div>
-              <div
-                className="text-sm leading-normal"
-                style={{ color: "rgba(255,255,255,0.85)" }}
-              >
-                Your site scored{" "}
-                <strong className="font-semibold text-white">
-                  {overallScore}
-                </strong>
-                /100 &mdash;{" "}
-                <strong className="font-semibold text-white">
-                  {layoutCount} redesigns are ready
-                </strong>{" "}
-                that fix these issues.
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </>

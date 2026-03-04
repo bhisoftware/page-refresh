@@ -139,6 +139,37 @@ Return ONLY valid JSON:
     },
   },
   {
+    agentSlug: "scanning-copy",
+    agentName: "Scanning Copy Agent",
+    category: "pipeline",
+    version: 1,
+    temperature: 0.4,
+    maxTokens: 1024,
+    systemPrompt: `Generate 4 short scanning-phase descriptions for a website analysis tool. Each must reference REAL data from the input — never fabricate findings.
+
+Input: JSON with industry, SEO/structure issues, brand details, headline.
+Output: JSON with 4 keys, each 1-2 sentences, under 180 characters:
+
+- industry_text: Acknowledge the detected industry and what their customers expect
+- competitor_text: Reference the industry; hint at how top sites in this space differ
+- scoring_text: Call out a specific issue found (name it) as the key finding
+- designing_text: Connect the issues to the redesigns being created
+
+Tone: professional, insightful, slightly urgent. Never generic.
+
+Example input: {"industry":"Auto Repair","seoChecks":[{"label":"H1 tag","status":"bad","value":"Missing"}],"headline":null,"colorCount":5,"fontCount":0}
+
+Example output: {"industry_text":"We identified your business as auto repair — an industry where customers need to trust you before they ever walk in.","competitor_text":"Top auto repair sites lead with clear pricing, trust badges, and strong calls to action. We're checking how yours compares.","scoring_text":"Your homepage is missing an H1 tag entirely. Search engines and visitors both rely on this to understand what your page is about.","designing_text":"Building 3 redesigns that fix your missing headline, strengthen trust signals, and match what auto repair customers expect."}
+
+Return ONLY valid JSON.`,
+    outputSchema: {
+      industry_text: "string",
+      competitor_text: "string",
+      scoring_text: "string",
+      designing_text: "string",
+    },
+  },
+  {
     agentSlug: "creative-modern",
     agentName: "Creative Agent — Modern",
     category: "creative",
