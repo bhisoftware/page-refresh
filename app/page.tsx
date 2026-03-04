@@ -68,6 +68,7 @@ function HomeContent() {
   useEffect(() => {
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     };
   }, []);
 
@@ -88,10 +89,49 @@ function HomeContent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const [currentStep, setCurrentStep] = useState<PipelineStep>("started");
+  const [backendStep, setBackendStep] = useState<PipelineStep>("started");
   const [progressMessage, setProgressMessage] = useState("");
   const [countdown, setCountdown] = useState<number | null>(null);
   const [tokens, setTokens] = useState<Record<string, Record<string, unknown>>>({});
+  const [analysisTimerDone, setAnalysisTimerDone] = useState(false);
+  const [inDesignPhase, setInDesignPhase] = useState(false);
+  const timerConfigRef = useRef({ startTime: 0, target: 90 });
+  const analysisTimerDoneRef = useRef(false);
+  const countdownIntervalRef = useRef<number | null>(null);
+  const pipelineDonePathRef = useRef<string | null>(null);
+  const [pipelineDone, setPipelineDone] = useState(false);
+  const [designTimerDone, setDesignTimerDone] = useState(false);
+  const designTimerDoneRef = useRef(false);
+
+  // Transition to design phase when analysis timer expires AND backend is ready
+  useEffect(() => {
+    const backendReady = backendStep === "generating" || backendStep === "done";
+    if (analysisTimerDone && backendReady && !inDesignPhase) {
+      setInDesignPhase(true);
+      timerConfigRef.current = { startTime: Date.now(), target: 240 };
+    }
+  }, [analysisTimerDone, backendStep, inDesignPhase]);
+
+  // Compute display step: hold back "scoring"/"generating"/"done" until timers expire
+  const displayStep: PipelineStep = (() => {
+    if (backendStep === "error") return "error";
+    if (inDesignPhase) return "generating";
+    if (backendStep === "scoring" || backendStep === "generating" || backendStep === "done") return "analyzing";
+    return backendStep;
+  })();
+
+  // Redirect to results when pipeline is done AND design timer has expired
+  useEffect(() => {
+    if (!pipelineDone || !designTimerDone) return;
+    const path = pipelineDonePathRef.current;
+    if (!path) return;
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    setCountdown(null);
+    router.push(path);
+  }, [pipelineDone, designTimerDone, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,16 +194,31 @@ function HomeContent() {
     }
 
     setIsAnalyzing(true);
-    setCurrentStep("started");
+    setBackendStep("started");
     setProgressMessage("Starting analysis...");
     setTokens({});
     pendingRefreshRef.current = null;
-    const startTime = Date.now();
-    const targetDuration = 50;
-    const countdownInterval = window.setInterval(() => {
-      const elapsed = (Date.now() - startTime) / 1000;
-      const remaining = Math.max(0, Math.round(targetDuration - elapsed));
+    setAnalysisTimerDone(false);
+    setInDesignPhase(false);
+    analysisTimerDoneRef.current = false;
+    setPipelineDone(false);
+    pipelineDonePathRef.current = null;
+    setDesignTimerDone(false);
+    designTimerDoneRef.current = false;
+    timerConfigRef.current = { startTime: Date.now(), target: 90 };
+    countdownIntervalRef.current = window.setInterval(() => {
+      const { startTime: ts, target } = timerConfigRef.current;
+      const elapsed = (Date.now() - ts) / 1000;
+      const remaining = Math.max(0, Math.round(target - elapsed));
       setCountdown(remaining);
+      if (remaining === 0 && !analysisTimerDoneRef.current) {
+        analysisTimerDoneRef.current = true;
+        setAnalysisTimerDone(true);
+      }
+      if (remaining === 0 && target === 240 && !designTimerDoneRef.current) {
+        designTimerDoneRef.current = true;
+        setDesignTimerDone(true);
+      }
     }, 1000);
 
     let isPolling = false;
@@ -210,21 +265,23 @@ function HomeContent() {
                 if (data.step === "retry") {
                   // Silently ignore retry events — don't surface API internals to users
                 } else {
-                  setCurrentStep(parseProgressStep(data.step));
+                  setBackendStep(parseProgressStep(data.step));
                   setProgressMessage(data.message ?? "");
                 }
               } else if (data.type === "done" && data.refreshId) {
-                clearInterval(countdownInterval);
-                setCountdown(null);
                 const viewToken = data.viewToken;
                 const path =
                   typeof viewToken === "string" && viewToken.length > 0
                     ? `/results/${data.refreshId}?token=${encodeURIComponent(viewToken)}`
                     : `/results/${data.refreshId}`;
-                router.push(path);
-                return;
+                pipelineDonePathRef.current = path;
+                setPipelineDone(true);
+                setBackendStep("done");
               } else if (data.type === "error") {
-                clearInterval(countdownInterval);
+                if (countdownIntervalRef.current) {
+                  clearInterval(countdownIntervalRef.current);
+                  countdownIntervalRef.current = null;
+                }
                 setCountdown(null);
                 throw new Error(data.message ?? "Refresh failed");
               }
@@ -235,9 +292,17 @@ function HomeContent() {
           }
         }
       }
-      throw new Error("Refresh ended without result");
+      if (!pipelineDonePathRef.current) {
+        throw new Error("Refresh ended without result");
+      }
     } catch (err) {
-      clearInterval(countdownInterval);
+      // Pipeline succeeded and stream closed — waiting for design timer to redirect
+      if (pipelineDonePathRef.current) return;
+
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+      }
       setCountdown(null);
 
       // If we have a refreshId, the server is still running — poll for completion
@@ -311,7 +376,7 @@ function HomeContent() {
         setError(isRawApiError ? "Our servers are busy. Please try again in a moment." : rawMessage);
       }
     } finally {
-      if (!isPolling) setIsAnalyzing(false);
+      if (!isPolling && !pipelineDonePathRef.current) setIsAnalyzing(false);
     }
   };
 
@@ -319,9 +384,9 @@ function HomeContent() {
     <main className="min-h-screen flex flex-col items-center justify-center p-6 md:p-8 bg-[#f5f0eb]">
       <div className="w-full max-w-xl mx-auto text-center space-y-8">
         <>
-          <div className="space-y-3 w-full">
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-[#2d5a3d] w-full flex items-center justify-center gap-2">
-              <LogoIcon size={32} />
+          <div className="space-y-3 w-full flex flex-col items-center">
+            <LogoIcon size={64} className="shrink-0" />
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-[#2d5a3d]">
               Page Refresh
             </h1>
             <p className="text-lg text-muted-foreground max-w-md mx-auto">
@@ -377,11 +442,7 @@ function HomeContent() {
               <Button
                 type="submit"
                 size="lg"
-                className={cn(
-                  "h-11 px-6 shrink-0",
-                  (isPreflightInProgress || isAnalyzing) &&
-                    "bg-[#2d5016] text-white hover:bg-[#2d5016]/90 hover:text-white"
-                )}
+                className="h-11 px-6 shrink-0 bg-[#2d5a3d] text-white hover:bg-[#1e4a2e] hover:text-white"
                 disabled={isPreflightInProgress || isAnalyzing}
               >
                 {isPreflightInProgress ? (
@@ -397,7 +458,7 @@ function HomeContent() {
               </Button>
             </div>
             {error && (
-              <p className="text-sm text-destructive text-left" role="alert">
+              <p className="text-sm text-destructive text-center" role="alert">
                 {error}
               </p>
             )}
@@ -407,7 +468,7 @@ function HomeContent() {
             <div className={cn("flex flex-col items-center w-full")}>
               <ScanningExperience
                 tokens={tokens}
-                currentStep={currentStep}
+                currentStep={displayStep}
                 countdownSeconds={countdown ?? undefined}
               />
             </div>
