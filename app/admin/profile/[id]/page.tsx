@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScoreRingHero } from "@/components/ScoreRingHero";
+import { AdminBackLink } from "@/components/admin/AdminBackLink";
 import { BrandAssetsPanel } from "@/components/admin/BrandAssetsPanel";
 import { ProfileEditableFields } from "./ProfileEditableFields";
 
@@ -59,14 +60,7 @@ export default async function AdminProfilePage({
   return (
     <main className="min-h-screen bg-background p-6">
       <div className="mx-auto max-w-5xl space-y-6">
-        <div className="flex items-center gap-2">
-          <Link
-            href="/admin"
-            className="text-sm text-muted-foreground hover:text-foreground"
-          >
-            ← Analyses
-          </Link>
-        </div>
+        <AdminBackLink href="/admin" label="Analyses" />
         <div>
           <h1 className="text-2xl font-semibold break-all">{profile.url}</h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -176,8 +170,6 @@ export default async function AdminProfilePage({
                             <Link
                               href={`/results/${a.id}?token=${encodeURIComponent(a.viewToken)}`}
                               className="text-primary hover:underline"
-                              target="_blank"
-                              rel="noopener noreferrer"
                             >
                               Results
                             </Link>
@@ -229,8 +221,6 @@ export default async function AdminProfilePage({
                         <Link
                           href={`/results/${a.id}?token=${encodeURIComponent(a.viewToken)}`}
                           className="text-primary hover:underline"
-                          target="_blank"
-                          rel="noopener noreferrer"
                         >
                           Results
                         </Link>

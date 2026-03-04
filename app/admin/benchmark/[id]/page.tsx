@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BenchmarkNotesSection } from "./BenchmarkNotesSection";
 import { BenchmarkScoreButton } from "./BenchmarkScoreButton";
 import { BenchmarkDeleteButton } from "./BenchmarkDeleteButton";
+import { AdminBackLink } from "@/components/admin/AdminBackLink";
 import { cn } from "@/lib/utils";
 
 function scoreColorClass(score: number): string {
@@ -41,12 +41,7 @@ export default async function AdminBenchmarkDetailPage({
   return (
     <main className="min-h-screen bg-background p-6">
       <div className="mx-auto max-w-4xl">
-        <Link
-          href="/admin/benchmarks"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6"
-        >
-          ← Benchmarks
-        </Link>
+        <AdminBackLink href="/admin/benchmarks" label="Benchmarks" />
 
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <div>

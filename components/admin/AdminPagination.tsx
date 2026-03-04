@@ -88,7 +88,7 @@ export function AdminPagination({
         ) : (
           <Link
             href={buildUrl(currentPage - 1, pageSize)}
-            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-xs font-medium transition-colors border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 px-3"
+            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-3 py-2 text-xs font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 h-8"
           >
             <ChevronLeft className="h-4 w-4 mr-1" />
             Previous
@@ -102,7 +102,7 @@ export function AdminPagination({
         ) : (
           <Link
             href={buildUrl(currentPage + 1, pageSize)}
-            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-xs font-medium transition-colors border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 px-3"
+            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-3 py-2 text-xs font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 h-8"
           >
             Next
             <ChevronRight className="h-4 w-4 ml-1" />

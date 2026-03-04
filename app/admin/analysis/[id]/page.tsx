@@ -11,8 +11,8 @@ import { EmailScoresCta } from "@/components/EmailScoresCta";
 import { ShareReportButton } from "./ShareReportButton";
 import { AdminNotesSection } from "./AdminNotesSection";
 import { AdminPromptLogs } from "./AdminPromptLogs";
+import { AdminBackLink } from "@/components/admin/AdminBackLink";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft } from "lucide-react";
 
 function scoreHeadline(score: number): string {
   if (score <= 40) return "Needs work";
@@ -81,24 +81,13 @@ export default async function AdminAnalysisPage({
   return (
     <main className="min-h-screen bg-background">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <Link
-          href="/admin"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Refresh
-        </Link>
+        <AdminBackLink href="/admin" label="Analyses" />
 
         <div className="mb-6 flex items-center gap-4 flex-wrap">
           <h1 className="text-2xl font-semibold truncate max-w-xl">
             {refresh.targetWebsite || refresh.url}
           </h1>
-          <Link
-            href={resultsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-primary hover:underline"
-          >
+          <Link href={resultsUrl} className="text-sm text-primary hover:underline">
             Open results page →
           </Link>
           {profile && (
