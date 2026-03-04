@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { type PipelineStep } from "@/components/AnalysisProgress";
@@ -39,10 +39,21 @@ function parseProgressStep(step: string): PipelineStep {
 }
 
 export default function Home() {
+  return (
+    <Suspense>
+      <HomeContent />
+    </Suspense>
+  );
+}
+
+function HomeContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const urlInputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const pendingRefreshRef = useRef<{ id: string; token: string } | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isRetryAttemptRef = useRef(false);
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
   const [urlFieldHint, setUrlFieldHint] = useState(false);
@@ -58,6 +69,24 @@ export default function Home() {
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
+  }, []);
+
+  // Handle ?retry= (auto-submit) and ?url= (pre-fill only)
+  useEffect(() => {
+    const retryUrl = searchParams.get("retry");
+    const prefillUrl = searchParams.get("url");
+    if (retryUrl) {
+      isRetryAttemptRef.current = true;
+      setUrl(retryUrl);
+      router.replace("/", { scroll: false });
+      setTimeout(() => {
+        formRef.current?.requestSubmit();
+      }, 100);
+    } else if (prefillUrl) {
+      setUrl(prefillUrl);
+      router.replace("/", { scroll: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [currentStep, setCurrentStep] = useState<PipelineStep>("started");
   const [progressMessage, setProgressMessage] = useState("");
@@ -221,7 +250,8 @@ export default function Home() {
         const LAYOUT_GRACE_MS = 20_000; // extra wait after "complete" for background agents
         const pollStart = Date.now();
         let completeSeenAt: number | null = null;
-        const resultsPath = `/results/${pending.id}?token=${encodeURIComponent(pending.token)}`;
+        const retriedFlag = isRetryAttemptRef.current ? "&retried=1" : "";
+        const resultsPath = `/results/${pending.id}?token=${encodeURIComponent(pending.token)}${retriedFlag}`;
         pollIntervalRef.current = setInterval(async () => {
           if (Date.now() - pollStart > POLL_TIMEOUT_MS) {
             clearInterval(pollIntervalRef.current!);
@@ -286,11 +316,11 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-6 md:p-8">
+    <main className="min-h-screen flex flex-col items-center justify-center p-6 md:p-8 bg-[#f5f0eb]">
       <div className="w-full max-w-xl mx-auto text-center space-y-8">
         <>
-          <div className="space-y-3">
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground inline-flex items-center justify-center gap-2">
+          <div className="space-y-3 w-full">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-[#2d5a3d] w-full flex items-center justify-center gap-2">
               <LogoIcon size={32} />
               Page Refresh
             </h1>
@@ -299,7 +329,7 @@ export default function Home() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-2 relative">
               <div className="relative flex-1">
                 <Input

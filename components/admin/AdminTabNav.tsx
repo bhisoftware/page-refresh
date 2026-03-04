@@ -16,7 +16,7 @@ export function AdminTabNav() {
 
   return (
     <nav className="border-b border-border bg-background">
-      <div className="mx-auto max-w-5xl px-6 pt-4">
+      <div className="max-w-5xl px-6 pt-4">
         <div className="flex items-center gap-6">
           <Link href="/admin" className="pb-3 text-foreground font-semibold text-sm mr-2 shrink-0">
             <Logo iconSize={18} />
