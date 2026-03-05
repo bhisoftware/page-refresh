@@ -593,6 +593,28 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     }
   }
 
+  // Merge screenshot-detected fonts with CSS-extracted fonts (screenshot fonts first, deduped)
+  const screenshotFonts: string[] = [];
+  if (screenshotAnalysis.typography?.headingFont) screenshotFonts.push(screenshotAnalysis.typography.headingFont);
+  if (screenshotAnalysis.typography?.bodyFont) screenshotFonts.push(screenshotAnalysis.typography.bodyFont);
+  const seenFonts = new Set<string>();
+  const mergedFonts: string[] = [];
+  for (const font of screenshotFonts) {
+    const key = font.toLowerCase();
+    if (!seenFonts.has(key)) {
+      seenFonts.add(key);
+      mergedFonts.push(font);
+    }
+  }
+  for (const f of assetResult.assets.fonts) {
+    const name = "family" in f ? f.family : String(f);
+    const key = name.toLowerCase();
+    if (!seenFonts.has(key)) {
+      seenFonts.add(key);
+      mergedFonts.push(name);
+    }
+  }
+
   // Remap site image URLs through S3-backed blob URLs (fall back to original if download failed)
   const remapUrl = (src: string) => assetResult.siteImageUrlMap.get(src) ?? src;
 
@@ -630,7 +652,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
       trustBadges: assetResult.assets.trustBadges?.map((b) => ({ ...b, src: remapUrl(b.src) })),
       eventPhotos: assetResult.assets.eventPhotos?.map((e) => ({ ...e, src: remapUrl(e.src) })),
       colors: mergedColors,
-      fonts: assetResult.assets.fonts.map((f) => ("family" in f ? f.family : String(f))),
+      fonts: mergedFonts,
       navLinks: assetResult.assets.copy?.navItems ?? [],
       copy: assetResult.assets.copy,
     },

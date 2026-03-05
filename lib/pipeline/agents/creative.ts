@@ -10,7 +10,7 @@ import { createPromptLog } from "@/lib/ai/prompt-log";
 import { withRetry } from "@/lib/ai/retry";
 import { safeParseJSON } from "@/lib/ai/json-repair";
 import type { CreativeAgentInput, CreativeAgentOutput } from "./types";
-import { scanHtmlForLeakedScores, stripLeakedContent } from "@/lib/pipeline/html-score-scanner";
+import { scanHtmlForLeakedScores, stripLeakedContent, sanitizeImageUrls } from "@/lib/pipeline/html-score-scanner";
 
 function extractText(message: Anthropic.Message): string {
   const block = message.content.find((b) => b.type === "text");
@@ -40,8 +40,12 @@ export function isCreativeSlug(slug: string): slug is CreativeSlug {
   return CREATIVE_SLUGS.includes(slug as CreativeSlug);
 }
 
-/** Warn about and strip leaked scoring data and dangerous links from generated HTML. */
-function cleanLeakedScores(result: CreativeAgentOutput, slug: string): CreativeAgentOutput {
+/** Warn about and strip leaked scoring data, dangerous links, and hallucinated image URLs. */
+function cleanGeneratedHtml(
+  result: CreativeAgentOutput,
+  slug: string,
+  allowedImageUrls?: Set<string>
+): CreativeAgentOutput {
   const scan = scanHtmlForLeakedScores(result.html);
   if (scan.matches.length > 0) {
     const high = scan.matches.filter((m) => m.confidence === "high");
@@ -55,7 +59,33 @@ function cleanLeakedScores(result: CreativeAgentOutput, slug: string): CreativeA
   // Always strip dangerous links and leaked text, even when no score patterns
   // were detected — the AI may embed result URLs without visible score data.
   result.html = stripLeakedContent(result.html);
+
+  // Sanitize hallucinated image URLs
+  if (allowedImageUrls) {
+    const { html, replacedCount, replacedUrls } = sanitizeImageUrls(result.html, allowedImageUrls);
+    if (replacedCount > 0) {
+      console.warn(
+        `[creative] ${slug} replaced ${replacedCount} hallucinated image URL(s): ${replacedUrls.slice(0, 3).join(", ")}${replacedCount > 3 ? "..." : ""}`
+      );
+    }
+    result.html = html;
+  }
+
   return result;
+}
+
+/** Build a set of all image URLs the agent was given and is allowed to use. */
+function buildAllowedImageUrls(input: CreativeAgentInput): Set<string> {
+  const urls = new Set<string>();
+  const { brandAssets } = input;
+  if (brandAssets.logoUrl) urls.add(brandAssets.logoUrl);
+  if (brandAssets.heroImageUrl) urls.add(brandAssets.heroImageUrl);
+  for (const img of brandAssets.additionalImageUrls) urls.add(img.url);
+  for (const src of brandAssets.siteImageUrls) urls.add(src);
+  for (const p of brandAssets.teamPhotos ?? []) urls.add(p.src);
+  for (const b of brandAssets.trustBadges ?? []) urls.add(b.src);
+  for (const e of brandAssets.eventPhotos ?? []) urls.add(e.src);
+  return urls;
 }
 
 export interface RunCreativeAgentOptions {
@@ -118,9 +148,11 @@ export async function runCreativeAgent(
     responseTimeMs: Date.now() - startMs,
   });
 
+  const allowedImageUrls = buildAllowedImageUrls(input);
+
   // Primary path: extract from XML-style tags (avoids JSON escaping issues)
   const tagged = extractFromTags(text);
-  if (tagged) return cleanLeakedScores(tagged, slug);
+  if (tagged) return cleanGeneratedHtml(tagged, slug, allowedImageUrls);
 
   // Fallback: try JSON parsing (backwards compat with older prompts in DB)
   const parsed = safeParseJSON(text);
@@ -128,7 +160,7 @@ export async function runCreativeAgent(
     const data = parsed.data as Record<string, unknown>;
     const html = typeof data.html === "string" ? data.html : "";
     const rationale = typeof data.rationale === "string" ? data.rationale : "";
-    if (html.trim()) return cleanLeakedScores({ html, rationale }, slug);
+    if (html.trim()) return cleanGeneratedHtml({ html, rationale }, slug, allowedImageUrls);
   }
 
   throw new Error(`Creative Agent ${slug} returned unparseable output (no tags, invalid JSON)`);

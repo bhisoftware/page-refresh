@@ -208,7 +208,7 @@ export interface ExtractedCopy {
   h2?: string[];
   heroText?: string;
   navItems?: string[];
-  ctaText?: string;
+  ctaText?: string[];
   bodySamples?: string[];
   businessName?: string;
   titleTag?: string;
@@ -725,9 +725,38 @@ export function extractAssets(html: string, css: string, baseUrl: string): Extra
   });
   if (navItems.length) copy.navItems = navItems.slice(0, 8);
 
-  const ctaCandidates = $('a[href*="contact"], a[href*="quote"], a[href*="book"], a[href*="schedule"], .cta, .button, [class*="cta"], [class*="button"]');
-  const ctaText = ctaCandidates.first().text().trim();
-  if (ctaText && !isJunkCopy(ctaText)) copy.ctaText = ctaText;
+  const ctaTexts: string[] = [];
+  const ctaSeen = new Set<string>();
+  const MAX_CTAS = 3;
+
+  // Button/CTA elements
+  $('a[href*="contact"], a[href*="quote"], a[href*="book"], a[href*="schedule"], .cta, .button, [class*="cta"], [class*="button"]').each((_, el) => {
+    if (ctaTexts.length >= MAX_CTAS) return;
+    const t = $(el).text().trim();
+    if (!t || isJunkCopy(t) || ctaSeen.has(t.toLowerCase())) return;
+    ctaSeen.add(t.toLowerCase());
+    ctaTexts.push(t);
+  });
+
+  // Phone links
+  $('a[href^="tel:"]').each((_, el) => {
+    if (ctaTexts.length >= MAX_CTAS) return;
+    const text = $(el).text().trim() || $(el).attr("href")?.replace("tel:", "") || "";
+    if (!text || ctaSeen.has(text.toLowerCase())) return;
+    ctaSeen.add(text.toLowerCase());
+    ctaTexts.push(text);
+  });
+
+  // Email links
+  $('a[href^="mailto:"]').each((_, el) => {
+    if (ctaTexts.length >= MAX_CTAS) return;
+    const text = $(el).text().trim() || $(el).attr("href")?.replace("mailto:", "") || "";
+    if (!text || ctaSeen.has(text.toLowerCase())) return;
+    ctaSeen.add(text.toLowerCase());
+    ctaTexts.push(text);
+  });
+
+  if (ctaTexts.length) copy.ctaText = ctaTexts;
 
   const bodySamples: string[] = [];
   $("p").each((_, el) => {

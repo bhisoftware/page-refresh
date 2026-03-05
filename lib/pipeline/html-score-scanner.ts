@@ -147,3 +147,78 @@ export function stripLeakedContent(html: string): string {
 
   return $.html();
 }
+
+/**
+ * Well-known stock image / CDN domains that agents are allowed to reference.
+ * These are external services the prompts tell agents to use as fallbacks.
+ */
+const ALLOWED_IMAGE_DOMAINS = new Set([
+  "images.unsplash.com",
+  "source.unsplash.com",
+  "images.pexels.com",
+  "picsum.photos",
+  "placehold.co",
+  "placeholder.com",
+  "via.placeholder.com",
+  "dummyimage.com",
+  "loremflickr.com",
+]);
+
+/** Transparent 1x1 SVG placeholder for replaced hallucinated images. */
+const PLACEHOLDER_SVG =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/%3E";
+
+/**
+ * Check if a URL is allowed in generated HTML.
+ * Allowed: exact match in providedUrls, data: URIs, well-known stock domains,
+ * blob API URLs (S3-backed), empty/fragment-only hrefs.
+ */
+function isAllowedImageUrl(src: string, allowedUrls: Set<string>): boolean {
+  if (!src || src === "#" || src.startsWith("about:")) return true;
+  if (src.startsWith("data:")) return true;
+  if (allowedUrls.has(src)) return true;
+
+  // Check if URL is on an allowed stock image domain
+  try {
+    const hostname = new URL(src).hostname;
+    if (ALLOWED_IMAGE_DOMAINS.has(hostname)) return true;
+  } catch {
+    // Not a valid URL — treat as disallowed
+  }
+
+  // Allow our own blob API URLs (S3-backed assets)
+  if (src.includes("/api/blob/")) return true;
+
+  return false;
+}
+
+/**
+ * Scan generated HTML for <img> elements with hallucinated src URLs.
+ * Replaces any src not in the allowed set with a transparent placeholder.
+ * Returns the sanitized HTML and count of replaced URLs.
+ */
+export function sanitizeImageUrls(
+  html: string,
+  allowedUrls: Set<string>
+): { html: string; replacedCount: number; replacedUrls: string[] } {
+  const $ = cheerio.load(html);
+  const replacedUrls: string[] = [];
+
+  $("img[src]").each((_, el) => {
+    const src = $(el).attr("src") ?? "";
+    if (!isAllowedImageUrl(src, allowedUrls)) {
+      replacedUrls.push(src);
+      $(el).attr("src", PLACEHOLDER_SVG);
+      // Also clear srcset if present — it likely references the same bad domain
+      if ($(el).attr("srcset")) {
+        $(el).removeAttr("srcset");
+      }
+    }
+  });
+
+  return {
+    html: replacedUrls.length > 0 ? $.html() : html,
+    replacedCount: replacedUrls.length,
+    replacedUrls,
+  };
+}
