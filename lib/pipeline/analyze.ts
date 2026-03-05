@@ -126,6 +126,48 @@ function buildSeoChecks(
   return checks;
 }
 
+/**
+ * Resolve a business name from multiple sources. Always returns a non-empty string.
+ * Priority: og:site_name / cleaned title → industry-seo titleTag → AI headline → domain name
+ */
+function resolveBusinessName(
+  extractedCopy: { businessName?: string; titleTag?: string } | undefined,
+  industrySeo: { seo?: { titleTag?: string | null }; copy?: { headline?: string | null } },
+  rawUrl: string
+): string {
+  // 1. From asset extraction (og:site_name or cleaned <title>)
+  if (extractedCopy?.businessName?.trim()) return extractedCopy.businessName.trim();
+
+  // 2. From industry-seo agent's titleTag (cleaned)
+  const seoTitle = industrySeo.seo?.titleTag?.trim();
+  if (seoTitle) {
+    const cleaned = seoTitle
+      .replace(/\s*[|–—-]\s*(home|welcome|about\s*us|contact|main|official\s*site|official\s*website).*$/i, "")
+      .trim();
+    if (cleaned) return cleaned;
+  }
+
+  // 3. From industry-seo agent's headline extraction
+  if (industrySeo.copy?.headline?.trim()) return industrySeo.copy.headline.trim();
+
+  // 4. Humanize domain name (e.g., "murfreesboroautorepair.com" → "Murfreesboro Auto Repair")
+  try {
+    const hostname = new URL(rawUrl).hostname.replace(/^www\./, "");
+    const name = hostname
+      .split(".")[0]
+      // Insert spaces before capitals or between lowercase-uppercase transitions
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      // Insert spaces around common word boundaries in domain names
+      .replace(/([a-z])(auto|repair|service|shop|clinic|dental|law|legal|home|care|pro|tech|web|design|build|clean|plumb|elect|heat|cool|hvac|roofing|paint|land|scape|lawn|tree|pest|pool|fence|move|stor|rent|real|estate|insur|account|consult|market|media|photo|video|fit|gym|yoga|salon|barber|spa|beauty|vet|pet|golf|gun|church|theater|theatre|funeral|daycare|restaurant|cafe|pizza|grill|bar|brew|dental|ortho|chiro|physio|massage)/gi, "$1 $2")
+      .replace(/\s+/g, " ")
+      .trim();
+    // Title case
+    return name.replace(/\b\w/g, (c) => c.toUpperCase());
+  } catch {
+    return "Business";
+  }
+}
+
 const DEFAULT_REFRESH_PLACEHOLDER = {
   url: "",
   targetWebsite: "",
@@ -295,6 +337,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
         skills,
         html,
         css,
+        url: rawUrl,
         refreshId,
         onRetry,
       }),
@@ -479,6 +522,28 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   console.log("[pipeline] step 3: creative agents");
   onProgress?.({ step: "generating", message: "Generating 3 design options..." });
 
+  // Resolve business name from multiple sources
+  const businessName = resolveBusinessName(assetResult.assets.copy, industrySeo, rawUrl);
+
+  // Data quality assessment — detect SPA-like sparse data
+  const hasH1 = !!assetResult.assets.copy?.h1;
+  const hasHeroText = !!assetResult.assets.copy?.heroText;
+  const hasNavItems = (assetResult.assets.copy?.navItems?.length ?? 0) > 0;
+  const imageCount = assetResult.assets.images.length;
+  const hasLogo = !!assetResult.assets.logo;
+  const isSpaLikely = !hasH1 && !hasHeroText && !hasNavItems && imageCount === 0;
+  if (isSpaLikely) {
+    console.warn(`[pipeline] LOW DATA QUALITY for ${rawUrl}: no h1, heroText, navItems, or images (likely SPA). Business name resolved to: "${businessName}"`);
+  } else if (!hasH1 || !hasLogo) {
+    console.warn(`[pipeline] PARTIAL DATA for ${rawUrl}: h1=${hasH1}, logo=${hasLogo}, nav=${hasNavItems}, images=${imageCount}`);
+  }
+
+  // Build contentDirection with SPA note if needed
+  let contentDirection = scoreResult.creativeBrief.contentDirection ?? "";
+  if (isSpaLikely) {
+    contentDirection += "\nNOTE: This site's content is JavaScript-rendered. HTML extraction returned minimal data. Use the provided businessName and industry to build an appropriate landing page. Keep the design simple rather than inventing content.";
+  }
+
   // Don't pass data URIs to creative agents — they're MB-sized base64 strings
   const safeUrl = (url: string | undefined | null): string | null => {
     if (!url) return null;
@@ -499,10 +564,12 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
       })) ?? [],
       strengths: scoreResult.creativeBrief.strengths ?? [],
       industryRequirements: scoreResult.creativeBrief.industryRequirements ?? [],
-      contentDirection: scoreResult.creativeBrief.contentDirection ?? "",
+      contentDirection,
       technicalRequirements: scoreResult.creativeBrief.technicalRequirements ?? [],
     },
     industry,
+    businessName,
+    websiteUrl: rawUrl,
     brandAssets: {
       logoUrl: safeUrl(assetResult.storedAssets.find((a) => a.assetType === "logo")?.storageUrl),
       heroImageUrl:

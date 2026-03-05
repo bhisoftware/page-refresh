@@ -146,6 +146,8 @@ export interface ScanningCopyOutput {
 export interface CreativeAgentInput {
   designDirection: DesignDirection;
   industry: string;
+  businessName: string;
+  websiteUrl: string;
   brandAssets: {
     logoUrl: string | null;
     heroImageUrl: string | null;

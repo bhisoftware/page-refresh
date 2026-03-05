@@ -20,6 +20,7 @@ export interface RunIndustrySeoOptions {
   skills: AgentSkill[];
   html: string;
   css: string;
+  url: string;
   refreshId: string;
   onRetry?: (delayMs: number) => void;
 }
@@ -27,7 +28,7 @@ export interface RunIndustrySeoOptions {
 export async function runIndustrySeoAgent(
   options: RunIndustrySeoOptions
 ): Promise<IndustrySeoOutput> {
-  const { skills, html, css, refreshId, onRetry } = options;
+  const { skills, html, css, url, refreshId, onRetry } = options;
   const skill = skills.find((s) => s.agentSlug === "industry-seo");
   if (!skill) throw new Error("No active skill found for agent: industry-seo");
 
@@ -37,7 +38,7 @@ export async function runIndustrySeoAgent(
   const maxTokens = skill.maxTokens ?? 4096;
   const temperature = skill.temperature ?? 0.2;
 
-  const context = `HTML (first 20000 chars):\n${html.slice(0, 20000)}\n\nCSS (first 5000 chars):\n${css.slice(0, 5000)}`;
+  const context = `URL: ${url}\n\nHTML (first 20000 chars):\n${html.slice(0, 20000)}\n\nCSS (first 5000 chars):\n${css.slice(0, 5000)}`;
 
   const startMs = Date.now();
   const response = await withRetry(

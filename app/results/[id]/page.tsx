@@ -149,7 +149,7 @@ export default async function ResultsPage({
     }
     // Already retried once: show static fallback with manual retry button
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50">
+      <main className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#f5f0eb]">
         <div className="text-center space-y-4 max-w-md">
           <h1 className="text-xl font-semibold">Analysis could not complete</h1>
           <p className="text-muted-foreground">
@@ -212,7 +212,7 @@ export default async function ResultsPage({
     : null;
 
   return (
-    <main className="min-h-screen bg-slate-50 overflow-x-hidden">
+    <main className="min-h-screen bg-[#f5f0eb] overflow-x-hidden">
       <div className="mx-auto max-w-5xl px-4 py-4 sm:py-8 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-4 sm:mb-8">
           <div className="flex items-center gap-4">
