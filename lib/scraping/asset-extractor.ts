@@ -330,12 +330,22 @@ export interface ClassifiedImage {
   alt?: string;
 }
 
+export interface LogoCandidate {
+  url: string;
+  score: number;
+  alt: string;
+  position: "header" | "nav" | "footer" | "body";
+  isSvg: boolean;
+  isExternal: boolean;
+}
+
 export interface ExtractedAssets {
   colors: ExtractedColors;
   fonts: ExtractedFonts;
   images: ExtractedImage;
   copy: ExtractedCopy;
   logo?: string;
+  logoCandidates?: LogoCandidate[];
   teamPhotos?: ClassifiedImage[];
   trustBadges?: ClassifiedImage[];
   eventPhotos?: ClassifiedImage[];
@@ -666,18 +676,16 @@ function resolveLogoUrl(
 }
 
 /**
- * Score all <img> elements on the page and return the best logo URL.
+ * Score all <img> elements on the page and return ranked logo candidates.
  * Signals: DOM position (header/nav), keywords, homepage link, business name match,
  * SVG format, and negative penalties for trust badges, team photos, section context.
  */
-function scoreLogoCandidates(
+export function scoreLogoCandidatesRanked(
   $: cheerio.CheerioAPI,
   baseUrl: string,
   businessName: string | undefined
-): string | undefined {
-  let bestScore = 0;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let bestEl: cheerio.Cheerio<any> | undefined;
+): LogoCandidate[] {
+  const allCandidates: LogoCandidate[] = [];
 
   const siteHost = (() => {
     try { return new URL(baseUrl).hostname; } catch { return ""; }
@@ -748,24 +756,36 @@ function scoreLogoCandidates(
     }
 
     // External domain (third-party images are rarely the site's own logo)
+    let candidateIsExternal = false;
     try {
       const imgHost = new URL(resolved).hostname;
       if (siteHost && imgHost !== siteHost && !imgHost.endsWith(`.${siteHost}`) && !siteHost.endsWith(`.${imgHost}`)) {
         score -= 15;
+        candidateIsExternal = true;
       }
     } catch { /* invalid URL, skip penalty */ }
 
     // Footer (without also being in header) is a weak logo position
     if (imgEl.closest("footer").length && !imgEl.closest("header").length) score -= 10;
 
-    if (score > bestScore) {
-      bestScore = score;
-      bestEl = imgEl;
-    }
+    const position: LogoCandidate["position"] = imgEl.closest("header").length ? "header"
+      : imgEl.closest("nav").length ? "nav"
+      : imgEl.closest("footer").length ? "footer" : "body";
+
+    allCandidates.push({
+      url: resolveLogoUrl($, imgEl, baseUrl) ?? resolved,
+      score,
+      alt: (imgEl.attr("alt") ?? "").slice(0, 200),
+      position,
+      isSvg: /\.svg(\?|$)/i.test(resolved),
+      isExternal: candidateIsExternal,
+    });
   });
 
-  if (bestScore <= 0 || !bestEl) return undefined;
-  return resolveLogoUrl($, bestEl, baseUrl);
+  return allCandidates
+    .filter((c) => c.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10);
 }
 
 function resolveUrl(base: string, href: string): string {
@@ -979,7 +999,8 @@ export function extractAssets(html: string, css: string, baseUrl: string): Extra
   if (rating) copy.rating = rating;
 
   // Logo detection: score all <img> candidates by position, keywords, and negative signals
-  const logo = scoreLogoCandidates($, baseUrl, copy.businessName);
+  const logoCandidates = scoreLogoCandidatesRanked($, baseUrl, copy.businessName);
+  const logo = logoCandidates[0]?.url;
 
   // Semantic classification of site images (skip logo)
   const siteImages = images.filter((img) => img.src !== logo);
@@ -991,6 +1012,7 @@ export function extractAssets(html: string, css: string, baseUrl: string): Extra
     images: classified.unclassified,
     copy,
     logo,
+    ...(logoCandidates.length > 0 ? { logoCandidates } : {}),
     ...(classified.teamPhotos.length > 0 ? { teamPhotos: classified.teamPhotos } : {}),
     ...(classified.trustBadges.length > 0 ? { trustBadges: classified.trustBadges } : {}),
     ...(classified.eventPhotos.length > 0 ? { eventPhotos: classified.eventPhotos } : {}),

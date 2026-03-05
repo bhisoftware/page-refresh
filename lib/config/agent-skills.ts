@@ -1,6 +1,5 @@
 /**
  * Read agent system prompts and config from DB at runtime.
- * Valid slugs: screenshot-analysis, industry-seo, score, creative-modern, creative-classy, creative-unique
  */
 
 import type { AgentSkill } from "@prisma/client";
@@ -10,6 +9,8 @@ const VALID_SLUGS = new Set([
   "screenshot-analysis",
   "industry-seo",
   "score",
+  "scanning-copy",
+  "logo-identification",
   "creative-modern",
   "creative-classy",
   "creative-unique",

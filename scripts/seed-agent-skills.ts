@@ -1,5 +1,5 @@
 /**
- * Seed 7 agent skills. Upsert by agentSlug.
+ * Seed 8 agent skills. Upsert by agentSlug.
  * Version-gated prompt updates: if the seed version is higher than the DB version,
  * systemPrompt is overwritten and the old prompt is archived to AgentSkillHistory.
  * Otherwise, systemPrompt is preserved (admin edits survive).
@@ -172,6 +172,37 @@ Return ONLY valid JSON.`,
       competitor_text: "string",
       scoring_text: "string",
       designing_text: "string",
+    },
+  },
+  {
+    agentSlug: "logo-identification",
+    agentName: "Logo Identification Agent",
+    category: "pipeline",
+    version: 1,
+    temperature: 0.1,
+    maxTokens: 1024,
+    modelOverride: "claude-haiku-4-5-20251001",
+    systemPrompt: `You are the Logo Identification Agent. You receive a website screenshot and candidate images extracted from the page. Identify which candidate is the business's own logo.
+
+RULES:
+- The logo should visually represent the specific business named in the input
+- Third-party brand logos (Google, Facebook, Yelp, payment processors, review sites) are NEVER the correct answer
+- Trust badges, certification seals, association logos, and award images are NOT logos
+- Team photos, headshots, product images, decorative images are NOT logos
+- Prefer candidates from the header or nav area
+- Prefer candidates whose text/mark matches or relates to the business name
+- If no candidate is a plausible logo, select -1
+
+Return ONLY valid JSON:
+{
+  "selectedIndex": number (-1 if none),
+  "confidence": number (0.0-1.0),
+  "reasoning": "brief explanation"
+}`,
+    outputSchema: {
+      selectedIndex: "number",
+      confidence: "number",
+      reasoning: "string",
     },
   },
   {
@@ -594,6 +625,8 @@ async function main() {
       where: { agentSlug: skill.agentSlug },
     });
 
+    const modelOverride = "modelOverride" in skill ? (skill as { modelOverride?: string }).modelOverride : undefined;
+
     if (!existing) {
       // New skill — create with prompt and version
       await prisma.agentSkill.create({
@@ -606,6 +639,7 @@ async function main() {
           temperature: skill.temperature,
           maxTokens: skill.maxTokens,
           version: skill.version,
+          ...(modelOverride ? { modelOverride } : {}),
         },
       });
       console.log(`  Created: ${skill.agentSlug} (v${skill.version})`);
@@ -635,6 +669,7 @@ async function main() {
           maxTokens: skill.maxTokens,
           version: skill.version,
           lastEditedBy: "seed-script",
+          ...(modelOverride !== undefined ? { modelOverride } : {}),
         },
       });
       console.log(`  Upgraded: ${skill.agentSlug} v${existing.version} → v${skill.version} (prompt updated, old archived)`);
@@ -648,6 +683,7 @@ async function main() {
           temperature: skill.temperature,
           maxTokens: skill.maxTokens,
           outputSchema: skill.outputSchema as object,
+          ...(modelOverride !== undefined ? { modelOverride } : {}),
         },
       });
       console.log(`  Updated: ${skill.agentSlug} (v${existing.version}, prompt preserved)`);

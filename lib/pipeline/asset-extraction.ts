@@ -38,6 +38,8 @@ export interface AssetExtractionResult {
   techStack: TechStack;
   /** Map from original site image URL to S3-backed blob URL */
   siteImageUrlMap: Map<string, string>;
+  /** Raw image buffers keyed by source URL. Retained for vision agents (e.g., Logo Agent). */
+  downloadedBuffers: Map<string, Buffer>;
 }
 
 function resolveAbsolute(baseUrl: string, href: string): string {
@@ -300,9 +302,10 @@ const MAX_SITE_IMAGES = 8;
 async function downloadSiteImages(
   images: Array<{ src: string; alt?: string }>,
   profileId: string,
-): Promise<{ urlMap: Map<string, string>; stored: StoredAsset[] }> {
+): Promise<{ urlMap: Map<string, string>; stored: StoredAsset[]; buffers: Map<string, Buffer> }> {
   const urlMap = new Map<string, string>();
   const stored: StoredAsset[] = [];
+  const buffers = new Map<string, Buffer>();
 
   // Deduplicate by URL
   const seen = new Set<string>();
@@ -328,6 +331,7 @@ async function downloadSiteImages(
         const storageUrl = await uploadBlob(storageKey, buffer, contentType);
         return {
           originalUrl: img.src,
+          buffer,
           storageUrl,
           storedAsset: {
             assetType,
@@ -346,11 +350,12 @@ async function downloadSiteImages(
       if (r.status === "fulfilled" && r.value) {
         urlMap.set(r.value.originalUrl, r.value.storageUrl);
         stored.push(r.value.storedAsset);
+        buffers.set(r.value.originalUrl, r.value.buffer);
       }
     }
   }
 
-  return { urlMap, stored };
+  return { urlMap, stored, buffers };
 }
 
 export async function extractAndPersistAssets(
@@ -364,6 +369,7 @@ export async function extractAndPersistAssets(
   const techStack = detectTechStack(html);
   const storedAssets: StoredAsset[] = [];
   let siteImageUrlMap = new Map<string, string>();
+  const downloadedBuffers = new Map<string, Buffer>();
 
   try {
     const $ = cheerio.load(html);
@@ -387,6 +393,7 @@ export async function extractAndPersistAssets(
         storageUrl,
         sourceUrl: url,
       });
+      downloadedBuffers.set(url, buffer);
       downloaded++;
     }
 
@@ -400,6 +407,24 @@ export async function extractAndPersistAssets(
     const siteImageResult = await downloadSiteImages(allSiteImages, urlProfile.id);
     storedAssets.push(...siteImageResult.stored);
     siteImageUrlMap = siteImageResult.urlMap;
+    for (const [url, buf] of siteImageResult.buffers) {
+      downloadedBuffers.set(url, buf);
+    }
+
+    // Ensure top logo candidates have buffers for Logo Agent vision
+    const logoCandidateUrls = (assets.logoCandidates ?? []).slice(0, 5).map((c) => c.url);
+    const missingCandidates = logoCandidateUrls.filter((url) => !downloadedBuffers.has(url));
+    if (missingCandidates.length > 0) {
+      const extraResults = await Promise.allSettled(
+        missingCandidates.map((url) => downloadOne(url))
+      );
+      for (let i = 0; i < extraResults.length; i++) {
+        const r = extraResults[i];
+        if (r.status === "fulfilled" && r.value) {
+          downloadedBuffers.set(missingCandidates[i], r.value.buffer);
+        }
+      }
+    }
 
     if (screenshotBuffer && screenshotBuffer.length > 0) {
       const screenshotKey = profileAssetKey(urlProfile.id, "screenshot", "webp");
@@ -452,5 +477,5 @@ export async function extractAndPersistAssets(
     console.error("[asset-extraction] Failed to persist assets:", err instanceof Error ? err.message : String(err));
   }
 
-  return { assets, storedAssets, techStack, siteImageUrlMap };
+  return { assets, storedAssets, techStack, siteImageUrlMap, downloadedBuffers };
 }

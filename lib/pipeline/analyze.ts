@@ -19,6 +19,7 @@ import { runIndustrySeoAgent } from "@/lib/pipeline/agents/industry-seo";
 import { runScoreAgent } from "@/lib/pipeline/agents/score";
 import { runCreativeAgent, type CreativeSlug } from "@/lib/pipeline/agents/creative";
 import { runScanningCopyAgent } from "@/lib/pipeline/agents/scanning-copy";
+import { runLogoIdentificationAgent, type LogoIdentificationOutput } from "@/lib/pipeline/agents/logo-identification";
 import type { CreativeAgentInput, OriginalSiteStyle, ScreenshotAnalysisOutput, ScanningCopyOutput } from "@/lib/pipeline/agents/types";
 import type { AgentSkill } from "@prisma/client";
 import { getAnalysisCooldownDays } from "@/lib/config/app-settings";
@@ -434,7 +435,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     return {} as ScanningCopyOutput;
   });
 
-  // --- Step 2: Score Agent ---
+  // --- Step 2: Score Agent + Logo Agent (parallel) ---
   onProgress?.({ step: "scoring", message: "Scoring against industry benchmarks..." });
 
   const benchmarks = await prisma.benchmark.findMany({
@@ -452,17 +453,47 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     },
   });
 
-  const scoreResult = await runScoreAgent({
-    skills,
-    input: {
-      screenshotAnalysis,
-      industrySeo,
-      benchmarks,
-      benchmarkCount: benchmarks.length,
-    },
-    refreshId,
-    onRetry,
-  });
+  // Prepare logo candidate buffers for Logo Agent vision
+  const logoCandidates = assetResult.assets.logoCandidates ?? [];
+  const candidateBuffers: Array<{ index: number; buffer: Buffer; mimeType: string }> = [];
+  for (let i = 0; i < Math.min(logoCandidates.length, 5); i++) {
+    const candidate = logoCandidates[i];
+    const buffer = assetResult.downloadedBuffers.get(candidate.url);
+    if (!buffer) continue;
+    const mimeType = candidate.isSvg ? "image/svg+xml"
+      : /\.png(\?|$)/i.test(candidate.url) ? "image/png"
+      : /\.webp(\?|$)/i.test(candidate.url) ? "image/webp"
+      : /\.gif(\?|$)/i.test(candidate.url) ? "image/gif"
+      : "image/jpeg";
+    candidateBuffers.push({ index: i, buffer, mimeType });
+  }
+
+  const [scoreResult, logoResult] = await Promise.all([
+    runScoreAgent({
+      skills,
+      input: {
+        screenshotAnalysis,
+        industrySeo,
+        benchmarks,
+        benchmarkCount: benchmarks.length,
+      },
+      refreshId,
+      onRetry,
+    }),
+    runLogoIdentificationAgent({
+      skills,
+      screenshotBuffer,
+      candidateBuffers,
+      candidates: logoCandidates.slice(0, 5),
+      businessName: resolveBusinessName(assetResult.assets.copy, industrySeo, rawUrl),
+      websiteUrl: rawUrl,
+      refreshId,
+      onRetry,
+    }).catch((err) => {
+      console.warn("[pipeline] Logo Agent failed, using heuristic:", err instanceof Error ? err.message : String(err));
+      return null as LogoIdentificationOutput | null;
+    }),
+  ]);
 
   // Calculate benchmark comparison immediately (moved from Step 4)
   let benchmarkComparison: Record<string, unknown> | null = null;
@@ -541,6 +572,39 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     onProgress?.({ step: "token", key: "scanningCopy", data: scanningCopy as Record<string, unknown> });
   }
 
+  // Don't pass data URIs to creative agents — they're MB-sized base64 strings
+  const safeUrl = (url: string | undefined | null): string | null => {
+    if (!url) return null;
+    if (url.startsWith("data:")) return null;
+    return url;
+  };
+
+  // Resolve confirmed logo URL from Logo Agent (or fall back to heuristic)
+  const heuristicLogoUrl = safeUrl(assetResult.storedAssets.find((a) => a.assetType === "logo")?.storageUrl);
+  let confirmedLogoUrl: string | null = heuristicLogoUrl;
+
+  if (logoResult && logoResult.selectedIndex >= 0 && logoResult.confidence >= 0.6) {
+    const selected = logoCandidates[logoResult.selectedIndex];
+    if (selected) {
+      const s3Url = assetResult.siteImageUrlMap.get(selected.url)
+        ?? assetResult.storedAssets.find((a) => a.sourceUrl === selected.url)?.storageUrl;
+      if (s3Url) {
+        confirmedLogoUrl = safeUrl(s3Url);
+        console.log(`[pipeline] Logo Agent selected candidate ${logoResult.selectedIndex} (confidence: ${logoResult.confidence}): ${selected.url}`);
+      }
+    }
+  } else if (logoResult) {
+    console.log(`[pipeline] Logo Agent low confidence (${logoResult.confidence}), using heuristic`);
+  }
+
+  // Persist confirmed logo if Logo Agent changed it
+  if (confirmedLogoUrl && confirmedLogoUrl !== heuristicLogoUrl) {
+    await prisma.refresh.update({
+      where: { id: refreshId },
+      data: { extractedLogo: confirmedLogoUrl },
+    }).catch(() => {});
+  }
+
   // --- Step 3: Creative Agents ---
   console.log("[pipeline] step 3: creative agents");
   onProgress?.({ step: "generating", message: "Generating 3 design options..." });
@@ -567,12 +631,6 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     contentDirection += "\nNOTE: This site's content is JavaScript-rendered. HTML extraction returned minimal data. Use the provided businessName and industry to build an appropriate landing page. Keep the design simple rather than inventing content.";
   }
 
-  // Don't pass data URIs to creative agents — they're MB-sized base64 strings
-  const safeUrl = (url: string | undefined | null): string | null => {
-    if (!url) return null;
-    if (url.startsWith("data:")) return null;
-    return url;
-  };
   const isHttpUrl = (s: string): boolean => {
     try { const u = new URL(s); return u.protocol === "http:" || u.protocol === "https:"; }
     catch { return false; }
@@ -635,7 +693,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     websiteUrl: rawUrl,
     originalStyle: buildOriginalStyle(screenshotAnalysis),
     brandAssets: {
-      logoUrl: safeUrl(assetResult.storedAssets.find((a) => a.assetType === "logo")?.storageUrl),
+      logoUrl: confirmedLogoUrl,
       heroImageUrl:
         safeUrl(assetResult.storedAssets.find((a) => a.assetType === "hero_image")?.storageUrl)
         // Fallback: promote OG image to hero if no dedicated hero was extracted
