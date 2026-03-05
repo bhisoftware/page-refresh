@@ -253,3 +253,127 @@ describe("extractAssets integration with classification", () => {
     expect(result.images.some((i) => i.src === "https://example.com/sunset.jpg")).toBe(true);
   });
 });
+
+// ─── Logo Scoring ───
+
+describe("logo scoring", () => {
+  it("rejects BBB badge with 'logo' in URL when header logo exists", () => {
+    const html = `
+      <html><body>
+        <header>
+          <a href="/"><img src="/simpsons-text.png" alt="Simpson's Auto Repair"></a>
+        </header>
+        <section>
+          <img src="/main-logo.png" alt="main-logo">
+          <img src="http://seal-nashville.bbb.org/logo/ruhzbul/simpsons-auto-repair.png" alt="Simpson's Auto Repair, Auto Repair">
+        </section>
+      </body></html>
+    `;
+    const result = extractAssets(html, "", "https://www.simpsonsautorepair.com");
+    expect(result.logo).toBe("https://www.simpsonsautorepair.com/simpsons-text.png");
+  });
+
+  it("selects header logo without 'logo' keyword in alt or src", () => {
+    const html = `
+      <html><body>
+        <header>
+          <a href="/"><img src="/brand-mark.png" alt="Smith & Sons Plumbing"></a>
+        </header>
+        <section>
+          <img src="/service-photo.jpg" alt="Our services">
+        </section>
+      </body></html>
+    `;
+    const result = extractAssets(html, "", "https://example.com");
+    expect(result.logo).toBe("https://example.com/brand-mark.png");
+  });
+
+  it("prefers image linking to homepage over other header images", () => {
+    const html = `
+      <html><body>
+        <header>
+          <img src="/promo-banner.jpg" alt="Sale today">
+          <a href="/"><img src="/brand.png" alt="Acme Co"></a>
+        </header>
+      </body></html>
+    `;
+    const result = extractAssets(html, "", "https://example.com");
+    expect(result.logo).toBe("https://example.com/brand.png");
+  });
+
+  it("returns undefined when only trust badge images exist", () => {
+    const html = `
+      <html><body>
+        <section>
+          <img src="/bbb-seal.png" alt="BBB Accredited Business">
+          <img src="/award-badge.png" alt="Best of 2024 Award">
+        </section>
+      </body></html>
+    `;
+    const result = extractAssets(html, "", "https://example.com");
+    expect(result.logo).toBeUndefined();
+  });
+
+  it("lets BBB badge flow to trustBadges when header logo wins", () => {
+    const html = `
+      <html><body>
+        <header>
+          <a href="/"><img src="/logo.svg" alt="My Business Logo"></a>
+        </header>
+        <footer>
+          <img src="/bbb-logo.png" alt="BBB Accredited">
+        </footer>
+      </body></html>
+    `;
+    const result = extractAssets(html, "", "https://example.com");
+    expect(result.logo).toBe("https://example.com/logo.svg");
+    expect(result.trustBadges).toBeDefined();
+    expect(result.trustBadges!.some((b) => b.src === "https://example.com/bbb-logo.png")).toBe(true);
+  });
+
+  it("rejects partner logos in an 'Our Partners' section", () => {
+    const html = `
+      <html><body>
+        <header>
+          <a href="/"><img src="/company-mark.png" alt="MainCo"></a>
+        </header>
+        <section>
+          <h2>Our Partners</h2>
+          <img src="/partner-logo-1.png" alt="Partner One">
+          <img src="/partner-logo-2.png" alt="Partner Two">
+        </section>
+      </body></html>
+    `;
+    const result = extractAssets(html, "", "https://example.com");
+    expect(result.logo).toBe("https://example.com/company-mark.png");
+  });
+
+  it("rejects trade org image near 'Member of' text", () => {
+    const html = `
+      <html><body>
+        <header>
+          <a href="/"><img src="/brand.png" alt="Our Company"></a>
+        </header>
+        <div>
+          <p>Proud Member of the Nashville Chamber of Commerce</p>
+          <img src="/chamber-logo.png" alt="Chamber of Commerce">
+        </div>
+      </body></html>
+    `;
+    const result = extractAssets(html, "", "https://example.com");
+    expect(result.logo).toBe("https://example.com/brand.png");
+  });
+
+  it("still selects logo with 'logo' keyword in header (existing behavior)", () => {
+    const html = `
+      <html><body>
+        <header>
+          <img src="/logo.png" alt="Logo">
+          <img src="/hero-banner.jpg" alt="Hero Banner">
+        </header>
+      </body></html>
+    `;
+    const result = extractAssets(html, "", "https://example.com");
+    expect(result.logo).toBe("https://example.com/logo.png");
+  });
+});

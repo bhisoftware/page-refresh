@@ -135,6 +135,8 @@ export interface ExtractedCopy {
   navItems?: string[];
   ctaText?: string;
   bodySamples?: string[];
+  businessName?: string;
+  titleTag?: string;
 }
 
 export interface ClassifiedImage {
@@ -346,6 +348,9 @@ function extractFontsFromCss(css: string): ExtractedFonts {
 const TEAM_PATTERNS = /\b(attorney|lawyer|founder|partner|ceo|director|president|owner|team|staff|headshot|portrait|about[-\s]us|dr\.|esq\.?)\b/i;
 const TRUST_PATTERNS = /\b(award|badge|rating|verified|avvo|reviews?|stars?|accreditation|certification|bbb|chamber|association|member|trusted|guarantee|seal)\b/i;
 const EVENT_PATTERNS = /\b(ceremony|event|office|conference|seminar|meeting|retreat|workshop|celebration|reception)\b/i;
+const SECTION_CONTEXT_PATTERN = /\b(partner|sponsor|member|certif|accredit|as\s+seen|trusted\s+by|featured\s+in|our\s+clients|affiliat|recogni|award)\b/i;
+const JUNK_URL_PATTERN =
+  /thumb(nail)?s?[\-_\/\.]|spacer|pixel|tracking|transparent\.|1x1|blank\.|spinner|loader/i;
 
 /**
  * Classify images into semantic roles based on alt text, surrounding context, and URL path.
@@ -383,6 +388,144 @@ export function classifyImages(
   return { teamPhotos, trustBadges, eventPhotos, unclassified };
 }
 
+/**
+ * Resolve the best logo URL from a DOM element, preferring SVG and high-res variants.
+ */
+function resolveLogoUrl(
+  $: cheerio.CheerioAPI,
+  imgEl: cheerio.Cheerio<cheerio.Element>,
+  baseUrl: string
+): string | undefined {
+  // Prefer SVG sibling (many sites render both raster and SVG logos)
+  const parent = imgEl.parent();
+  const svgSource = parent.find('source[srcset$=".svg"], source[type="image/svg+xml"]').first();
+  if (svgSource.length) {
+    const svgSrc = svgSource.attr("srcset");
+    if (svgSrc && !svgSrc.startsWith("data:")) return resolveUrl(baseUrl, svgSrc);
+  }
+  // Prefer srcset high-res variant
+  const srcset = imgEl.attr("srcset") || imgEl.attr("data-srcset");
+  if (srcset) {
+    const entries = srcset
+      .split(",")
+      .map((entry) => {
+        const parts = entry.trim().split(/\s+/);
+        const url = parts[0];
+        const desc = parts[1] ?? "";
+        let size = 0;
+        if (desc.endsWith("w")) size = parseInt(desc, 10) || 0;
+        else if (desc.endsWith("x")) size = (parseFloat(desc) || 1) * 1000;
+        return { url, size };
+      })
+      .filter((e) => e.url && !e.url.startsWith("data:"));
+    if (entries.length) {
+      entries.sort((a, b) => b.size - a.size);
+      return resolveUrl(baseUrl, entries[0].url);
+    }
+  }
+  // Lazy-loaded
+  const dataSrc = imgEl.attr("data-src") || imgEl.attr("data-lazy-src");
+  if (dataSrc && !dataSrc.startsWith("data:")) return resolveUrl(baseUrl, dataSrc);
+  // Standard src
+  const src = imgEl.attr("src");
+  if (src && !src.startsWith("data:")) return resolveUrl(baseUrl, src);
+  return undefined;
+}
+
+/**
+ * Score all <img> elements on the page and return the best logo URL.
+ * Signals: DOM position (header/nav), keywords, homepage link, business name match,
+ * SVG format, and negative penalties for trust badges, team photos, section context.
+ */
+function scoreLogoCandidates(
+  $: cheerio.CheerioAPI,
+  baseUrl: string,
+  businessName: string | undefined
+): string | undefined {
+  let bestScore = 0;
+  let bestEl: cheerio.Cheerio<cheerio.Element> | undefined;
+
+  const siteHost = (() => {
+    try { return new URL(baseUrl).hostname; } catch { return ""; }
+  })();
+  const bizLower = businessName?.toLowerCase();
+
+  $("img").each((_, el) => {
+    const imgEl = $(el);
+    const rawSrc = imgEl.attr("data-src") || imgEl.attr("data-lazy-src") || imgEl.attr("data-original") || imgEl.attr("src");
+    if (!rawSrc || rawSrc.startsWith("data:")) return;
+    const resolved = resolveUrl(baseUrl, rawSrc);
+    if (JUNK_URL_PATTERN.test(resolved)) return;
+
+    // Skip very tiny images (tracking pixels, micro-icons)
+    const w = parseInt(imgEl.attr("width") ?? "0", 10);
+    const h = parseInt(imgEl.attr("height") ?? "0", 10);
+    if ((w > 0 && w < 20) || (h > 0 && h < 20)) return;
+
+    const alt = (imgEl.attr("alt") ?? "").toLowerCase();
+    const urlPath = resolved.replace(/https?:\/\/[^/]+/, "").toLowerCase();
+    let score = 0;
+
+    // === Positive signals ===
+    if (imgEl.closest("header").length) score += 30;
+    else if (imgEl.closest("nav").length) score += 20;
+
+    const parentLink = imgEl.closest("a");
+    if (parentLink.length) {
+      const href = parentLink.attr("href") ?? "";
+      if (href === "/" || href === baseUrl || href === baseUrl + "/") score += 15;
+    }
+
+    if (/logo|brand/.test(alt) || /logo|brand/.test(urlPath)) score += 15;
+    if (bizLower && bizLower.length > 2 && alt.includes(bizLower)) score += 10;
+    if (/\.svg(\?|$)/i.test(resolved)) score += 5;
+
+    // === Negative signals ===
+    const parentText = imgEl.parent()?.text()?.trim()?.slice(0, 200)?.toLowerCase() ?? "";
+    const signal = [alt, urlPath, parentText].join(" ");
+
+    if (TRUST_PATTERNS.test(signal)) score -= 40;
+    if (TEAM_PATTERNS.test(signal)) score -= 30;
+    if (EVENT_PATTERNS.test(signal)) score -= 15;
+
+    // Section context: walk up to find nearest heading indicating partner/badge section
+    let container = imgEl.parent();
+    for (let i = 0; i < 5 && container.length && !container.is("body, html"); i++) {
+      const heading = container.children("h2, h3, h4").first().text()?.trim();
+      if (heading && SECTION_CONTEXT_PATTERN.test(heading)) {
+        score -= 20;
+        break;
+      }
+      container = container.parent();
+    }
+
+    // Parent/grandparent text for partner/trust context
+    const gpText = imgEl.parent()?.parent()?.text()?.trim()?.slice(0, 300)?.toLowerCase() ?? "";
+    if (SECTION_CONTEXT_PATTERN.test(parentText) || SECTION_CONTEXT_PATTERN.test(gpText)) {
+      score -= 15;
+    }
+
+    // External domain (third-party images are rarely the site's own logo)
+    try {
+      const imgHost = new URL(resolved).hostname;
+      if (siteHost && imgHost !== siteHost && !imgHost.endsWith(`.${siteHost}`) && !siteHost.endsWith(`.${imgHost}`)) {
+        score -= 15;
+      }
+    } catch { /* invalid URL, skip penalty */ }
+
+    // Footer (without also being in header) is a weak logo position
+    if (imgEl.closest("footer").length && !imgEl.closest("header").length) score -= 10;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestEl = imgEl;
+    }
+  });
+
+  if (bestScore <= 0 || !bestEl) return undefined;
+  return resolveLogoUrl($, bestEl, baseUrl);
+}
+
 function resolveUrl(base: string, href: string): string {
   if (href.startsWith("//")) return `https:${href}`;
   if (href.startsWith("/")) {
@@ -406,9 +549,6 @@ export function extractAssets(html: string, css: string, baseUrl: string): Extra
 
   const colors = extractColorsFromCss(css);
   const fonts = extractFontsFromCss(css);
-
-  const JUNK_URL_PATTERN =
-    /thumb(nail)?s?[\-_\/\.]|spacer|pixel|tracking|transparent\.|1x1|blank\.|spinner|loader/i;
 
   const images: ExtractedImage = [];
   $("img").each((_, el) => {
@@ -465,17 +605,30 @@ export function extractAssets(html: string, css: string, baseUrl: string): Extra
     const t = $(el).text().trim();
     if (t && !h2s.includes(t) && !isJunkCopy(t)) h2s.push(t);
   });
-  const metaDesc = $('meta[name="description"]').attr("content")?.trim();
-  const ogTitle = $('meta[property="og:title"]').attr("content")?.trim();
 
   if (rawH1 && !isJunkCopy(rawH1)) {
     copy.h1 = rawH1;
   } else if (h2s.length) {
     copy.h1 = h2s[0];
-  } else if (metaDesc && !isJunkCopy(metaDesc)) {
-    copy.h1 = metaDesc.slice(0, 120);
-  } else if (ogTitle && !isJunkCopy(ogTitle)) {
-    copy.h1 = ogTitle;
+  }
+  // Do NOT fall back to meta description or og:title as h1 — they're metadata,
+  // not headlines. Missing h1 is handled by SPARSE DATA guidance in creative agents.
+
+  // Extract title tag and business name
+  const titleTag = $("title").first().text().trim();
+  if (titleTag) copy.titleTag = titleTag;
+
+  const ogSiteName = $('meta[property="og:site_name"]').attr("content")?.trim();
+  if (ogSiteName && !isJunkCopy(ogSiteName)) {
+    copy.businessName = ogSiteName;
+  } else if (titleTag) {
+    // Clean title tag: strip suffixes like " | Home", " - Welcome", " – About Us"
+    const cleaned = titleTag
+      .replace(/\s*[|–—-]\s*(home|welcome|about\s*us|contact|main|official\s*site|official\s*website).*$/i, "")
+      .trim();
+    if (cleaned && !isJunkCopy(cleaned)) {
+      copy.businessName = cleaned;
+    }
   }
 
   if (h2s.length) copy.h2 = h2s.slice(0, 5);
@@ -506,58 +659,8 @@ export function extractAssets(html: string, css: string, baseUrl: string): Extra
   });
   if (bodySamples.length) copy.bodySamples = bodySamples.slice(0, 5);
 
-  // Logo heuristics: first img in header, or img with "logo" in src/alt
-  // Prefer SVG variants and srcset high-res versions for crisp logos
-  let logo: string | undefined;
-  const logoImg = $('header img[alt*="logo"], img[src*="logo"], img[alt*="Logo"]').first();
-  if (logoImg.length) {
-    // Check for SVG sibling (many sites render both raster and SVG logos)
-    const parent = logoImg.parent();
-    const svgSource = parent.find('source[srcset$=".svg"], source[type="image/svg+xml"]').first();
-    if (svgSource.length) {
-      const svgSrc = svgSource.attr("srcset");
-      if (svgSrc && !svgSrc.startsWith("data:")) {
-        logo = resolveUrl(baseUrl, svgSrc);
-      }
-    }
-    // Check srcset for higher-res logo
-    if (!logo) {
-      const srcset = logoImg.attr("srcset") || logoImg.attr("data-srcset");
-      if (srcset) {
-        const entries = srcset
-          .split(",")
-          .map((entry) => {
-            const parts = entry.trim().split(/\s+/);
-            const url = parts[0];
-            const descriptor = parts[1] ?? "";
-            let size = 0;
-            if (descriptor.endsWith("w")) size = parseInt(descriptor, 10) || 0;
-            else if (descriptor.endsWith("x")) size = (parseFloat(descriptor) || 1) * 1000;
-            return { url, size };
-          })
-          .filter((e) => e.url && !e.url.startsWith("data:"));
-        if (entries.length) {
-          entries.sort((a, b) => b.size - a.size);
-          logo = resolveUrl(baseUrl, entries[0].url);
-        }
-      }
-    }
-    // Check data-src (lazy-loaded logos)
-    if (!logo) {
-      const dataSrc = logoImg.attr("data-src") || logoImg.attr("data-lazy-src");
-      if (dataSrc && !dataSrc.startsWith("data:")) {
-        logo = resolveUrl(baseUrl, dataSrc);
-      }
-    }
-    // Fall back to src
-    if (!logo) {
-      const src = logoImg.attr("src");
-      if (src && !src.startsWith("data:")) logo = resolveUrl(baseUrl, src);
-    }
-  }
-  if (!logo && images.length) {
-    logo = images[0].src;
-  }
+  // Logo detection: score all <img> candidates by position, keywords, and negative signals
+  const logo = scoreLogoCandidates($, baseUrl, copy.businessName);
 
   // Semantic classification of site images (skip logo)
   const siteImages = images.filter((img) => img.src !== logo);
