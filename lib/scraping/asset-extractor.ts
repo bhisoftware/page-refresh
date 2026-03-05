@@ -470,7 +470,8 @@ export function classifyImages(
  */
 function resolveLogoUrl(
   $: cheerio.CheerioAPI,
-  imgEl: cheerio.Cheerio<cheerio.Element>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  imgEl: cheerio.Cheerio<any>,
   baseUrl: string
 ): string | undefined {
   // Prefer SVG sibling (many sites render both raster and SVG logos)
@@ -520,7 +521,8 @@ function scoreLogoCandidates(
   businessName: string | undefined
 ): string | undefined {
   let bestScore = 0;
-  let bestEl: cheerio.Cheerio<cheerio.Element> | undefined;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let bestEl: cheerio.Cheerio<any> | undefined;
 
   const siteHost = (() => {
     try { return new URL(baseUrl).hostname; } catch { return ""; }
