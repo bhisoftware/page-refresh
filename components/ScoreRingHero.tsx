@@ -33,8 +33,8 @@ export function ScoreRingHero({
     analysisUrl && /^https?:\/\//i.test(analysisUrl) ? analysisUrl : analysisUrl ? `https://${analysisUrl}` : null;
 
   return (
-    <div className="bg-card rounded-2xl shadow-sm p-10 mb-8 flex flex-col">
-      <div className="flex flex-col sm:flex-row items-center gap-10">
+    <div className="bg-card rounded-2xl shadow-sm p-6 sm:p-10 mb-4 sm:mb-8 flex flex-col">
+      <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-10">
         {/* Score Ring */}
         <div
           className="w-40 h-40 rounded-full flex items-center justify-center flex-shrink-0"

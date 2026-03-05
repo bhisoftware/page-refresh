@@ -381,20 +381,35 @@ function HomeContent() {
   };
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-6 md:p-8 bg-[#f5f0eb]">
-      <div className="w-full max-w-xl mx-auto text-center space-y-8">
+    <main className={cn(
+      "min-h-screen flex flex-col items-center p-6 md:p-8 bg-[#f5f0eb]",
+      isAnalyzing ? "justify-start pt-8" : "justify-center"
+    )}>
+      <div className={cn(
+        "w-full max-w-xl mx-auto text-center",
+        isAnalyzing ? "space-y-4" : "space-y-8"
+      )}>
         <>
-          <div className="space-y-3 w-full flex flex-col items-center">
-            <LogoIcon size={64} className="shrink-0" />
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-[#2d5a3d]">
+          <div className={cn(
+            "w-full flex flex-col items-center transition-all duration-500",
+            isAnalyzing ? "space-y-1" : "space-y-3"
+          )}>
+            <LogoIcon size={isAnalyzing ? 40 : 64} className="shrink-0 transition-all duration-500" />
+            <h1 className={cn(
+              "font-bold tracking-tight text-[#2d5a3d] transition-all duration-500",
+              isAnalyzing ? "text-xl" : "text-3xl md:text-4xl"
+            )}>
               Page Refresh
             </h1>
-            <p className="text-lg text-muted-foreground max-w-md mx-auto">
+            <p className={cn(
+              "text-muted-foreground max-w-md mx-auto transition-all duration-500",
+              isAnalyzing ? "text-sm" : "text-lg"
+            )}>
               $50,000 refresh in 5 minutes
             </p>
           </div>
 
-          <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
+          <form ref={formRef} onSubmit={handleSubmit} className={cn("space-y-4", isAnalyzing && "space-y-2")}>
             <div className="flex flex-col sm:flex-row gap-2 relative">
               <div className="relative flex-1">
                 <Input

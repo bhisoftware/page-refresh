@@ -471,7 +471,7 @@ export function ScanningExperience({
         </div>
 
         {/* ─── Progress pills ──────────────────────────────── */}
-        <div className="flex flex-wrap gap-1.5 mb-7">
+        <div className="flex flex-wrap gap-1.5 mb-7 justify-center">
           {PILL_CONFIG.map((pill, i) => {
             const isActive = i === currentPhaseIdx && !isDone;
             const isPast = i < currentPhaseIdx || isDone;

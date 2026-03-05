@@ -213,8 +213,8 @@ export default async function ResultsPage({
 
   return (
     <main className="min-h-screen bg-slate-50 overflow-x-hidden">
-      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between mb-8">
+      <div className="mx-auto max-w-5xl px-4 py-4 sm:py-8 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between mb-4 sm:mb-8">
           <div className="flex items-center gap-4">
             <Link
               href="/"
@@ -268,7 +268,7 @@ export default async function ResultsPage({
         )}
 
         {/* Reach out — contact form */}
-        <section className="border-t border-slate-200 pt-8 mt-2 mb-10">
+        <section className="border-t border-slate-200 pt-4 sm:pt-8 mt-2 mb-6 sm:mb-10">
           <p className="text-muted-foreground mb-4 text-center">
             Questions? Reach out to our team below:
           </p>
