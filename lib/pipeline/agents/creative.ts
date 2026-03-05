@@ -11,6 +11,7 @@ import { withRetry } from "@/lib/ai/retry";
 import { safeParseJSON } from "@/lib/ai/json-repair";
 import type { CreativeAgentInput, CreativeAgentOutput } from "./types";
 import { scanHtmlForLeakedScores, stripLeakedContent, sanitizeImageUrls, verifyBusinessName } from "@/lib/pipeline/html-score-scanner";
+import { validateLayoutQuality } from "@/lib/pipeline/layout-validator";
 
 function extractText(message: Anthropic.Message): string {
   const block = message.content.find((b) => b.type === "text");
@@ -92,6 +93,24 @@ function buildAllowedImageUrls(input: CreativeAgentInput): Set<string> {
   for (const b of brandAssets.trustBadges ?? []) urls.add(b.src);
   for (const e of brandAssets.eventPhotos ?? []) urls.add(e.src);
   return urls;
+}
+
+/** Run structural validation and attach results (does not block persistence). */
+function attachValidation(result: CreativeAgentOutput, slug: string): CreativeAgentOutput {
+  const validation = validateLayoutQuality(result.html);
+  if (validation.issues.length > 0) {
+    console.warn(
+      `[creative] ${slug} validation: ${validation.issues.length} issue(s): ` +
+      validation.issues.map(i => i.code).join(", ")
+    );
+  }
+  if (validation.warnings.length > 0) {
+    console.log(
+      `[creative] ${slug} validation: ${validation.warnings.length} warning(s): ` +
+      validation.warnings.map(w => w.code).join(", ")
+    );
+  }
+  return { ...result, validation };
 }
 
 export interface RunCreativeAgentOptions {
@@ -184,7 +203,10 @@ Key: Stand out from competitors. Custom visual language. Playful but purposeful.
 
   // Primary path: extract from XML-style tags (avoids JSON escaping issues)
   const tagged = extractFromTags(text);
-  if (tagged) return cleanGeneratedHtml(tagged, slug, allowedImageUrls, input.businessName);
+  if (tagged) {
+    const cleaned = cleanGeneratedHtml(tagged, slug, allowedImageUrls, input.businessName);
+    return attachValidation(cleaned, slug);
+  }
 
   // Fallback: try JSON parsing (backwards compat with older prompts in DB)
   const parsed = safeParseJSON(text);
@@ -192,7 +214,10 @@ Key: Stand out from competitors. Custom visual language. Playful but purposeful.
     const data = parsed.data as Record<string, unknown>;
     const html = typeof data.html === "string" ? data.html : "";
     const rationale = typeof data.rationale === "string" ? data.rationale : "";
-    if (html.trim()) return cleanGeneratedHtml({ html, rationale }, slug, allowedImageUrls, input.businessName);
+    if (html.trim()) {
+      const cleaned = cleanGeneratedHtml({ html, rationale }, slug, allowedImageUrls, input.businessName);
+      return attachValidation(cleaned, slug);
+    }
   }
 
   throw new Error(`Creative Agent ${slug} returned unparseable output (no tags, invalid JSON)`);

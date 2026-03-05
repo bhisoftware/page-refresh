@@ -191,4 +191,5 @@ export interface CreativeAgentInput {
 export interface CreativeAgentOutput {
   html: string;
   rationale: string;
+  validation?: import("@/lib/pipeline/layout-validator").LayoutValidationResult;
 }
