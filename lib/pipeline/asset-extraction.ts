@@ -147,6 +147,57 @@ function scoreImageUrl(url: string): number {
   return score;
 }
 
+/** URL/alt patterns that indicate an image is an icon, not a content photo. */
+const ICON_URL_PATTERN = /\b(icon|ico|glyph|symbol|emoji|badge-icon|ui-icon|arrow|chevron|checkmark)\b/i;
+const ICON_ALT_PATTERN = /\b(icon|arrow|chevron|checkmark|check mark|bullet|dot|close|menu|hamburger)\b/i;
+const DECORATIVE_URL_PATTERN = /\b(bg|background|pattern|texture|gradient|divider|separator|spacer|decoration|overlay)\b/i;
+
+/**
+ * Check if an image element is likely an icon or decorative image (not suitable as hero).
+ * Uses URL patterns, alt text, dimensions, and SVG detection.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function isLikelyIconOrDecorative($: cheerio.CheerioAPI, el: any, imgUrl: string): boolean {
+  const $el = $(el);
+  const alt = ($el.attr("alt") ?? "").toLowerCase();
+  const urlLower = imgUrl.toLowerCase();
+
+  // SVG files are almost always icons/illustrations
+  if (/\.svg(\?|$)/i.test(urlLower)) return true;
+
+  // URL and alt text pattern checks
+  if (ICON_URL_PATTERN.test(urlLower) || DECORATIVE_URL_PATTERN.test(urlLower)) return true;
+  if (ICON_ALT_PATTERN.test(alt)) return true;
+
+  // Dimension checks — small images are icons
+  const w = parseInt($el.attr("width") ?? "0", 10) || 0;
+  const h = parseInt($el.attr("height") ?? "0", 10) || 0;
+  if (w > 0 && h > 0) {
+    const maxDim = Math.max(w, h);
+    if (maxDim <= 128) return true;
+  }
+
+  return false;
+}
+
+/** Minimum dimension for a hero image candidate (either width or height). */
+const MIN_HERO_DIMENSION = 200;
+
+/**
+ * Check if an image has sufficient dimensions for hero use.
+ * Returns true if dimensions are unknown (no width/height attrs) or above threshold.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function hasHeroDimensions($: cheerio.CheerioAPI, el: any): boolean {
+  const $el = $(el);
+  const w = parseInt($el.attr("width") ?? "0", 10) || 0;
+  const h = parseInt($el.attr("height") ?? "0", 10) || 0;
+  // If no dimensions specified, allow it (we can't tell)
+  if (w === 0 && h === 0) return true;
+  // At least one dimension must meet minimum
+  return w >= MIN_HERO_DIMENSION || h >= MIN_HERO_DIMENSION;
+}
+
 /**
  * Identify candidate URLs for logo, favicon, og:image, hero_image from HTML.
  * Returns deduplicated list of { url, assetType }.
@@ -203,7 +254,7 @@ function identifyDownloadableUrls(
     }
   }
 
-  // Hero detection: first try header images that aren't logo/favicon
+  // Hero detection: first try header images that aren't logo/favicon/icon
   // Use getBestImageUrl to prefer srcset/data-src high-res variants
   let heroFound = false;
   $("header img").each((_, el) => {
@@ -211,6 +262,8 @@ function identifyDownloadableUrls(
     const bestUrl = getBestImageUrl($, el, baseUrl);
     if (!bestUrl) return;
     if (classifiedUrls.has(bestUrl) || seen.has(bestUrl)) return;
+    if (isLikelyIconOrDecorative($, el, bestUrl)) return;
+    if (!hasHeroDimensions($, el)) return;
     add(bestUrl, "hero_image");
     heroFound = true;
   });
@@ -226,6 +279,8 @@ function identifyDownloadableUrls(
         const imgUrl = getBestImageUrl($, el, baseUrl);
         if (!imgUrl) return;
         if (classifiedUrls.has(imgUrl) || seen.has(imgUrl)) return;
+        if (isLikelyIconOrDecorative($, el, imgUrl)) return;
+        if (!hasHeroDimensions($, el)) return;
         const w = parseInt($(el).attr("width") ?? "0", 10) || 0;
         const h = parseInt($(el).attr("height") ?? "0", 10) || 0;
         let size = w * h;
@@ -254,13 +309,14 @@ function identifyDownloadableUrls(
     }
   }
 
-  // Last resort: any img on the page not already classified
+  // Last resort: any img on the page not already classified (skip icons)
   if (!heroFound && $("img").length) {
     $("img").each((_, el) => {
       if (heroFound) return;
       const bestUrl = getBestImageUrl($, el, baseUrl);
       if (!bestUrl) return;
       if (classifiedUrls.has(bestUrl) || seen.has(bestUrl)) return;
+      if (isLikelyIconOrDecorative($, el, bestUrl)) return;
       add(bestUrl, "hero_image");
       heroFound = true;
     });
