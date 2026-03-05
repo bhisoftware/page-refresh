@@ -62,7 +62,13 @@ export async function runScreenshotAnalysisAgent(
         model,
         max_tokens: maxTokens,
         temperature,
-        system: skill.systemPrompt,
+        system: [
+          {
+            type: "text" as const,
+            text: skill.systemPrompt,
+            cache_control: { type: "ephemeral" as const },
+          },
+        ],
         messages: [
           {
             role: "user",

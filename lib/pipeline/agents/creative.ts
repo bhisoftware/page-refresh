@@ -115,7 +115,27 @@ export async function runCreativeAgent(
   const maxTokens = skill.maxTokens ?? 32768;
   const temperature = skill.temperature ?? 0.7;
 
-  const userContent = JSON.stringify(input, null, 2);
+  const STYLE_REMINDERS: Record<CreativeSlug, string> = {
+    "creative-modern": `=== GENERATE A MODERN LAYOUT ===
+Style: Minimalist, bold typography, full-bleed hero, asymmetric grids, generous whitespace.
+Inspiration: Linear, Vercel, Stripe.
+Structure: Full-bleed hero → compact value-prop strip → alternating left-right sections → 2-3 col card grid. Target 4-5 clean sections.
+Key: Less is more. Typography does the heavy lifting. Dark mode friendly.`,
+
+    "creative-classy": `=== GENERATE A CLASSY LAYOUT ===
+Style: Refined, symmetrical, serif+sans-serif pairing, muted palette with gold/navy/charcoal accents.
+Inspiration: McKinsey, Rolex, top law firms.
+Structure: Centered hero → early social proof/testimonials → 3-col service grid → credentials/trust section → inviting contact. Target 5-6 well-spaced sections.
+Key: Hierarchy through typography scale. Trust-first layout. Conservative use of color — elegance through restraint.`,
+
+    "creative-unique": `=== GENERATE A UNIQUE LAYOUT ===
+Style: Break conventions. Unexpected color combos, creative CSS effects, personality-driven.
+Inspiration: Mailchimp, Notion, Figma.
+Structure: Angled/bento hero → surprising first section → non-standard services (accordion/tabs/timeline/masonry) → varied section widths. Target 5-7 sections with AT LEAST 2 unconventional layouts.
+Key: Stand out from competitors. Custom visual language. Playful but purposeful. Memorable first impression. Do NOT use a standard grid layout.`,
+  };
+
+  const userContent = `${STYLE_REMINDERS[slug]}\n\nHere is the site data:\n\n${JSON.stringify(input, null, 2)}`;
 
   const startMs = Date.now();
   // Use streaming to avoid "Streaming is required for operations that may take
@@ -126,7 +146,13 @@ export async function runCreativeAgent(
         model,
         max_tokens: maxTokens,
         temperature,
-        system: skill.systemPrompt,
+        system: [
+          {
+            type: "text" as const,
+            text: skill.systemPrompt,
+            cache_control: { type: "ephemeral" as const },
+          },
+        ],
         messages: [{ role: "user", content: userContent }],
       });
       return stream.finalMessage();

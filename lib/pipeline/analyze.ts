@@ -644,6 +644,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
         .filter((a) => !["logo", "hero_image"].includes(a.assetType) && a.storageUrl && !a.storageUrl.startsWith("data:"))
         .map((a) => ({ url: a.storageUrl!, type: a.assetType })),
       siteImageUrls: assetResult.assets.images
+        .filter((img) => img.imageType !== 'icon' && img.imageType !== 'decorative' && img.imageType !== 'illustration')
         .map((img) => img.src)
         .filter((src) => isHttpUrl(src))
         .slice(0, 8)
@@ -667,6 +668,14 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   if (creativeInput.brandAssets.fonts.length === 0) extractionNotes.push("No brand fonts detected — use system font stack");
   if (!creativeInput.brandAssets.copy?.testimonials?.length) extractionNotes.push("No testimonials found — omit testimonial section");
   if (!creativeInput.brandAssets.copy?.features?.length) extractionNotes.push("No feature list found — omit dedicated features section");
+  if (!creativeInput.brandAssets.copy?.phoneNumber) extractionNotes.push("No phone number found — use a generic 'Contact Us' CTA instead of a phone number");
+  if (!creativeInput.brandAssets.copy?.rating) extractionNotes.push("No aggregate rating found — do not invent star ratings or review counts");
+  const filteredIconCount = assetResult.assets.images.filter(
+    (img) => img.imageType === 'icon' || img.imageType === 'illustration'
+  ).length;
+  if (filteredIconCount > 0 && creativeInput.brandAssets.siteImageUrls.length === 0) {
+    extractionNotes.push(`${filteredIconCount} icon/illustration images filtered — no photographs available. Use brand-colored gradients and strong typography instead of images.`);
+  }
   if (extractionNotes.length > 0) {
     creativeInput.brandAssets.extractionNotes = extractionNotes;
   }

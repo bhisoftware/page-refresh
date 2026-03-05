@@ -181,6 +181,111 @@ function extractFeatures($: cheerio.CheerioAPI): string[] {
   return results;
 }
 
+/**
+ * Extract a phone number from the page. Checks tel: links first,
+ * then scans visible text in key sections.
+ */
+function extractPhoneNumber($: cheerio.CheerioAPI): string | undefined {
+  // Priority 1: tel: link href
+  const telLink = $('a[href^="tel:"]').first();
+  if (telLink.length) {
+    const href = telLink.attr('href') ?? '';
+    const cleaned = href.replace('tel:', '').replace(/\s/g, '');
+    if (/^\+?\d[\d\-().]{8,}$/.test(cleaned)) {
+      const visibleText = telLink.text().trim();
+      if (/\d{3}.*\d{3}.*\d{4}/.test(visibleText)) return visibleText;
+      return cleaned;
+    }
+  }
+
+  // Priority 2: Regex scan of key sections
+  const US_PHONE = /(?:\+?1[-.\s]?)?\(?(\d{3})\)?[-.\s]?(\d{3})[-.\s]?(\d{4})/;
+  const searchSelectors = ['header', 'footer', '[class*="contact"]', '[class*="phone"]', '[class*="hero"]', '.topbar', '[class*="top-bar"]'];
+
+  for (const selector of searchSelectors) {
+    const el = $(selector);
+    if (!el.length) continue;
+    const text = el.text().replace(/\s+/g, ' ');
+    const match = text.match(US_PHONE);
+    if (match) return match[0].trim();
+  }
+
+  // Priority 3: Scan all body text (less precise, more coverage)
+  const bodyText = $('body').text().replace(/\s+/g, ' ');
+  const match = bodyText.match(US_PHONE);
+  if (match) return match[0].trim();
+
+  return undefined;
+}
+
+/**
+ * Extract aggregate rating (Google Reviews, Yelp, etc.) from structured data or page text.
+ */
+function extractRatingData($: cheerio.CheerioAPI): ExtractedCopy['rating'] | undefined {
+  // Method 1: Schema.org JSON-LD (most reliable)
+  const ldJsonScripts = $('script[type="application/ld+json"]');
+  for (let i = 0; i < ldJsonScripts.length; i++) {
+    try {
+      const raw = $(ldJsonScripts[i]).html();
+      if (!raw) continue;
+      const data = JSON.parse(raw);
+
+      const findRating = (obj: Record<string, unknown>): { ratingValue: string; reviewCount?: string; ratingCount?: string } | null => {
+        if (obj.aggregateRating) return obj.aggregateRating as { ratingValue: string; reviewCount?: string; ratingCount?: string };
+        if (Array.isArray(obj['@graph'])) {
+          for (const item of obj['@graph']) {
+            if (item?.aggregateRating) return item.aggregateRating;
+          }
+        }
+        return null;
+      };
+
+      const agg = findRating(data);
+      if (agg?.ratingValue && (agg?.reviewCount || agg?.ratingCount)) {
+        const score = parseFloat(String(agg.ratingValue));
+        const count = parseInt(String(agg.reviewCount || agg.ratingCount), 10);
+        if (score > 0 && score <= 5 && count > 0) {
+          return { score, count, source: 'schema.org' };
+        }
+      }
+    } catch { /* invalid JSON, skip */ }
+  }
+
+  // Method 2: Meta tags
+  const ratingMeta = $('meta[itemprop="ratingValue"]').attr('content');
+  const countMeta = $('meta[itemprop="reviewCount"], meta[itemprop="ratingCount"]').attr('content');
+  if (ratingMeta && countMeta) {
+    const score = parseFloat(ratingMeta);
+    const count = parseInt(countMeta, 10);
+    if (score > 0 && score <= 5 && count > 0) {
+      return { score, count, source: 'microdata' };
+    }
+  }
+
+  // Method 3: Text patterns in known review containers
+  const reviewContainers = $('[class*="review"], [class*="rating"], [class*="google"], [class*="testimonial"], [data-rating]');
+  const ratingRegex = /(\d+\.?\d*)\s*(?:\/\s*5|out\s+of\s+5|stars?)\s*(?:[\s(|,\u2013-]+)?\s*(\d+)\s*(?:reviews?|ratings?)/i;
+  const ratingRegex2 = /(\d+)\s*(?:reviews?|ratings?)\s*[|,\u2013-]\s*(\d+\.?\d*)\s*(?:\/\s*5|stars?)/i;
+
+  for (let i = 0; i < reviewContainers.length; i++) {
+    const text = $(reviewContainers[i]).text().replace(/\s+/g, ' ');
+    let match = text.match(ratingRegex);
+    if (match) {
+      const score = parseFloat(match[1]);
+      const count = parseInt(match[2], 10);
+      if (score > 0 && score <= 5 && count > 0) return { score, count, source: 'page-text' };
+    }
+    match = text.match(ratingRegex2);
+    if (match) {
+      const count = parseInt(match[1], 10);
+      const score = parseFloat(match[2]);
+      if (score > 0 && score <= 5 && count > 0) return { score, count, source: 'page-text' };
+    }
+  }
+
+  return undefined;
+}
+
 export interface ExtractedColor {
   hex: string;
   count?: number;
@@ -199,6 +304,8 @@ export interface ExtractedImageItem {
   src: string;
   alt?: string;
   role?: string;
+  imageType?: 'photo' | 'icon' | 'illustration' | 'decorative' | 'unknown';
+  dimensions?: { width: number; height: number };
 }
 
 export type ExtractedImage = ExtractedImageItem[];
@@ -214,6 +321,8 @@ export interface ExtractedCopy {
   titleTag?: string;
   testimonials?: string[];
   features?: string[];
+  phoneNumber?: string;
+  rating?: { score: number; count: number; source: string };
 }
 
 export interface ClassifiedImage {
@@ -422,6 +531,52 @@ function extractFontsFromCss(css: string): ExtractedFonts {
   return fonts.slice(0, 8);
 }
 
+/**
+ * Classify an image as photo, icon, illustration, or decorative based on
+ * URL patterns, dimensions, alt text, and DOM context.
+ */
+function classifyImageType(
+  src: string,
+  alt: string,
+  dimensions?: { width: number; height: number }
+): ExtractedImageItem['imageType'] {
+  const srcLower = src.toLowerCase();
+  const altLower = (alt ?? '').toLowerCase();
+
+  // SVG files are almost always icons/illustrations, never photographs
+  if (/\.svg(\?|$)/i.test(srcLower)) return 'icon';
+
+  // URL path heuristics for icons
+  if (/\b(icon|ico|glyph|symbol|emoji|badge-icon|ui-icon)\b/i.test(srcLower)) return 'icon';
+
+  // URL path heuristics for decorative
+  if (/\b(bg|background|pattern|texture|gradient|divider|separator|spacer|decoration|overlay)\b/i.test(srcLower)) return 'decorative';
+
+  // URL path heuristics for illustrations
+  if (/\b(illustration|drawing|vector|graphic|clipart|cartoon)\b/i.test(srcLower)) return 'illustration';
+
+  // Alt text heuristics for icons
+  if (/\b(icon|arrow|chevron|checkmark|check mark|bullet|dot|close|menu|hamburger)\b/i.test(altLower)) return 'icon';
+
+  // Dimension-based classification
+  if (dimensions && dimensions.width > 0 && dimensions.height > 0) {
+    const maxDim = Math.max(dimensions.width, dimensions.height);
+    const minDim = Math.min(dimensions.width, dimensions.height);
+    const ratio = maxDim / minDim;
+
+    // Square-ish and small = icon (service icons are typically 80-128px square)
+    if (ratio < 1.5 && maxDim <= 128) return 'icon';
+    // Very small regardless of ratio
+    if (maxDim <= 64) return 'icon';
+  }
+
+  return 'unknown'; // Assumed to be a photo/content image
+}
+
+/** Well-known third-party brands that should never be selected as the site's own logo. */
+const THIRD_PARTY_BRAND_PATTERN =
+  /\b(google|facebook|meta|yelp|youtube|twitter|instagram|linkedin|pinterest|tiktok|amazon|apple|microsoft|yahoo|tripadvisor|trustpilot|angies?\s*list|homeadvisor|thumbtack|nextdoor|carfax|autotrader|stripe|paypal|visa|mastercard|amex|discover|square|venmo|shopify|wordpress|wix|squarespace|godaddy|cloudflare|mailchimp|hubspot|salesforce|quickbooks|intuit|bbb|better\s*business)\b/i;
+
 const TEAM_PATTERNS = /\b(attorney|lawyer|founder|partner|ceo|director|president|owner|team|staff|headshot|portrait|about[-\s]us|dr\.|esq\.?)\b/i;
 const TRUST_PATTERNS = /\b(award|badge|rating|verified|avvo|reviews?|stars?|accreditation|certification|bbb|chamber|association|member|trusted|guarantee|seal)\b/i;
 const EVENT_PATTERNS = /\b(ceremony|event|office|conference|seminar|meeting|retreat|workshop|celebration|reception)\b/i;
@@ -567,6 +722,14 @@ function scoreLogoCandidates(
     if (TEAM_PATTERNS.test(signal)) score -= 30;
     if (EVENT_PATTERNS.test(signal)) score -= 15;
 
+    // Third-party brand images should never be selected as the business logo
+    if (THIRD_PARTY_BRAND_PATTERN.test(signal)) score -= 40;
+
+    // Images inside carousels/sliders are usually partner/client logos
+    if (imgEl.closest(".swiper, .slick-slider, .owl-carousel, [class*='carousel'], [class*='slider']").length) {
+      score -= 15;
+    }
+
     // Section context: walk up to find nearest heading indicating partner/badge section
     let container = imgEl.parent();
     for (let i = 0; i < 5 && container.length && !container.is("body, html"); i++) {
@@ -670,10 +833,14 @@ export function extractAssets(html: string, css: string, baseUrl: string): Extra
       const w = parseInt($(el).attr("width") ?? "0", 10);
       const h = parseInt($(el).attr("height") ?? "0", 10);
       if ((w > 0 && w < 50) || (h > 0 && h < 50)) return;
-      images.push({
+      const dims = (w > 0 || h > 0) ? { width: w, height: h } : undefined;
+      const imgItem: ExtractedImageItem = {
         src: resolved,
         alt: alt ?? undefined,
-      });
+        dimensions: dims,
+      };
+      imgItem.imageType = classifyImageType(resolved, alt ?? '', dims);
+      images.push(imgItem);
     }
   });
 
@@ -688,7 +855,7 @@ export function extractAssets(html: string, css: string, baseUrl: string): Extra
     const resolved = resolveUrl(baseUrl, raw);
     if (JUNK_URL_PATTERN.test(resolved) || bgImageSeen.has(resolved)) continue;
     bgImageSeen.add(resolved);
-    images.push({ src: resolved, alt: undefined });
+    images.push({ src: resolved, alt: undefined, imageType: 'decorative' });
   }
 
   // From inline style attributes in HTML
@@ -700,7 +867,7 @@ export function extractAssets(html: string, css: string, baseUrl: string): Extra
       const resolved = resolveUrl(baseUrl, raw);
       if (JUNK_URL_PATTERN.test(resolved) || bgImageSeen.has(resolved)) continue;
       bgImageSeen.add(resolved);
-      images.push({ src: resolved, alt: undefined });
+      images.push({ src: resolved, alt: undefined, imageType: 'decorative' });
     }
   });
 
@@ -802,6 +969,14 @@ export function extractAssets(html: string, css: string, baseUrl: string): Extra
   // Features / services
   const features = extractFeatures($);
   if (features.length) copy.features = features;
+
+  // Phone number
+  const phoneNumber = extractPhoneNumber($);
+  if (phoneNumber) copy.phoneNumber = phoneNumber;
+
+  // Aggregate rating (Google Reviews, Yelp, etc.)
+  const rating = extractRatingData($);
+  if (rating) copy.rating = rating;
 
   // Logo detection: score all <img> candidates by position, keywords, and negative signals
   const logo = scoreLogoCandidates($, baseUrl, copy.businessName);

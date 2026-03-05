@@ -47,7 +47,13 @@ export async function runIndustrySeoAgent(
         model,
         max_tokens: maxTokens,
         temperature,
-        system: skill.systemPrompt,
+        system: [
+          {
+            type: "text" as const,
+            text: skill.systemPrompt,
+            cache_control: { type: "ephemeral" as const },
+          },
+        ],
         messages: [{ role: "user", content: context }],
       }),
     { onRetry }

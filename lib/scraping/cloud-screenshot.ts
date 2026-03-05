@@ -24,6 +24,8 @@ export async function captureScreenshotCloud(url: string): Promise<Buffer | null
     viewport_width: String(VIEWPORT_WIDTH),
     viewport_height: String(VIEWPORT_HEIGHT),
     format: "png",
+    block_ads: "true",
+    block_cookie_banners: "true",
     access_key: key,
   });
   const apiUrl = `https://api.screenshotone.com/take?${params.toString()}`;

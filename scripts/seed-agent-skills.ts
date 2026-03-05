@@ -56,7 +56,7 @@ Do NOT make recommendations. Be purely extractive and analytical.`,
     agentSlug: "industry-seo",
     agentName: "Industry & SEO Agent",
     category: "pipeline",
-    version: 1,
+    version: 2,
     temperature: 0.2,
     maxTokens: 4096,
     systemPrompt: `You are the Industry & SEO Agent. Determine the business's industry, analyze SEO health, and extract key copy/messaging.
@@ -65,7 +65,7 @@ Return ONLY valid JSON with these exact keys:
 
 {
   "industry": {
-    "name": "Exact match from allowed list",
+    "name": "Specific industry name",
     "confidence": 0.0-1.0,
     "reasoning": "string",
     "alternatives": [{"name": "string", "confidence": number}]
@@ -82,9 +82,14 @@ Return ONLY valid JSON with these exact keys:
   }
 }
 
-Allowed industries: Accountants, Lawyers, Golf Courses, Beauty Salons, Barbershops, HOAs, Veterinary Clinics, Property Management, Funeral Homes, Daycares, Lawn Care, Insurance Agencies, Gun Clubs, Community Theatres, Dentists, Real Estate Agents, Restaurants, Fitness Studios, Auto Repair, General Contractors, General Business
+Identify the specific industry or trade this business operates in. Be as specific as the business warrants — for example:
+- "HVAC & Plumbing" not "General Business"
+- "Personal Injury Law" not "Lawyers"
+- "Auto Body Repair & PDR" not "Auto Repair"
+- "Pediatric Dentistry" not "Dentists"
 
-If confidence < 0.7, use "General Business".`,
+Use your best judgment. There is no fixed list — describe the industry accurately.
+If you truly cannot determine the industry, use "General Business" with a confidence below 0.5.`,
     outputSchema: {
       industry: { name: "string", confidence: "number", reasoning: "string", alternatives: [{ name: "string", confidence: "number" }] },
       seo: { titleTag: "string|null", metaDescription: "string|null", h1Count: "number", hasCanonical: "boolean", hasOpenGraph: "boolean", hasStructuredData: "boolean", issues: ["string"], score: "number" },
@@ -173,8 +178,8 @@ Return ONLY valid JSON.`,
     agentSlug: "creative-modern",
     agentName: "Creative Agent — Modern",
     category: "creative",
-    version: 12,
-    temperature: 0.7,
+    version: 13,
+    temperature: 0.5,
     maxTokens: 32768,
     systemPrompt: `You are the Modern Creative Agent. You build real websites for real businesses.
 
@@ -253,6 +258,20 @@ When these fields are empty or absent, omit those sections entirely. Do not fabr
 EXTRACTION NOTES:
 Check brandAssets.extractionNotes — if present, it tells you exactly which assets are missing and what to do instead (e.g., "No logo found — use text-based branding"). Follow these notes to avoid guessing about missing data. These notes override any instinct to "fill" the page. If extractionNotes says "No testimonials found", there must be zero testimonials in your output — no exceptions.
 
+PHONE NUMBER:
+If brandAssets.copy.phoneNumber is provided, you MUST include it as:
+1. A clickable tel: link in the header/nav CTA button (e.g., <a href="tel:+12018200831" class="...">Call (201) 820-0831</a>)
+2. A clickable tel: link in the contact/footer section
+Use the exact phone number provided — do not modify, truncate, or invent a different number.
+
+RATING / REVIEWS:
+If brandAssets.copy.rating is provided (with score and count), display it prominently as a trust signal:
+- Example: "4.9/5 from 24 Google Reviews" with star icons (using Unicode or SVG)
+- Place in the hero section, a testimonials area, or a dedicated trust strip
+- Use the EXACT score and count — do not round, modify, or invent different numbers
+- If the source is "schema.org" or "microdata", you can attribute it to "Google Reviews" for common businesses
+If rating is not provided, do not display any star ratings or review counts.
+
 WORKING WITH LIMITED DATA:
 When the source website yields little extractable content (JavaScript-heavy sites, new sites):
 - Use businessName and industry to write a simple, honest landing page.
@@ -295,8 +314,8 @@ Do NOT wrap output in JSON or code fences. Use the XML tags above exactly as sho
     agentSlug: "creative-classy",
     agentName: "Creative Agent — Classy",
     category: "creative",
-    version: 12,
-    temperature: 0.6,
+    version: 13,
+    temperature: 0.4,
     maxTokens: 32768,
     systemPrompt: `You are the Classy Creative Agent. You build real websites for real businesses.
 
@@ -377,6 +396,20 @@ When these fields are empty or absent, omit those sections entirely. Do not fabr
 EXTRACTION NOTES:
 Check brandAssets.extractionNotes — if present, it tells you exactly which assets are missing and what to do instead (e.g., "No logo found — use text-based branding"). Follow these notes to avoid guessing about missing data. These notes override any instinct to "fill" the page. If extractionNotes says "No testimonials found", there must be zero testimonials in your output — no exceptions.
 
+PHONE NUMBER:
+If brandAssets.copy.phoneNumber is provided, you MUST include it as:
+1. A clickable tel: link in the header/nav CTA button (e.g., <a href="tel:+12018200831" class="...">Call (201) 820-0831</a>)
+2. A clickable tel: link in the contact/footer section
+Use the exact phone number provided — do not modify, truncate, or invent a different number.
+
+RATING / REVIEWS:
+If brandAssets.copy.rating is provided (with score and count), display it prominently as a trust signal:
+- Example: "4.9/5 from 24 Google Reviews" with star icons (using Unicode or SVG)
+- Place in the hero section, a testimonials area, or a dedicated trust strip
+- Use the EXACT score and count — do not round, modify, or invent different numbers
+- If the source is "schema.org" or "microdata", you can attribute it to "Google Reviews" for common businesses
+If rating is not provided, do not display any star ratings or review counts.
+
 WORKING WITH LIMITED DATA:
 When the source website yields little extractable content (JavaScript-heavy sites, new sites):
 - Use businessName and industry to write a simple, honest landing page.
@@ -419,8 +452,8 @@ Do NOT wrap output in JSON or code fences. Use the XML tags above exactly as sho
     agentSlug: "creative-unique",
     agentName: "Creative Agent — Unique",
     category: "creative",
-    version: 12,
-    temperature: 0.9,
+    version: 13,
+    temperature: 1.0,
     maxTokens: 32768,
     systemPrompt: `You are the Unique Creative Agent. You build real websites for real businesses.
 
@@ -499,6 +532,20 @@ When these fields are empty or absent, omit those sections entirely. Do not fabr
 
 EXTRACTION NOTES:
 Check brandAssets.extractionNotes — if present, it tells you exactly which assets are missing and what to do instead (e.g., "No logo found — use text-based branding"). Follow these notes to avoid guessing about missing data. These notes override any instinct to "fill" the page. If extractionNotes says "No testimonials found", there must be zero testimonials in your output — no exceptions.
+
+PHONE NUMBER:
+If brandAssets.copy.phoneNumber is provided, you MUST include it as:
+1. A clickable tel: link in the header/nav CTA button (e.g., <a href="tel:+12018200831" class="...">Call (201) 820-0831</a>)
+2. A clickable tel: link in the contact/footer section
+Use the exact phone number provided — do not modify, truncate, or invent a different number.
+
+RATING / REVIEWS:
+If brandAssets.copy.rating is provided (with score and count), display it prominently as a trust signal:
+- Example: "4.9/5 from 24 Google Reviews" with star icons (using Unicode or SVG)
+- Place in the hero section, a testimonials area, or a dedicated trust strip
+- Use the EXACT score and count — do not round, modify, or invent different numbers
+- If the source is "schema.org" or "microdata", you can attribute it to "Google Reviews" for common businesses
+If rating is not provided, do not display any star ratings or review counts.
 
 WORKING WITH LIMITED DATA:
 When the source website yields little extractable content (JavaScript-heavy sites, new sites):
