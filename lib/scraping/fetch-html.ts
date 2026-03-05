@@ -5,7 +5,8 @@
 
 import { validateUrlForScreenshot } from "@/lib/scraping/url-validator";
 import { BROWSER_HEADERS } from "@/lib/scraping/browser-headers";
-import { scrapeWithFirecrawl } from "@/lib/scraping/firecrawl-scrape";
+import { scrapeWithFirecrawl, scrapeWithFirecrawlRendered } from "@/lib/scraping/firecrawl-scrape";
+import { isSpaShell } from "@/lib/scraping/tech-detector";
 
 const FETCH_TIMEOUT_MS = 15000;
 
@@ -119,7 +120,20 @@ export async function fetchHtml(url: string): Promise<FetchHtmlResult> {
   validateUrlForScreenshot(url);
 
   try {
-    return await fetchHtmlDirect(url);
+    const result = await fetchHtmlDirect(url);
+
+    // SPA shell detection: if HTML is an empty JS-rendered shell, try Firecrawl rendering
+    if (isSpaShell(result.html)) {
+      console.log(`[fetchHtml] SPA shell detected for ${url}, attempting Firecrawl rendering`);
+      const rendered = await scrapeWithFirecrawlRendered(url);
+      if (rendered) {
+        console.log(`[fetchHtml] Using Firecrawl-rendered HTML for ${url}`);
+        return { html: rendered, url: result.url };
+      }
+      console.log(`[fetchHtml] Firecrawl rendering failed, falling back to shell HTML for ${url}`);
+    }
+
+    return result;
   } catch (err) {
     // Only try Firecrawl for bot-blocking errors
     if (err instanceof Error && isBotBlocked(err)) {

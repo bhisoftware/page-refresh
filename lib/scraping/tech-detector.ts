@@ -10,6 +10,41 @@ export interface TechStack {
   analytics: string[];
 }
 
+/**
+ * Detect whether HTML is an unrendered SPA shell (empty content + framework markers).
+ * Uses regex/string checks only — no cheerio — for speed in the fetch path.
+ */
+export function isSpaShell(html: string): boolean {
+  const lower = html.toLowerCase();
+
+  // --- Content emptiness: ALL must be true ---
+  const hasH1 = (() => {
+    const match = lower.match(/<h1[^>]*>([\s\S]*?)<\/h1>/);
+    return match ? match[1].replace(/<[^>]*>/g, "").trim().length > 0 : false;
+  })();
+  if (hasH1) return false;
+
+  const hasSubstantialP = /<p[^>]*>([\s\S]*?)<\/p>/gi.test(html) &&
+    Array.from(html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)).some(
+      (m) => m[1].replace(/<[^>]*>/g, "").trim().length > 20
+    );
+  if (hasSubstantialP) return false;
+
+  const hasRealImg = /<img[^>]+src\s*=\s*["'](?!data:)[^"']+["']/i.test(html);
+  if (hasRealImg) return false;
+
+  // --- Framework markers: AT LEAST ONE must be true ---
+  const hasFrameworkMarker =
+    /id\s*=\s*["'](root|app)["']/i.test(html) ||
+    lower.includes("_reactrootcontainer") ||
+    lower.includes("__react") ||
+    /data-v-/i.test(html) ||
+    /ng-version/i.test(html) ||
+    /type\s*=\s*["']module["'][^>]+\.(jsx|tsx|vue)["']/i.test(html);
+
+  return hasFrameworkMarker;
+}
+
 export function detectTechStack(html: string): TechStack {
   const lower = html.toLowerCase();
   const frameworks: string[] = [];
