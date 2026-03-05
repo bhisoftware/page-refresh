@@ -19,7 +19,7 @@ import { runIndustrySeoAgent } from "@/lib/pipeline/agents/industry-seo";
 import { runScoreAgent } from "@/lib/pipeline/agents/score";
 import { runCreativeAgent, type CreativeSlug } from "@/lib/pipeline/agents/creative";
 import { runScanningCopyAgent } from "@/lib/pipeline/agents/scanning-copy";
-import type { CreativeAgentInput, ScanningCopyOutput } from "@/lib/pipeline/agents/types";
+import type { CreativeAgentInput, OriginalSiteStyle, ScreenshotAnalysisOutput, ScanningCopyOutput } from "@/lib/pipeline/agents/types";
 import type { AgentSkill } from "@prisma/client";
 import { getAnalysisCooldownDays } from "@/lib/config/app-settings";
 
@@ -205,6 +205,29 @@ const DEFAULT_REFRESH_PLACEHOLDER = {
   layout3Template: "pending",
   layout3CopyRefreshed: "",
 };
+
+/**
+ * Extract actionable visual style signals from screenshot analysis for creative agent context.
+ * Returns undefined if no useful data available.
+ */
+function buildOriginalStyle(sa: ScreenshotAnalysisOutput): OriginalSiteStyle | undefined {
+  const hasColors = sa.colors && Object.values(sa.colors).some((v) => typeof v === "string" && v);
+  const hasTypography = sa.typography && (sa.typography.headingFont || sa.typography.bodyFont);
+  const hasLayout = sa.layout && (sa.layout.heroType || sa.layout.navStyle || sa.layout.gridPattern);
+  const hasDensity = typeof sa.visualDensity === "number";
+  const hasImagery = !!sa.brandAssets?.imageryStyle;
+
+  if (!hasColors && !hasTypography && !hasLayout && !hasDensity && !hasImagery) return undefined;
+
+  const style: OriginalSiteStyle = {};
+  if (hasColors) style.colors = sa.colors;
+  if (hasTypography) style.typography = { headingFont: sa.typography!.headingFont, bodyFont: sa.typography!.bodyFont };
+  if (hasLayout) style.layout = { heroType: sa.layout!.heroType, navStyle: sa.layout!.navStyle, gridPattern: sa.layout!.gridPattern };
+  if (hasDensity) style.visualDensity = sa.visualDensity;
+  if (hasImagery) style.imageryStyle = sa.brandAssets!.imageryStyle;
+
+  return style;
+}
 
 export async function runAnalysis(options: PipelineOptions): Promise<string> {
   const { url, onProgress, onRefreshCreated } = options;
@@ -555,6 +578,24 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     catch { return false; }
   };
 
+  // Merge screenshot analysis colors with CSS-extracted colors (screenshot colors first for priority)
+  const cssColors = assetResult.assets.colors.map((c) => ("hex" in c ? c.hex : String(c)));
+  const screenshotColorValues = screenshotAnalysis.colors
+    ? Object.values(screenshotAnalysis.colors).filter((v): v is string => typeof v === "string" && v.startsWith("#"))
+    : [];
+  const seenColors = new Set<string>();
+  const mergedColors: string[] = [];
+  for (const hex of [...screenshotColorValues, ...cssColors]) {
+    const normalized = hex.toLowerCase();
+    if (!seenColors.has(normalized)) {
+      seenColors.add(normalized);
+      mergedColors.push(hex);
+    }
+  }
+
+  // Remap site image URLs through S3-backed blob URLs (fall back to original if download failed)
+  const remapUrl = (src: string) => assetResult.siteImageUrlMap.get(src) ?? src;
+
   const creativeInput: CreativeAgentInput = {
     designDirection: {
       priorities: scoreResult.creativeBrief.priorities?.map((p) => ({
@@ -570,6 +611,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     industry,
     businessName,
     websiteUrl: rawUrl,
+    originalStyle: buildOriginalStyle(screenshotAnalysis),
     brandAssets: {
       logoUrl: safeUrl(assetResult.storedAssets.find((a) => a.assetType === "logo")?.storageUrl),
       heroImageUrl:
@@ -582,11 +624,12 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
       siteImageUrls: assetResult.assets.images
         .map((img) => img.src)
         .filter((src) => isHttpUrl(src))
-        .slice(0, 8),
-      teamPhotos: assetResult.assets.teamPhotos,
-      trustBadges: assetResult.assets.trustBadges,
-      eventPhotos: assetResult.assets.eventPhotos,
-      colors: assetResult.assets.colors.map((c) => ("hex" in c ? c.hex : String(c))),
+        .slice(0, 8)
+        .map(remapUrl),
+      teamPhotos: assetResult.assets.teamPhotos?.map((p) => ({ ...p, src: remapUrl(p.src) })),
+      trustBadges: assetResult.assets.trustBadges?.map((b) => ({ ...b, src: remapUrl(b.src) })),
+      eventPhotos: assetResult.assets.eventPhotos?.map((e) => ({ ...e, src: remapUrl(e.src) })),
+      colors: mergedColors,
       fonts: assetResult.assets.fonts.map((f) => ("family" in f ? f.family : String(f))),
       navLinks: assetResult.assets.copy?.navItems ?? [],
       copy: assetResult.assets.copy,
@@ -607,7 +650,10 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     console.warn("[pipeline] No active creative agents — skipping layout generation");
     onProgress?.({ step: "error", message: "No creative agents are enabled. Scores and audit are saved below." });
   }
-  const accentColor = creativeInput.brandAssets.colors[0] ?? "#2d5016";
+  const accentColor = creativeInput.brandAssets.colors[0]
+    ?? screenshotAnalysis.colors?.primary
+    ?? screenshotAnalysis.colors?.accent
+    ?? "#1a1a2e";
   const CREATIVE_STAGGER_MS = 3000;
   let completedCount = 0;
 

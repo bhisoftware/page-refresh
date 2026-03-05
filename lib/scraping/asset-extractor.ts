@@ -106,6 +106,81 @@ function isJunkCopy(text: string): boolean {
   return false;
 }
 
+const MAX_TESTIMONIALS = 3;
+const TESTIMONIAL_SELECTORS = [
+  "blockquote",
+  '[class*="testimonial"]',
+  '[class*="review"]',
+  '[class*="quote"]',
+  '[class*="customer"]',
+].join(", ");
+
+function extractTestimonials($: cheerio.CheerioAPI): string[] {
+  const seen = new Set<string>();
+  const results: string[] = [];
+
+  $(TESTIMONIAL_SELECTORS).each((_, el) => {
+    if (results.length >= MAX_TESTIMONIALS) return;
+    const $el = $(el);
+    if ($el.closest('nav, footer, [class*="cookie"], [class*="popup"], [class*="modal"]').length) return;
+    // Skip containers that have child elements matching our selectors (extract leaves, not parents)
+    if ($el.find(TESTIMONIAL_SELECTORS).length > 0) return;
+    const text = $el.text().trim().replace(/\s+/g, " ");
+    if (text.length < 20 || text.length > 500) return;
+    if (isJunkCopy(text)) return;
+    if (seen.has(text)) return;
+    seen.add(text);
+    results.push(text);
+  });
+
+  return results;
+}
+
+const MAX_FEATURES = 8;
+const SECTION_KEYWORDS = /feature|service|benefit|offering|capability|what[\s-]we[\s-]do|our[\s-]services|why[\s-]choose|specialt/i;
+
+function extractFeatures($: cheerio.CheerioAPI): string[] {
+  const seen = new Set<string>();
+  const results: string[] = [];
+
+  // Tier 1: <li> inside sections with feature/service-related class or heading
+  $('section, [class*="feature"], [class*="service"], [class*="benefit"], [class*="offering"]').each((_, sectionEl) => {
+    const $section = $(sectionEl);
+    if ($section.closest("nav, header, footer").length) return;
+    const sectionClass = $section.attr("class") ?? "";
+    const sectionHeading = $section.find("h2, h3").first().text().trim();
+    if (!SECTION_KEYWORDS.test(sectionClass) && !SECTION_KEYWORDS.test(sectionHeading)) return;
+
+    $section.find("li").each((_, liEl) => {
+      if (results.length >= MAX_FEATURES) return;
+      const text = $(liEl).text().trim().replace(/\s+/g, " ");
+      if (text.length < 3 || text.length > 120) return;
+      // Use blocklist only — short service names like "Oil Changes" are valid features
+      if (COPY_BLOCKLIST.has(text.toLowerCase())) return;
+      if (seen.has(text)) return;
+      seen.add(text);
+      results.push(text);
+    });
+  });
+
+  // Tier 2: fallback — <li> in main content area (not nav/header/footer)
+  if (results.length === 0) {
+    $("main li, [role='main'] li, .content li, article li").each((_, liEl) => {
+      if (results.length >= MAX_FEATURES) return;
+      const $li = $(liEl);
+      if ($li.closest('nav, header, footer, [class*="cookie"], [class*="sidebar"]').length) return;
+      const text = $li.text().trim().replace(/\s+/g, " ");
+      if (text.length < 3 || text.length > 120) return;
+      if (COPY_BLOCKLIST.has(text.toLowerCase())) return;
+      if (seen.has(text)) return;
+      seen.add(text);
+      results.push(text);
+    });
+  }
+
+  return results;
+}
+
 export interface ExtractedColor {
   hex: string;
   count?: number;
@@ -137,6 +212,8 @@ export interface ExtractedCopy {
   bodySamples?: string[];
   businessName?: string;
   titleTag?: string;
+  testimonials?: string[];
+  features?: string[];
 }
 
 export interface ClassifiedImage {
@@ -658,6 +735,14 @@ export function extractAssets(html: string, css: string, baseUrl: string): Extra
     if (t && t.length > 20 && t.length < 300 && !isJunkCopy(t)) bodySamples.push(t);
   });
   if (bodySamples.length) copy.bodySamples = bodySamples.slice(0, 5);
+
+  // Testimonials
+  const testimonials = extractTestimonials($);
+  if (testimonials.length) copy.testimonials = testimonials;
+
+  // Features / services
+  const features = extractFeatures($);
+  if (features.length) copy.features = features;
 
   // Logo detection: score all <img> candidates by position, keywords, and negative signals
   const logo = scoreLogoCandidates($, baseUrl, copy.businessName);

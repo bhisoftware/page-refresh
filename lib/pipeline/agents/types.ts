@@ -142,12 +142,35 @@ export interface ScanningCopyOutput {
   designing_text?: string;
 }
 
+// --- Original Site Style (from screenshot analysis, for creative agents) ---
+export interface OriginalSiteStyle {
+  colors?: {
+    primary?: string;
+    secondary?: string;
+    accent?: string;
+    background?: string;
+    text?: string;
+  };
+  typography?: {
+    headingFont?: string;
+    bodyFont?: string;
+  };
+  layout?: {
+    heroType?: string;
+    navStyle?: string;
+    gridPattern?: string;
+  };
+  visualDensity?: number;
+  imageryStyle?: string;
+}
+
 // --- Creative Agent ---
 export interface CreativeAgentInput {
   designDirection: DesignDirection;
   industry: string;
   businessName: string;
   websiteUrl: string;
+  originalStyle?: OriginalSiteStyle;
   brandAssets: {
     logoUrl: string | null;
     heroImageUrl: string | null;

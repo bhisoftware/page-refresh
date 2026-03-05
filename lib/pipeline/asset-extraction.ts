@@ -36,6 +36,8 @@ export interface AssetExtractionResult {
   assets: ExtractedAssets;
   storedAssets: StoredAsset[];
   techStack: TechStack;
+  /** Map from original site image URL to S3-backed blob URL */
+  siteImageUrlMap: Map<string, string>;
 }
 
 function resolveAbsolute(baseUrl: string, href: string): string {
@@ -288,6 +290,69 @@ async function downloadOne(url: string): Promise<{ buffer: Buffer; contentType: 
   }
 }
 
+const SITE_IMAGE_CONCURRENCY = 3;
+const MAX_SITE_IMAGES = 8;
+
+/**
+ * Download site images to S3 in concurrency-limited batches.
+ * Returns a map from original URL to S3-backed blob URL.
+ */
+async function downloadSiteImages(
+  images: Array<{ src: string; alt?: string }>,
+  profileId: string,
+): Promise<{ urlMap: Map<string, string>; stored: StoredAsset[] }> {
+  const urlMap = new Map<string, string>();
+  const stored: StoredAsset[] = [];
+
+  // Deduplicate by URL
+  const seen = new Set<string>();
+  const unique = images.filter((img) => {
+    if (seen.has(img.src)) return false;
+    seen.add(img.src);
+    return true;
+  });
+  const toDownload = unique.slice(0, MAX_SITE_IMAGES);
+
+  for (let i = 0; i < toDownload.length; i += SITE_IMAGE_CONCURRENCY) {
+    const batch = toDownload.slice(i, i + SITE_IMAGE_CONCURRENCY);
+    const results = await Promise.allSettled(
+      batch.map(async (img, batchIdx) => {
+        const globalIdx = i + batchIdx;
+        const result = await downloadOne(img.src);
+        if (!result) return null;
+        const { buffer, contentType } = result;
+        const ext = contentTypeToExt(contentType);
+        if (ext === "bin") return null;
+        const assetType = `site-image-${globalIdx}`;
+        const storageKey = profileAssetKey(profileId, assetType, ext);
+        const storageUrl = await uploadBlob(storageKey, buffer, contentType);
+        return {
+          originalUrl: img.src,
+          storageUrl,
+          storedAsset: {
+            assetType,
+            fileName: `${assetType}.${ext}`,
+            mimeType: contentType.split(";")[0]?.trim() ?? "application/octet-stream",
+            fileSize: buffer.length,
+            storageKey,
+            storageUrl,
+            sourceUrl: img.src,
+          } satisfies StoredAsset,
+        };
+      })
+    );
+
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value) {
+        urlMap.set(r.value.originalUrl, r.value.storageUrl);
+        stored.push(r.value.storedAsset);
+      }
+    }
+  }
+
+  return { urlMap, stored };
+}
+
 export async function extractAndPersistAssets(
   urlProfile: UrlProfile,
   html: string,
@@ -298,6 +363,7 @@ export async function extractAndPersistAssets(
   const assets = extractAssets(html, css, baseUrl);
   const techStack = detectTechStack(html);
   const storedAssets: StoredAsset[] = [];
+  let siteImageUrlMap = new Map<string, string>();
 
   try {
     const $ = cheerio.load(html);
@@ -323,6 +389,17 @@ export async function extractAndPersistAssets(
       });
       downloaded++;
     }
+
+    // Download site images to S3 for reliable creative agent URLs
+    const allSiteImages: Array<{ src: string; alt?: string }> = [
+      ...assets.images.map((img) => ({ src: img.src, alt: img.alt })),
+      ...(assets.teamPhotos ?? []),
+      ...(assets.trustBadges ?? []),
+      ...(assets.eventPhotos ?? []),
+    ];
+    const siteImageResult = await downloadSiteImages(allSiteImages, urlProfile.id);
+    storedAssets.push(...siteImageResult.stored);
+    siteImageUrlMap = siteImageResult.urlMap;
 
     if (screenshotBuffer && screenshotBuffer.length > 0) {
       const screenshotKey = profileAssetKey(urlProfile.id, "screenshot", "webp");
@@ -375,5 +452,5 @@ export async function extractAndPersistAssets(
     console.error("[asset-extraction] Failed to persist assets:", err instanceof Error ? err.message : String(err));
   }
 
-  return { assets, storedAssets, techStack };
+  return { assets, storedAssets, techStack, siteImageUrlMap };
 }
