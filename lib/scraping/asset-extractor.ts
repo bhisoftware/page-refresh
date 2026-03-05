@@ -760,7 +760,8 @@ export function extractAssets(html: string, css: string, baseUrl: string): Extra
   $('a[href*="contact"], a[href*="quote"], a[href*="book"], a[href*="schedule"], .cta, .button, [class*="cta"], [class*="button"]').each((_, el) => {
     if (ctaTexts.length >= MAX_CTAS) return;
     const t = $(el).text().trim();
-    if (!t || isJunkCopy(t) || ctaSeen.has(t.toLowerCase())) return;
+    // Use blocklist only — CTAs are naturally short (e.g., "Schedule Now", "Get a Quote")
+    if (!t || t.length > 60 || COPY_BLOCKLIST.has(t.toLowerCase()) || ctaSeen.has(t.toLowerCase())) return;
     ctaSeen.add(t.toLowerCase());
     ctaTexts.push(t);
   });
