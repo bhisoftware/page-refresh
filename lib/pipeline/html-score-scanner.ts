@@ -222,3 +222,20 @@ export function sanitizeImageUrls(
     replacedUrls,
   };
 }
+
+/**
+ * Verify that the business name appears in key generated HTML elements.
+ * Returns true if found in title, nav, h1, or footer — false if missing.
+ */
+export function verifyBusinessName(html: string, businessName: string): boolean {
+  if (!businessName || businessName.length < 2) return true; // nothing to verify
+  const $ = cheerio.load(html);
+  const searchTargets = [
+    $("title").text(),
+    $("nav").text(),
+    $("h1").first().text(),
+    $("footer").text(),
+  ].join(" ");
+
+  return searchTargets.toLowerCase().includes(businessName.toLowerCase());
+}

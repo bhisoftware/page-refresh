@@ -675,6 +675,33 @@ export function extractAssets(html: string, css: string, baseUrl: string): Extra
     }
   });
 
+  // Extract background-image URLs from CSS and inline styles
+  const bgImagePattern = /background(?:-image)?\s*:\s*[^;]*url\(\s*['"]?([^'")\s]+)['"]?\s*\)/gi;
+  const bgImageSeen = new Set(images.map((img) => img.src));
+
+  // From CSS source
+  for (const match of css.matchAll(bgImagePattern)) {
+    const raw = match[1];
+    if (!raw || raw.startsWith("data:")) continue;
+    const resolved = resolveUrl(baseUrl, raw);
+    if (JUNK_URL_PATTERN.test(resolved) || bgImageSeen.has(resolved)) continue;
+    bgImageSeen.add(resolved);
+    images.push({ src: resolved, alt: undefined });
+  }
+
+  // From inline style attributes in HTML
+  $("[style]").each((_, el) => {
+    const style = $(el).attr("style") ?? "";
+    for (const match of style.matchAll(bgImagePattern)) {
+      const raw = match[1];
+      if (!raw || raw.startsWith("data:")) continue;
+      const resolved = resolveUrl(baseUrl, raw);
+      if (JUNK_URL_PATTERN.test(resolved) || bgImageSeen.has(resolved)) continue;
+      bgImageSeen.add(resolved);
+      images.push({ src: resolved, alt: undefined });
+    }
+  });
+
   const copy: ExtractedCopy = {};
   const rawH1 = $("h1").first().text().trim();
   const h2s: string[] = [];

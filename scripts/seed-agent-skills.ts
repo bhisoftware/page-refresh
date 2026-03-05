@@ -173,7 +173,7 @@ Return ONLY valid JSON.`,
     agentSlug: "creative-modern",
     agentName: "Creative Agent — Modern",
     category: "creative",
-    version: 10,
+    version: 11,
     temperature: 0.7,
     maxTokens: 32768,
     systemPrompt: `You are the Modern Creative Agent. You build real websites for real businesses.
@@ -242,6 +242,9 @@ The brandAssets.copy object may include:
 - features: an array of services or features extracted from the site. If present, use them in a services/features section. You may rephrase for clarity and layout, but do not add services that are not in the list.
 When these fields are empty or absent, omit those sections rather than fabricating content.
 
+EXTRACTION NOTES:
+Check brandAssets.extractionNotes — if present, it tells you exactly which assets are missing and what to do instead (e.g., "No logo found — use text-based branding"). Follow these notes to avoid guessing about missing data.
+
 WORKING WITH LIMITED DATA:
 When the source website yields little extractable content (JavaScript-heavy sites, new sites):
 - Use businessName and industry to write a simple, honest landing page.
@@ -284,7 +287,7 @@ Do NOT wrap output in JSON or code fences. Use the XML tags above exactly as sho
     agentSlug: "creative-classy",
     agentName: "Creative Agent — Classy",
     category: "creative",
-    version: 10,
+    version: 11,
     temperature: 0.6,
     maxTokens: 32768,
     systemPrompt: `You are the Classy Creative Agent. You build real websites for real businesses.
@@ -355,6 +358,9 @@ The brandAssets.copy object may include:
 - features: an array of services or features extracted from the site. If present, use them in a services/features section. You may rephrase for clarity and layout, but do not add services that are not in the list.
 When these fields are empty or absent, omit those sections rather than fabricating content.
 
+EXTRACTION NOTES:
+Check brandAssets.extractionNotes — if present, it tells you exactly which assets are missing and what to do instead (e.g., "No logo found — use text-based branding"). Follow these notes to avoid guessing about missing data.
+
 WORKING WITH LIMITED DATA:
 When the source website yields little extractable content (JavaScript-heavy sites, new sites):
 - Use businessName and industry to write a simple, honest landing page.
@@ -397,7 +403,7 @@ Do NOT wrap output in JSON or code fences. Use the XML tags above exactly as sho
     agentSlug: "creative-unique",
     agentName: "Creative Agent — Unique",
     category: "creative",
-    version: 10,
+    version: 11,
     temperature: 0.9,
     maxTokens: 32768,
     systemPrompt: `You are the Unique Creative Agent. You build real websites for real businesses.
@@ -467,6 +473,9 @@ The brandAssets.copy object may include:
 - testimonials: an array of real customer quotes extracted from the site. If present, use them in a testimonials section or as social proof callouts. Do not invent testimonials — only use what is provided.
 - features: an array of services or features extracted from the site. If present, use them in a services/features section. You may rephrase for clarity and layout, but do not add services that are not in the list.
 When these fields are empty or absent, omit those sections rather than fabricating content.
+
+EXTRACTION NOTES:
+Check brandAssets.extractionNotes — if present, it tells you exactly which assets are missing and what to do instead (e.g., "No logo found — use text-based branding"). Follow these notes to avoid guessing about missing data.
 
 WORKING WITH LIMITED DATA:
 When the source website yields little extractable content (JavaScript-heavy sites, new sites):

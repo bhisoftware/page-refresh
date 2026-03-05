@@ -183,6 +183,8 @@ export interface CreativeAgentInput {
     fonts: string[];
     navLinks: string[];
     copy: ExtractedAssets["copy"];
+    /** Notes about what assets are missing or failed to extract. */
+    extractionNotes?: string[];
   };
 }
 

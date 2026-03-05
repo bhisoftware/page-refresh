@@ -10,7 +10,7 @@ import { createPromptLog } from "@/lib/ai/prompt-log";
 import { withRetry } from "@/lib/ai/retry";
 import { safeParseJSON } from "@/lib/ai/json-repair";
 import type { CreativeAgentInput, CreativeAgentOutput } from "./types";
-import { scanHtmlForLeakedScores, stripLeakedContent, sanitizeImageUrls } from "@/lib/pipeline/html-score-scanner";
+import { scanHtmlForLeakedScores, stripLeakedContent, sanitizeImageUrls, verifyBusinessName } from "@/lib/pipeline/html-score-scanner";
 
 function extractText(message: Anthropic.Message): string {
   const block = message.content.find((b) => b.type === "text");
@@ -44,7 +44,8 @@ export function isCreativeSlug(slug: string): slug is CreativeSlug {
 function cleanGeneratedHtml(
   result: CreativeAgentOutput,
   slug: string,
-  allowedImageUrls?: Set<string>
+  allowedImageUrls?: Set<string>,
+  businessName?: string
 ): CreativeAgentOutput {
   const scan = scanHtmlForLeakedScores(result.html);
   if (scan.matches.length > 0) {
@@ -69,6 +70,11 @@ function cleanGeneratedHtml(
       );
     }
     result.html = html;
+  }
+
+  // Verify business name appears in key elements
+  if (businessName && !verifyBusinessName(result.html, businessName)) {
+    console.warn(`[creative] ${slug} output missing business name "${businessName}" in title/nav/h1/footer`);
   }
 
   return result;
@@ -152,7 +158,7 @@ export async function runCreativeAgent(
 
   // Primary path: extract from XML-style tags (avoids JSON escaping issues)
   const tagged = extractFromTags(text);
-  if (tagged) return cleanGeneratedHtml(tagged, slug, allowedImageUrls);
+  if (tagged) return cleanGeneratedHtml(tagged, slug, allowedImageUrls, input.businessName);
 
   // Fallback: try JSON parsing (backwards compat with older prompts in DB)
   const parsed = safeParseJSON(text);
@@ -160,7 +166,7 @@ export async function runCreativeAgent(
     const data = parsed.data as Record<string, unknown>;
     const html = typeof data.html === "string" ? data.html : "";
     const rationale = typeof data.rationale === "string" ? data.rationale : "";
-    if (html.trim()) return cleanGeneratedHtml({ html, rationale }, slug, allowedImageUrls);
+    if (html.trim()) return cleanGeneratedHtml({ html, rationale }, slug, allowedImageUrls, input.businessName);
   }
 
   throw new Error(`Creative Agent ${slug} returned unparseable output (no tags, invalid JSON)`);

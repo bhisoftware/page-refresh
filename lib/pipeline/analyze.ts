@@ -658,6 +658,19 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     },
   };
 
+  // Build extraction notes so agents know what's missing
+  const extractionNotes: string[] = [];
+  if (!creativeInput.brandAssets.logoUrl) extractionNotes.push("No logo found — use text-based branding");
+  if (!creativeInput.brandAssets.heroImageUrl) extractionNotes.push("No hero image found — use a gradient or solid color hero background");
+  if (creativeInput.brandAssets.siteImageUrls.length === 0) extractionNotes.push("No site images extracted — avoid placeholder image URLs");
+  if (creativeInput.brandAssets.colors.length === 0) extractionNotes.push("No brand colors detected — use neutral, professional palette");
+  if (creativeInput.brandAssets.fonts.length === 0) extractionNotes.push("No brand fonts detected — use system font stack");
+  if (!creativeInput.brandAssets.copy?.testimonials?.length) extractionNotes.push("No testimonials found — omit testimonial section");
+  if (!creativeInput.brandAssets.copy?.features?.length) extractionNotes.push("No feature list found — omit dedicated features section");
+  if (extractionNotes.length > 0) {
+    creativeInput.brandAssets.extractionNotes = extractionNotes;
+  }
+
   // Run creative agents in parallel with a 3s stagger to avoid overwhelming the API.
   // Much faster than fully sequential (3-6s stagger vs 15-25s per agent) while avoiding 429/529 spikes.
   const allCreativeSlugs: CreativeSlug[] = ["creative-modern", "creative-classy", "creative-unique"];
