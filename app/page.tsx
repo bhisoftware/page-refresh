@@ -435,9 +435,10 @@ function HomeContent() {
               <div className="space-y-2">
                 <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-[#1a1a1a] leading-tight whitespace-nowrap">
                   {displayedTitle}
-                  {displayedTitle.length < TITLE_TEXT.length && (
-                    <span className="inline-block w-0.5 h-[0.85em] bg-[#1a1a1a] align-middle ml-0.5 animate-pulse" />
-                  )}
+                  <span className={cn(
+                    "inline-block w-0.5 h-[0.85em] bg-[#1a1a1a] align-middle ml-0.5 animate-pulse",
+                    displayedTitle.length >= TITLE_TEXT.length && "invisible"
+                  )} />
                 </h1>
                 <p className="text-lg md:text-xl text-muted-foreground">
                   Refresh it in under 5 minutes
@@ -537,7 +538,7 @@ function HomeContent() {
             : "opacity-100 max-h-96"
         )}
       >
-        <p className="text-center text-base text-muted-foreground uppercase tracking-widest mb-3 font-semibold">
+        <p className="text-center text-base uppercase tracking-widest mb-8 font-semibold text-[#2d5a3d]/40">
           Trusted by hundreds of business owners
         </p>
         <div className="relative flex overflow-hidden">
