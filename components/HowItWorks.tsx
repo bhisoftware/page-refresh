@@ -87,20 +87,24 @@ function CardWrap({ cwIndex, beforeUrl, afterUrl }: CardWrapProps) {
 }
 
 export function HowItWorks() {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
   const [items, setItems] = useState<ShowcaseApiItem[]>([]);
 
   useEffect(() => {
     fetch("/api/showcase")
       .then((r) => r.json())
       .then((data) => {
+        setEnabled(data.enabled === true);
         if (Array.isArray(data.items) && data.items.length >= 2) {
           setItems(data.items);
         }
       })
       .catch(() => {
-        /* keep placeholders */
+        setEnabled(false);
       });
   }, []);
+
+  if (enabled === null || enabled === false) return null;
 
   const cards = Array.from({ length: TOTAL_CARDS }, (_, i) => ({
     cwIndex: i + 1,

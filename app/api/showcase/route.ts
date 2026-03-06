@@ -7,7 +7,7 @@ export async function GET() {
 
   if (enabled !== "true") {
     return NextResponse.json(
-      { items: [] },
+      { enabled: false, items: [] },
       { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" } }
     );
   }
@@ -33,7 +33,7 @@ export async function GET() {
     }));
 
   return NextResponse.json(
-    { items: result },
+    { enabled: true, items: result },
     { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" } }
   );
 }
