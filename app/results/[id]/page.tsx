@@ -2,7 +2,6 @@ import { notFound, forbidden } from "next/navigation";
 import Link from "next/link";
 import { LayoutSection } from "@/components/LayoutSection";
 import { LayoutSectionErrorBoundary } from "@/components/LayoutSectionErrorBoundary";
-import { ReachOutSection } from "@/components/ReachOutSection";
 import { type DimensionDetail } from "@/components/ScoreBreakdown";
 import { SeoAuditSection, type SeoCheckItem, type SeoRecommendation } from "@/components/SeoAuditSection";
 import { BenchmarkComparison, type BenchmarkComparisonData } from "@/components/BenchmarkComparison";
@@ -267,13 +266,6 @@ export default async function ResultsPage({
           </section>
         )}
 
-        {/* Reach out — contact form */}
-        <section className="border-t border-slate-200 pt-4 sm:pt-8 mt-2 mb-6 sm:mb-10">
-          <p className="text-muted-foreground mb-4 text-center">
-            Questions? Reach out to our team below:
-          </p>
-          <ReachOutSection refreshId={id} viewToken={effectiveToken} />
-        </section>
 
         {/* Industry benchmark */}
         {refresh.benchmarkComparison != null && (
