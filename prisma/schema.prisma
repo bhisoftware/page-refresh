@@ -129,6 +129,7 @@ model Refresh {
   // Relationships
   promptHistory     PromptLog[]
   internalNotes     InternalNote[]
+  showcaseItems     ShowcaseItem[]
 
   @@index([url])
   @@index([industryDetected])
@@ -417,4 +418,22 @@ model DeliveryPlatform {
   updatedAt       DateTime @updatedAt
 
   @@index([enabled, sortOrder])
+}
+
+model ShowcaseItem {
+  id               String    @id @default(cuid())
+  refreshId        String
+  refresh          Refresh   @relation(fields: [refreshId], references: [id])
+  layoutIndex      Int       // 1, 2, or 3
+  sortOrder        Int       @default(0)
+  active           Boolean   @default(true)
+  beforeUrl        String?   // snapshot of Refresh.screenshotUrl at creation time
+  afterS3Key       String?   // e.g. showcase/{id}-after.webp
+  afterGeneratedAt DateTime?
+  siteLabel        String?   // optional human label e.g. "Restaurant in Nashville"
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([active, sortOrder])
+  @@index([refreshId])
 }

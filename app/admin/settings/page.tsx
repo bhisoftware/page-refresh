@@ -84,6 +84,19 @@ type DeliveryPlatformItem = {
   folderStructure: string;
 };
 
+type ShowcaseItemFull = {
+  id: string;
+  refreshId: string;
+  layoutIndex: number;
+  sortOrder: number;
+  active: boolean;
+  beforeUrl: string | null;
+  afterS3Key: string | null;
+  afterGeneratedAt: string | null;
+  siteLabel: string | null;
+  refresh: { url: string; screenshotUrl: string | null; industryDetected: string };
+};
+
 export default function AdminSettingsPage() {
   const [configs, setConfigs] = useState<ConfigsResponse | null>(null);
   const [testResult, setTestResult] = useState<Record<string, { success: boolean; error?: string; latency?: number }>>({});
@@ -115,6 +128,19 @@ export default function AdminSettingsPage() {
   });
   const [platformSaving, setPlatformSaving] = useState(false);
 
+  // Showcase
+  const [showcaseEnabled, setShowcaseEnabled] = useState(false);
+  const [showcaseEnabledSaving, setShowcaseEnabledSaving] = useState(false);
+  const [showcaseItems, setShowcaseItems] = useState<ShowcaseItemFull[]>([]);
+  const [selectedShowcaseId, setSelectedShowcaseId] = useState<string | null>(null);
+  const [showcaseGenerating, setShowcaseGenerating] = useState(false);
+  const [showcaseSiteLabelDraft, setShowcaseSiteLabelDraft] = useState("");
+  const [showcaseSiteLabelSaving, setShowcaseSiteLabelSaving] = useState(false);
+  const [newShowcaseRefreshId, setNewShowcaseRefreshId] = useState("");
+  const [newShowcaseLayoutIndex, setNewShowcaseLayoutIndex] = useState("1");
+  const [newShowcaseSiteLabel, setNewShowcaseSiteLabel] = useState("");
+  const [newShowcaseAdding, setNewShowcaseAdding] = useState(false);
+
   // General settings
   const [cooldownDays, setCooldownDays] = useState("");
   const [cooldownSaving, setCooldownSaving] = useState(false);
@@ -125,6 +151,7 @@ export default function AdminSettingsPage() {
       .then((r) => r.json())
       .then((data: Record<string, string>) => {
         setCooldownDays(data.analysis_cooldown_days ?? "30");
+        setShowcaseEnabled(data.showcase_enabled === "true");
       })
       .catch(() => setCooldownDays("30"));
   }, []);
@@ -156,6 +183,21 @@ export default function AdminSettingsPage() {
   }, []);
 
   useEffect(() => { fetchPlatforms(); }, [fetchPlatforms]);
+
+  const fetchShowcaseItems = useCallback(() => {
+    fetch("/api/admin/showcase")
+      .then((r) => r.json())
+      .then((data) => setShowcaseItems(data.items ?? []))
+      .catch(() => setShowcaseItems([]));
+  }, []);
+
+  useEffect(() => { fetchShowcaseItems(); }, [fetchShowcaseItems]);
+
+  useEffect(() => {
+    if (!selectedShowcaseId) { setShowcaseSiteLabelDraft(""); return; }
+    const item = showcaseItems.find((i) => i.id === selectedShowcaseId);
+    if (item) setShowcaseSiteLabelDraft(item.siteLabel ?? "");
+  }, [selectedShowcaseId, showcaseItems]);
 
   useEffect(() => {
     if (!selectedPlatformId) return;
@@ -358,6 +400,115 @@ export default function AdminSettingsPage() {
     } finally {
       setRollingBack(false);
     }
+  }
+
+  async function handleToggleShowcaseEnabled() {
+    setShowcaseEnabledSaving(true);
+    const next = !showcaseEnabled;
+    try {
+      const res = await fetch("/api/admin/settings/app", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "showcase_enabled", value: next ? "true" : "false" }),
+      });
+      if (res.ok) setShowcaseEnabled(next);
+    } finally {
+      setShowcaseEnabledSaving(false);
+    }
+  }
+
+  async function handleToggleShowcaseItemActive(id: string, current: boolean) {
+    const res = await fetch(`/api/admin/showcase/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ active: !current }),
+    });
+    if (res.ok) {
+      setShowcaseItems((prev) => prev.map((i) => (i.id === id ? { ...i, active: !current } : i)));
+    }
+  }
+
+  async function handleAddShowcaseItem() {
+    if (!newShowcaseRefreshId.trim()) return;
+    setNewShowcaseAdding(true);
+    try {
+      const res = await fetch("/api/admin/showcase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          refreshId: newShowcaseRefreshId.trim(),
+          layoutIndex: Number(newShowcaseLayoutIndex),
+          siteLabel: newShowcaseSiteLabel.trim() || undefined,
+        }),
+      });
+      if (res.ok) {
+        setNewShowcaseRefreshId("");
+        setNewShowcaseSiteLabel("");
+        setNewShowcaseLayoutIndex("1");
+        fetchShowcaseItems();
+      }
+    } finally {
+      setNewShowcaseAdding(false);
+    }
+  }
+
+  async function handleDeleteShowcaseItem(id: string) {
+    if (!confirm("Remove this showcase item?")) return;
+    const res = await fetch(`/api/admin/showcase/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setShowcaseItems((prev) => prev.filter((i) => i.id !== id));
+      if (selectedShowcaseId === id) setSelectedShowcaseId(null);
+    }
+  }
+
+  async function handleGenerateShowcaseScreenshot(id: string) {
+    setShowcaseGenerating(true);
+    try {
+      const res = await fetch(`/api/admin/showcase/${id}/generate-screenshot`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setShowcaseItems((prev) =>
+          prev.map((i) =>
+            i.id === id
+              ? { ...i, afterS3Key: data.afterUrl?.split("/api/blob/").pop() ?? i.afterS3Key, afterGeneratedAt: new Date().toISOString() }
+              : i
+          )
+        );
+      }
+    } finally {
+      setShowcaseGenerating(false);
+    }
+  }
+
+  async function handleSaveShowcaseSiteLabel(id: string) {
+    setShowcaseSiteLabelSaving(true);
+    try {
+      const res = await fetch(`/api/admin/showcase/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ siteLabel: showcaseSiteLabelDraft }),
+      });
+      if (res.ok) {
+        setShowcaseItems((prev) => prev.map((i) => (i.id === id ? { ...i, siteLabel: showcaseSiteLabelDraft } : i)));
+      }
+    } finally {
+      setShowcaseSiteLabelSaving(false);
+    }
+  }
+
+  async function handleShowcaseMove(id: string, direction: "up" | "down") {
+    const idx = showcaseItems.findIndex((i) => i.id === id);
+    if (idx === -1) return;
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= showcaseItems.length) return;
+    const reordered = [...showcaseItems];
+    [reordered[idx], reordered[swapIdx]] = [reordered[swapIdx], reordered[idx]];
+    setShowcaseItems(reordered);
+    await fetch("/api/admin/showcase/reorder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: reordered.map((i) => i.id) }),
+    });
   }
 
   return (
@@ -776,6 +927,182 @@ export default function AdminSettingsPage() {
               </>
             ) : (
               <p className="text-muted-foreground text-sm">Select a platform to edit.</p>
+            )}
+          </div>
+        </div>
+        {/* Showcase section */}
+        <h1 className="text-2xl font-semibold mb-2 mt-10">Showcase</h1>
+        <div className="flex items-center gap-3 mb-4">
+          <button
+            type="button"
+            title={showcaseEnabled ? "Turn showcase off" : "Turn showcase on"}
+            onClick={handleToggleShowcaseEnabled}
+            disabled={showcaseEnabledSaving}
+            className={cn(
+              "shrink-0 w-10 h-5 rounded-full relative transition-colors",
+              showcaseEnabled ? "bg-green-500" : "bg-muted-foreground/30"
+            )}
+          >
+            <span className={cn(
+              "absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform shadow-sm",
+              showcaseEnabled ? "left-5" : "left-0.5"
+            )} />
+          </button>
+          <span className="text-sm font-medium">
+            {showcaseEnabled ? "Showcase Live" : "Showcase Off"}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            Build items and generate screenshots first, then flip live when ready.
+          </span>
+        </div>
+        <div className="flex flex-1 min-h-0 gap-4 border rounded-lg border-border bg-card p-4">
+          {/* Left sidebar */}
+          <div className="w-64 shrink-0 border-r border-border pr-4 space-y-3 overflow-y-auto">
+            <ul className="space-y-1">
+              {showcaseItems.map((item) => (
+                <li key={item.id} className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedShowcaseId(item.id)}
+                    className={cn(
+                      "flex-1 text-left px-2 py-1.5 rounded text-sm leading-tight min-w-0",
+                      selectedShowcaseId === item.id ? "bg-primary text-primary-foreground" : "hover:bg-muted",
+                      !item.active && "opacity-50 line-through"
+                    )}
+                  >
+                    <span className="block truncate">{item.siteLabel || item.refresh.url}</span>
+                    <span className="text-xs opacity-60">L{item.layoutIndex} · {item.refresh.industryDetected}</span>
+                  </button>
+                  <div className="flex flex-col gap-0.5">
+                    <button type="button" onClick={() => handleShowcaseMove(item.id, "up")} className="text-muted-foreground hover:text-foreground leading-none text-[10px]">▲</button>
+                    <button type="button" onClick={() => handleShowcaseMove(item.id, "down")} className="text-muted-foreground hover:text-foreground leading-none text-[10px]">▼</button>
+                  </div>
+                  <button
+                    type="button"
+                    title={item.active ? "Deactivate" : "Activate"}
+                    onClick={() => handleToggleShowcaseItemActive(item.id, item.active)}
+                    className={cn(
+                      "shrink-0 w-7 h-4 rounded-full relative transition-colors",
+                      item.active ? "bg-green-500" : "bg-muted-foreground/30"
+                    )}
+                  >
+                    <span className={cn(
+                      "absolute top-0.5 h-3 w-3 rounded-full bg-white transition-transform",
+                      item.active ? "left-3.5" : "left-0.5"
+                    )} />
+                  </button>
+                </li>
+              ))}
+              {showcaseItems.length === 0 && (
+                <li className="text-xs text-muted-foreground px-2 py-1">No items yet.</li>
+              )}
+            </ul>
+            <p className="text-xs text-muted-foreground pt-1">Aim for 10 active items for a seamless marquee loop.</p>
+            {/* Add item form */}
+            <div className="border-t border-border pt-3 space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Add showcase item</p>
+              <Input
+                placeholder="Refresh ID"
+                value={newShowcaseRefreshId}
+                onChange={(e) => setNewShowcaseRefreshId(e.target.value)}
+                className="text-xs h-7"
+              />
+              <div className="flex gap-2">
+                <select
+                  value={newShowcaseLayoutIndex}
+                  onChange={(e) => setNewShowcaseLayoutIndex(e.target.value)}
+                  className="h-7 rounded-md border border-input bg-background px-2 text-xs flex-1"
+                >
+                  <option value="1">Layout 1</option>
+                  <option value="2">Layout 2</option>
+                  <option value="3">Layout 3</option>
+                </select>
+              </div>
+              <Input
+                placeholder="Label (optional)"
+                value={newShowcaseSiteLabel}
+                onChange={(e) => setNewShowcaseSiteLabel(e.target.value)}
+                className="text-xs h-7"
+              />
+              <Button size="sm" className="w-full h-7 text-xs" onClick={handleAddShowcaseItem} disabled={newShowcaseAdding || !newShowcaseRefreshId.trim()}>
+                {newShowcaseAdding ? "Adding..." : "Add Item"}
+              </Button>
+            </div>
+          </div>
+          {/* Right panel */}
+          <div className="flex-1 overflow-y-auto space-y-4 min-w-0">
+            {selectedShowcaseId ? (() => {
+              const item = showcaseItems.find((i) => i.id === selectedShowcaseId);
+              if (!item) return null;
+              return (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-medium text-sm truncate max-w-xs">{item.siteLabel || item.refresh.url}</h3>
+                      <p className="text-xs text-muted-foreground">Layout {item.layoutIndex} · {item.refresh.industryDetected}</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => handleDeleteShowcaseItem(item.id)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                  {/* Before / After preview */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Before</p>
+                      <div className="w-full aspect-[16/10] rounded border border-border overflow-hidden bg-muted flex items-center justify-center">
+                        {item.beforeUrl ? (
+                          <img src={item.beforeUrl} alt="Before" className="w-full h-full object-cover object-top" />
+                        ) : (
+                          <span className="text-xs text-muted-foreground">No screenshot</span>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">After</p>
+                      <div className="w-full aspect-[16/10] rounded border border-border overflow-hidden bg-muted flex items-center justify-center">
+                        {item.afterS3Key ? (
+                          <img src={`/api/blob/${encodeURIComponent(item.afterS3Key)}`} alt="After" className="w-full h-full object-cover object-top" />
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Not generated</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => handleGenerateShowcaseScreenshot(item.id)}
+                    disabled={showcaseGenerating}
+                    variant="outline"
+                  >
+                    {showcaseGenerating ? "Generating..." : item.afterS3Key ? "Regenerate Screenshot" : "Generate Screenshot"}
+                  </Button>
+                  {item.afterGeneratedAt && (
+                    <p className="text-xs text-muted-foreground">Last generated: {new Date(item.afterGeneratedAt).toLocaleString()}</p>
+                  )}
+                  {/* Site label edit */}
+                  <div className="space-y-1">
+                    <Label className="text-xs">Site label</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={showcaseSiteLabelDraft}
+                        onChange={(e) => setShowcaseSiteLabelDraft(e.target.value)}
+                        placeholder="e.g. Plumber in Austin"
+                        className="text-sm"
+                      />
+                      <Button size="sm" onClick={() => handleSaveShowcaseSiteLabel(item.id)} disabled={showcaseSiteLabelSaving}>
+                        {showcaseSiteLabelSaving ? "Saving..." : "Save"}
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              );
+            })() : (
+              <p className="text-muted-foreground text-sm">Select an item to manage.</p>
             )}
           </div>
         </div>

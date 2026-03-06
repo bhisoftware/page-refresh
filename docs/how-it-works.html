@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How It Works — Page Refresh</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --cream: #f5f0eb;
+      --green: #2d5a3d;
+      --green-dark: #1e4a2e;
+      --green-mid: #4a7c5f;
+      --green-light: #e8f0ea;
+      --text: #1c2e24;
+      --text-muted: #6b7f71;
+      --card-bg: rgba(255, 255, 255, 0.55);
+      --card-border: rgba(45, 90, 61, 0.12);
+    }
+
+    body {
+      background: var(--cream);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ─── Section ─── */
+    .hiw {
+      width: 100%;
+      padding: 100px 32px 0;
+      overflow: hidden;
+    }
+
+    .hiw-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    /* ─── Header ─── */
+    .hiw-header {
+      text-align: center;
+      margin-bottom: 64px;
+      animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    .hiw-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--green-mid);
+      margin-bottom: 18px;
+    }
+
+    .hiw-eyebrow::before,
+    .hiw-eyebrow::after {
+      content: '';
+      display: block;
+      width: 28px;
+      height: 1px;
+      background: var(--green-mid);
+      opacity: 0.5;
+    }
+
+    .hiw-headline {
+      font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+      font-size: clamp(42px, 5.5vw, 68px);
+      font-weight: 400;
+      line-height: 1.05;
+      color: var(--green);
+      letter-spacing: -0.025em;
+    }
+
+    /* ─── Steps grid ─── */
+    .hiw-steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-bottom: 72px;
+    }
+
+    .hiw-step {
+      position: relative;
+      padding: 40px 32px 36px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      overflow: hidden;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                  box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    .hiw-step:nth-child(1) { animation-delay: 0.08s; }
+    .hiw-step:nth-child(2) { animation-delay: 0.16s; }
+    .hiw-step:nth-child(3) { animation-delay: 0.24s; }
+
+    .hiw-step::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--green), var(--green-mid));
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      border-radius: 18px 18px 0 0;
+    }
+
+    .hiw-step:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 20px 48px rgba(45, 90, 61, 0.1), 0 4px 12px rgba(45, 90, 61, 0.06);
+    }
+
+    .hiw-step:hover::after { opacity: 1; }
+
+    .hiw-step-ghost {
+      position: absolute;
+      bottom: -24px; right: 4px;
+      font-family: 'Palatino Linotype', Palatino, Georgia, serif;
+      font-size: 140px;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--green);
+      opacity: 0.045;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    .hiw-num {
+      width: 52px;
+      height: 52px;
+      background: var(--green);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 22px;
+      font-family: 'Palatino Linotype', Palatino, Georgia, serif;
+      font-size: 17px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 0.04em;
+    }
+
+    .hiw-step-title {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+      font-size: 19px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 12px;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+
+    .hiw-step-desc {
+      font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+      font-size: 15.5px;
+      line-height: 1.75;
+      color: var(--text-muted);
+    }
+
+    /* ─── Marquee ─── */
+    .hiw-marquee-section {
+      width: 100vw;
+      position: relative;
+      left: 50%;
+      right: 50%;
+      margin-left: -50vw;
+      margin-right: -50vw;
+      padding-bottom: 100px;
+    }
+
+    .hiw-marquee-label {
+      text-align: center;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      opacity: 0.55;
+      margin-bottom: 28px;
+    }
+
+    .hiw-marquee-viewport {
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hiw-marquee-viewport::before,
+    .hiw-marquee-viewport::after {
+      content: '';
+      position: absolute;
+      top: 0; bottom: 0;
+      width: 140px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .hiw-marquee-viewport::before {
+      left: 0;
+      background: linear-gradient(to right, var(--cream) 0%, transparent 100%);
+    }
+
+    .hiw-marquee-viewport::after {
+      right: 0;
+      background: linear-gradient(to left, var(--cream) 0%, transparent 100%);
+    }
+
+    .hiw-marquee-track {
+      display: flex;
+      width: max-content;
+      animation: marquee-scroll 44s linear infinite;
+      padding: 16px 0 20px;
+    }
+
+    .hiw-marquee-track:hover {
+      animation-play-state: paused;
+    }
+
+    @keyframes marquee-scroll {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
+    }
+
+    /* ─── Card Wrap ─── */
+    .card-wrap {
+      position: relative;
+      width: 286px;
+      height: 179px;
+      flex-shrink: 0;
+      margin-right: 20px;
+    }
+
+    /* ─── Preview Cards ─── */
+    .preview-card {
+      position: absolute;
+      inset: 0;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow:
+        0 2px 8px rgba(0,0,0,0.07),
+        0 6px 24px rgba(0,0,0,0.06);
+      background: #fff;
+    }
+
+    /* browser chrome */
+    .pc-chrome {
+      height: 26px;
+      background: #f0f0f2;
+      border-bottom: 1px solid rgba(0,0,0,0.07);
+      display: flex;
+      align-items: center;
+      padding: 0 9px;
+      gap: 4px;
+    }
+
+    .pc-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .pc-dot.r { background: #ff5f57; }
+    .pc-dot.y { background: #febc2e; }
+    .pc-dot.g { background: #28c840; }
+
+    .pc-bar {
+      flex: 1;
+      height: 13px;
+      background: #e2e2e5;
+      border-radius: 4px;
+      margin-left: 6px;
+    }
+
+    /* card body */
+    .pc-body {
+      height: calc(179px - 26px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* layout skeleton */
+    .pc-layout {
+      position: absolute;
+      inset: 0;
+      padding: 12px 11px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .pc-l-nav {
+      height: 14px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.15);
+      width: 100%;
+      margin-bottom: 4px;
+    }
+
+    .pc-l-hero {
+      height: 28px;
+      border-radius: 3px;
+      background: rgba(255,255,255,0.18);
+    }
+
+    .pc-l-sub {
+      height: 9px;
+      width: 60%;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.12);
+    }
+
+    .pc-l-row {
+      display: flex;
+      gap: 5px;
+      margin-top: 2px;
+    }
+
+    .pc-l-box {
+      flex: 1;
+      height: 28px;
+      border-radius: 3px;
+      background: rgba(255,255,255,0.1);
+    }
+
+    .pc-l-btn {
+      width: 52px;
+      height: 12px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.28);
+      margin-top: 2px;
+    }
+
+    /* badge */
+    .pc-badge {
+      position: absolute;
+      bottom: 8px;
+      left: 9px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 3px 7px;
+      border-radius: 3px;
+      line-height: 1;
+    }
+
+    /* ── BEFORE card ── */
+    .pc-before .pc-badge {
+      background: rgba(0,0,0,0.28);
+      color: rgba(255,255,255,0.7);
+    }
+
+    /* BEFORE: flat, dull colors */
+    .pb-1  .pc-body { background: #5b7fa0; }
+    .pb-2  .pc-body { background: #8a6040; }
+    .pb-3  .pc-body { background: #6a5898; }
+    .pb-4  .pc-body { background: #6a8aa0; }
+    .pb-5  .pc-body { background: #b07890; }
+    .pb-6  .pc-body { background: #2a3848; }
+    .pb-7  .pc-body { background: #688060; }
+    .pb-8  .pc-body { background: #3a3a50; }
+    .pb-9  .pc-body { background: #a09070; }
+    .pb-10 .pc-body { background: #c87040; }
+
+    /* light before cards: dark skeleton */
+    .pb-4 .pc-l-nav, .pb-4 .pc-l-hero, .pb-4 .pc-l-sub, .pb-4 .pc-l-box, .pb-4 .pc-l-btn,
+    .pb-7 .pc-l-nav, .pb-7 .pc-l-hero, .pb-7 .pc-l-sub, .pb-7 .pc-l-box, .pb-7 .pc-l-btn,
+    .pb-9 .pc-l-nav, .pb-9 .pc-l-hero, .pb-9 .pc-l-sub, .pb-9 .pc-l-box, .pb-9 .pc-l-btn {
+      background: rgba(0,0,0,0.12);
+    }
+    .pb-4 .pc-l-btn, .pb-7 .pc-l-btn, .pb-9 .pc-l-btn { background: rgba(0,0,0,0.22); }
+    .pb-4 .pc-badge, .pb-7 .pc-badge, .pb-9 .pc-badge {
+      background: rgba(0,0,0,0.2);
+      color: rgba(0,0,0,0.45);
+    }
+
+    /* ── AFTER card ── */
+    .pc-after {
+      clip-path: inset(0 0 100% 0);
+      animation: wipe-reveal 10s ease-in-out infinite;
+    }
+
+    .pc-after .pc-badge {
+      background: rgba(45, 90, 61, 0.75);
+      color: #fff;
+    }
+
+    /* AFTER: vibrant gradients */
+    .pv-1  .pc-body { background: linear-gradient(140deg, #0c2340 0%, #1a4a80 55%, #2a72c0 100%); }
+    .pv-2  .pc-body { background: linear-gradient(140deg, #3d1508 0%, #9b3d18 55%, #e05a28 100%); }
+    .pv-3  .pc-body { background: linear-gradient(140deg, #18082e 0%, #432080 55%, #7848d8 100%); }
+    .pv-4  .pc-body { background: linear-gradient(140deg, #eaf4ff 0%, #c8e4ff 100%); }
+    .pv-5  .pc-body { background: linear-gradient(140deg, #fff0f6 0%, #ffd0e8 55%, #ffaad8 100%); }
+    .pv-6  .pc-body { background: linear-gradient(140deg, #080f1e 0%, #101e3c 55%, #1c3464 100%); }
+    .pv-7  .pc-body { background: linear-gradient(140deg, #e4f5de 0%, #bce6b0 55%, #8ecc80 100%); }
+    .pv-8  .pc-body { background: linear-gradient(140deg, #0e0e1e 0%, #2a2a42 55%, #e8204a 100%); }
+    .pv-9  .pc-body { background: linear-gradient(140deg, #faf5ee 0%, #efe4d2 100%); }
+    .pv-10 .pc-body { background: linear-gradient(140deg, #ff6b45 0%, #f0943a 55%, #ffd040 100%); }
+
+    /* light after cards: dark skeleton */
+    .pv-4 .pc-l-nav, .pv-4 .pc-l-hero, .pv-4 .pc-l-sub, .pv-4 .pc-l-box, .pv-4 .pc-l-btn,
+    .pv-5 .pc-l-nav, .pv-5 .pc-l-hero, .pv-5 .pc-l-sub, .pv-5 .pc-l-box, .pv-5 .pc-l-btn,
+    .pv-7 .pc-l-nav, .pv-7 .pc-l-hero, .pv-7 .pc-l-sub, .pv-7 .pc-l-box, .pv-7 .pc-l-btn,
+    .pv-9 .pc-l-nav, .pv-9 .pc-l-hero, .pv-9 .pc-l-sub, .pv-9 .pc-l-box, .pv-9 .pc-l-btn {
+      background: rgba(0,0,0,0.1);
+    }
+    .pv-4 .pc-l-btn, .pv-5 .pc-l-btn, .pv-7 .pc-l-btn, .pv-9 .pc-l-btn { background: rgba(0,0,0,0.2); }
+
+    /* ── Wipe animation ── */
+    @keyframes wipe-reveal {
+      0%, 25%  { clip-path: inset(0 0 100% 0); }
+      45%, 65% { clip-path: inset(0 0 0%   0); }
+      85%, 100%{ clip-path: inset(0 0 100% 0); }
+    }
+
+    /* Sweep line — horizontal bar that moves top→bottom on reveal */
+    .wipe-line {
+      position: absolute;
+      left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(255,255,255,0.6) 20%,
+        rgba(255,255,255,0.9) 50%,
+        rgba(255,255,255,0.6) 80%,
+        transparent 100%
+      );
+      z-index: 5;
+      pointer-events: none;
+      animation: wipe-line-anim 10s ease-in-out infinite;
+    }
+
+    @keyframes wipe-line-anim {
+      /* hold before phase: line hidden at top */
+      0%, 24%   { top: 0%;   opacity: 0; }
+      /* wipe-in: sweep top to bottom */
+      25%        { top: 0%;   opacity: 1; }
+      44%        { top: 100%; opacity: 1; }
+      45%        { top: 100%; opacity: 0; }
+      /* hold after phase: hidden at bottom */
+      64%        { top: 100%; opacity: 0; }
+      /* wipe-back: sweep bottom to top */
+      65%        { top: 100%; opacity: 1; }
+      84%        { top: 0%;   opacity: 1; }
+      85%        { top: 0%;   opacity: 0; }
+      100%       { top: 0%;   opacity: 0; }
+    }
+
+    /* Staggered delays: 10 cards × −1s each covers the full cycle */
+    .cw-1  .pc-after, .cw-1  .wipe-line { animation-delay:  0s; }
+    .cw-2  .pc-after, .cw-2  .wipe-line { animation-delay: -1s; }
+    .cw-3  .pc-after, .cw-3  .wipe-line { animation-delay: -2s; }
+    .cw-4  .pc-after, .cw-4  .wipe-line { animation-delay: -3s; }
+    .cw-5  .pc-after, .cw-5  .wipe-line { animation-delay: -4s; }
+    .cw-6  .pc-after, .cw-6  .wipe-line { animation-delay: -5s; }
+    .cw-7  .pc-after, .cw-7  .wipe-line { animation-delay: -6s; }
+    .cw-8  .pc-after, .cw-8  .wipe-line { animation-delay: -7s; }
+    .cw-9  .pc-after, .cw-9  .wipe-line { animation-delay: -8s; }
+    .cw-10 .pc-after, .cw-10 .wipe-line { animation-delay: -9s; }
+
+    /* ─── Animations ─── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(28px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 860px) {
+      .hiw { padding: 72px 24px 0; }
+      .hiw-steps { grid-template-columns: 1fr; gap: 16px; margin-bottom: 56px; }
+      .hiw-step { padding: 32px 24px 28px; }
+      .hiw-step-ghost { font-size: 100px; }
+      .hiw-header { margin-bottom: 48px; }
+    }
+  </style>
+</head>
+<body>
+
+  <section class="hiw">
+    <div class="hiw-inner">
+
+      <!-- Header -->
+      <header class="hiw-header">
+        <p class="hiw-eyebrow">The Process</p>
+        <h2 class="hiw-headline">How It Works</h2>
+      </header>
+
+      <!-- Steps -->
+      <div class="hiw-steps">
+        <article class="hiw-step">
+          <span class="hiw-step-ghost" aria-hidden="true">1</span>
+          <div class="hiw-num">01</div>
+          <h3 class="hiw-step-title">Enter URL</h3>
+          <p class="hiw-step-desc">Paste your website address and we'll scan your homepage, brand assets, and content in seconds.</p>
+        </article>
+        <article class="hiw-step">
+          <span class="hiw-step-ghost" aria-hidden="true">2</span>
+          <div class="hiw-num">02</div>
+          <h3 class="hiw-step-title">Choose A Refreshed Homepage</h3>
+          <p class="hiw-step-desc">Receive three fully designed, production-ready homepage concepts built around your brand and industry.</p>
+        </article>
+        <article class="hiw-step">
+          <span class="hiw-step-ghost" aria-hidden="true">3</span>
+          <div class="hiw-num">03</div>
+          <h3 class="hiw-step-title">Install Your Page</h3>
+          <p class="hiw-step-desc">Love what you see? Pay once and get the complete HTML, CSS, and assets delivered straight to your inbox.</p>
+        </article>
+      </div>
+
+    </div><!-- /hiw-inner -->
+
+    <!-- Marquee — full-width -->
+    <div class="hiw-marquee-section">
+      <p class="hiw-marquee-label">Sample Homepage Refreshes</p>
+      <div class="hiw-marquee-viewport">
+        <div class="hiw-marquee-track">
+
+          <!-- ══ Set 1 ══ -->
+
+          <div class="card-wrap cw-1">
+            <div class="preview-card pc-before pb-1">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">Before</span>
+              </div>
+            </div>
+            <div class="preview-card pc-after pv-1">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">After</span>
+              </div>
+            </div>
+            <div class="wipe-line"></div>
+          </div>
+
+          <div class="card-wrap cw-2">
+            <div class="preview-card pc-before pb-2">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">Before</span>
+              </div>
+            </div>
+            <div class="preview-card pc-after pv-2">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">After</span>
+              </div>
+            </div>
+            <div class="wipe-line"></div>
+          </div>
+
+          <div class="card-wrap cw-3">
+            <div class="preview-card pc-before pb-3">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">Before</span>
+              </div>
+            </div>
+            <div class="preview-card pc-after pv-3">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">After</span>
+              </div>
+            </div>
+            <div class="wipe-line"></div>
+          </div>
+
+          <div class="card-wrap cw-4">
+            <div class="preview-card pc-before pb-4">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">Before</span>
+              </div>
+            </div>
+            <div class="preview-card pc-after pv-4">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">After</span>
+              </div>
+            </div>
+            <div class="wipe-line"></div>
+          </div>
+
+          <div class="card-wrap cw-5">
+            <div class="preview-card pc-before pb-5">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">Before</span>
+              </div>
+            </div>
+            <div class="preview-card pc-after pv-5">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">After</span>
+              </div>
+            </div>
+            <div class="wipe-line"></div>
+          </div>
+
+          <div class="card-wrap cw-6">
+            <div class="preview-card pc-before pb-6">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">Before</span>
+              </div>
+            </div>
+            <div class="preview-card pc-after pv-6">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">After</span>
+              </div>
+            </div>
+            <div class="wipe-line"></div>
+          </div>
+
+          <div class="card-wrap cw-7">
+            <div class="preview-card pc-before pb-7">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">Before</span>
+              </div>
+            </div>
+            <div class="preview-card pc-after pv-7">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">After</span>
+              </div>
+            </div>
+            <div class="wipe-line"></div>
+          </div>
+
+          <div class="card-wrap cw-8">
+            <div class="preview-card pc-before pb-8">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">Before</span>
+              </div>
+            </div>
+            <div class="preview-card pc-after pv-8">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">After</span>
+              </div>
+            </div>
+            <div class="wipe-line"></div>
+          </div>
+
+          <div class="card-wrap cw-9">
+            <div class="preview-card pc-before pb-9">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">Before</span>
+              </div>
+            </div>
+            <div class="preview-card pc-after pv-9">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">After</span>
+              </div>
+            </div>
+            <div class="wipe-line"></div>
+          </div>
+
+          <div class="card-wrap cw-10">
+            <div class="preview-card pc-before pb-10">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">Before</span>
+              </div>
+            </div>
+            <div class="preview-card pc-after pv-10">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">After</span>
+              </div>
+            </div>
+            <div class="wipe-line"></div>
+          </div>
+
+          <!-- ══ Set 2 (duplicate for seamless loop — same delays) ══ -->
+
+          <div class="card-wrap cw-1">
+            <div class="preview-card pc-before pb-1">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">Before</span>
+              </div>
+            </div>
+            <div class="preview-card pc-after pv-1">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">After</span>
+              </div>
+            </div>
+            <div class="wipe-line"></div>
+          </div>
+
+          <div class="card-wrap cw-2">
+            <div class="preview-card pc-before pb-2">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">Before</span>
+              </div>
+            </div>
+            <div class="preview-card pc-after pv-2">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">After</span>
+              </div>
+            </div>
+            <div class="wipe-line"></div>
+          </div>
+
+          <div class="card-wrap cw-3">
+            <div class="preview-card pc-before pb-3">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">Before</span>
+              </div>
+            </div>
+            <div class="preview-card pc-after pv-3">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">After</span>
+              </div>
+            </div>
+            <div class="wipe-line"></div>
+          </div>
+
+          <div class="card-wrap cw-4">
+            <div class="preview-card pc-before pb-4">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">Before</span>
+              </div>
+            </div>
+            <div class="preview-card pc-after pv-4">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">After</span>
+              </div>
+            </div>
+            <div class="wipe-line"></div>
+          </div>
+
+          <div class="card-wrap cw-5">
+            <div class="preview-card pc-before pb-5">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">Before</span>
+              </div>
+            </div>
+            <div class="preview-card pc-after pv-5">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">After</span>
+              </div>
+            </div>
+            <div class="wipe-line"></div>
+          </div>
+
+          <div class="card-wrap cw-6">
+            <div class="preview-card pc-before pb-6">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">Before</span>
+              </div>
+            </div>
+            <div class="preview-card pc-after pv-6">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">After</span>
+              </div>
+            </div>
+            <div class="wipe-line"></div>
+          </div>
+
+          <div class="card-wrap cw-7">
+            <div class="preview-card pc-before pb-7">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">Before</span>
+              </div>
+            </div>
+            <div class="preview-card pc-after pv-7">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">After</span>
+              </div>
+            </div>
+            <div class="wipe-line"></div>
+          </div>
+
+          <div class="card-wrap cw-8">
+            <div class="preview-card pc-before pb-8">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">Before</span>
+              </div>
+            </div>
+            <div class="preview-card pc-after pv-8">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">After</span>
+              </div>
+            </div>
+            <div class="wipe-line"></div>
+          </div>
+
+          <div class="card-wrap cw-9">
+            <div class="preview-card pc-before pb-9">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">Before</span>
+              </div>
+            </div>
+            <div class="preview-card pc-after pv-9">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">After</span>
+              </div>
+            </div>
+            <div class="wipe-line"></div>
+          </div>
+
+          <div class="card-wrap cw-10">
+            <div class="preview-card pc-before pb-10">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">Before</span>
+              </div>
+            </div>
+            <div class="preview-card pc-after pv-10">
+              <div class="pc-chrome"><span class="pc-dot r"></span><span class="pc-dot y"></span><span class="pc-dot g"></span><div class="pc-bar"></div></div>
+              <div class="pc-body">
+                <div class="pc-layout"><div class="pc-l-nav"></div><div class="pc-l-hero"></div><div class="pc-l-sub"></div><div class="pc-l-row"><div class="pc-l-box"></div><div class="pc-l-box"></div><div class="pc-l-box"></div></div><div class="pc-l-btn"></div></div>
+                <span class="pc-badge">After</span>
+              </div>
+            </div>
+            <div class="wipe-line"></div>
+          </div>
+
+        </div><!-- /track -->
+      </div><!-- /viewport -->
+    </div><!-- /marquee-section -->
+
+  </section>
+
+  <script>
+    // Fetch real showcase data and replace gradient placeholders with actual screenshots.
+    // Falls back silently to gradient placeholders if the API is unreachable or returns no items.
+    (function () {
+      fetch('/api/showcase')
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var items = Array.isArray(data.items) ? data.items : [];
+          if (items.length < 2) return;
+          // Only update Set 1; Set 2 is a CSS-duplicate for the loop and will match visually.
+          var wraps = document.querySelectorAll('.hiw-marquee-track .card-wrap');
+          var setSize = wraps.length / 2; // 10
+          for (var i = 0; i < setSize && i < items.length; i++) {
+            var item = items[i];
+            if (!item.beforeImageUrl || !item.afterImageUrl) continue;
+            // Set 1 and Set 2 share the same index offset
+            [i, i + setSize].forEach(function (wrapIdx) {
+              var wrap = wraps[wrapIdx];
+              if (!wrap) return;
+              var beforeCard = wrap.querySelector('.pc-before .pc-body');
+              var afterCard  = wrap.querySelector('.pc-after  .pc-body');
+              if (beforeCard) {
+                var imgB = document.createElement('img');
+                imgB.src = item.beforeImageUrl;
+                imgB.alt = 'Before';
+                imgB.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block';
+                beforeCard.insertBefore(imgB, beforeCard.firstChild);
+              }
+              if (afterCard) {
+                var imgA = document.createElement('img');
+                imgA.src = item.afterImageUrl;
+                imgA.alt = 'After';
+                imgA.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block';
+                afterCard.insertBefore(imgA, afterCard.firstChild);
+              }
+            });
+          }
+        })
+        .catch(function () { /* keep gradient placeholders */ });
+    })();
+  </script>
+</body>
+</html>

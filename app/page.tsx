@@ -8,6 +8,7 @@ import { type PipelineStep } from "@/components/AnalysisProgress";
 import { ScanningExperience } from "@/components/ScanningExperience";
 import { Loader2, Car, Smile, Home as HomeIcon, Thermometer, Building2, UtensilsCrossed, PawPrint, Scale, Dumbbell, Leaf, Wrench, Sparkles } from "lucide-react";
 import { LogoIcon } from "@/components/Logo";
+import { HowItWorks } from "@/components/HowItWorks";
 import { cn, normalizeWebsiteUrl } from "@/lib/utils";
 
 
@@ -414,7 +415,8 @@ function HomeContent() {
   ];
 
   return (
-    <main className="min-h-screen flex flex-col bg-[#f5f0eb]">
+    <main className="bg-[#f5f0eb]">
+      <div className="min-h-screen flex flex-col">
       {/* Top-left nav */}
       <nav className="flex items-center gap-2 px-6 py-4 md:px-8">
         <LogoIcon size={28} className="shrink-0" />
@@ -570,6 +572,10 @@ function HomeContent() {
           }
         `}</style>
       </div>
+
+      </div>{/* /min-h-screen */}
+
+      {!isAnalyzing && <HowItWorks />}
 
     </main>
   );
