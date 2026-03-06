@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { type PipelineStep } from "@/components/AnalysisProgress";
 import { ScanningExperience } from "@/components/ScanningExperience";
-import { Loader2 } from "lucide-react";
+import { Loader2, Car, Smile, Home as HomeIcon, Thermometer, Building2, UtensilsCrossed, PawPrint, Scale, Dumbbell, Leaf, Wrench, Sparkles } from "lucide-react";
 import { LogoIcon } from "@/components/Logo";
 import { cn, normalizeWebsiteUrl } from "@/lib/utils";
+
 
 function isUnreachableWebsiteError(message: string): boolean {
   const m = message.toLowerCase();
@@ -59,6 +60,23 @@ function HomeContent() {
   const [urlFieldHint, setUrlFieldHint] = useState(false);
   const [isPreflightInProgress, setIsPreflightInProgress] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  const TITLE_TEXT = "Your homepage sucks.";
+  const [displayedTitle, setDisplayedTitle] = useState("");
+  const titleTypedRef = useRef(false);
+
+  useEffect(() => {
+    if (titleTypedRef.current) return;
+    titleTypedRef.current = true;
+    let i = 0;
+    const interval = setInterval(() => {
+      i++;
+      setDisplayedTitle(TITLE_TEXT.slice(0, i));
+      if (i >= TITLE_TEXT.length) clearInterval(interval);
+    }, 71);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (urlFieldHint && urlInputRef.current) {
@@ -380,36 +398,55 @@ function HomeContent() {
     }
   };
 
-  return (
-    <main className={cn(
-      "min-h-screen flex flex-col items-center p-6 md:p-8 bg-[#f5f0eb]",
-      isAnalyzing ? "justify-start pt-8" : "justify-center"
-    )}>
-      <div className={cn(
-        "w-full max-w-xl mx-auto text-center",
-        isAnalyzing ? "space-y-4" : "space-y-8"
-      )}>
-        <>
-          <div className={cn(
-            "w-full flex flex-col items-center transition-all duration-500",
-            isAnalyzing ? "space-y-1" : "space-y-3"
-          )}>
-            <LogoIcon size={isAnalyzing ? 40 : 64} className="shrink-0 transition-all duration-500" />
-            <h1 className={cn(
-              "font-bold tracking-tight text-[#2d5a3d] transition-all duration-500",
-              isAnalyzing ? "text-xl" : "text-3xl md:text-4xl"
-            )}>
-              Page Refresh
-            </h1>
-            <p className={cn(
-              "text-muted-foreground max-w-md mx-auto transition-all duration-500",
-              isAnalyzing ? "text-sm" : "text-lg"
-            )}>
-              $50,000 refresh in 5 minutes
-            </p>
-          </div>
+  const logos = [
+    { name: "Nashville Auto Repair", Icon: Car },
+    { name: "Denver Dental Studio", Icon: Smile },
+    { name: "Chicago Roofing Co", Icon: HomeIcon },
+    { name: "Austin HVAC Pros", Icon: Thermometer },
+    { name: "Miami Property Group", Icon: Building2 },
+    { name: "Portland Bakehouse", Icon: UtensilsCrossed },
+    { name: "Seattle Pet Clinic", Icon: PawPrint },
+    { name: "Phoenix Law Group", Icon: Scale },
+    { name: "Boston Fitness Studio", Icon: Dumbbell },
+    { name: "Atlanta Landscaping", Icon: Leaf },
+    { name: "Houston Plumbing", Icon: Wrench },
+    { name: "New York Med Spa", Icon: Sparkles },
+  ];
 
-          <form ref={formRef} onSubmit={handleSubmit} className={cn("space-y-4", isAnalyzing && "space-y-2")}>
+  return (
+    <main className="min-h-screen flex flex-col bg-[#f5f0eb]">
+      {/* Top-left nav */}
+      <nav className="flex items-center gap-2 px-6 py-4 md:px-8">
+        <LogoIcon size={28} className="shrink-0" />
+        <span className="font-bold text-[#2d5a3d] text-base tracking-tight">Page Refresh</span>
+      </nav>
+
+      {/* Center content */}
+      <div className={cn(
+        "flex-1 flex flex-col items-center justify-center px-6 pb-6 md:px-8",
+        isAnalyzing ? "pt-4" : "pt-0"
+      )}>
+        <div className={cn(
+          "w-full max-w-5xl mx-auto text-center",
+          isAnalyzing ? "space-y-4" : "space-y-8"
+        )}>
+          {!isAnalyzing && (
+            <div className="flex flex-col items-center space-y-4">
+              <div className="space-y-2">
+                <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-[#1a1a1a] leading-tight whitespace-nowrap">
+                  {displayedTitle}
+                  {displayedTitle.length < TITLE_TEXT.length && (
+                    <span className="inline-block w-0.5 h-[0.85em] bg-[#1a1a1a] align-middle ml-0.5 animate-pulse" />
+                  )}
+                </h1>
+                <p className="text-lg md:text-xl text-muted-foreground">
+                  Refresh it in under 5 minutes
+                </p>
+              </div>
+            </div>
+          )}
+
+          <form ref={formRef} onSubmit={handleSubmit} className={cn("space-y-4 max-w-xl mx-auto", isAnalyzing && "space-y-2")}>
             <div className="flex flex-col sm:flex-row gap-2 relative">
               <div className="relative flex-1">
                 <Input
@@ -468,7 +505,7 @@ function HomeContent() {
                 ) : isAnalyzing ? (
                   "Pay Only If You Love It"
                 ) : (
-                  "Analyze My Website"
+                  "Refresh My Page"
                 )}
               </Button>
             </div>
@@ -480,7 +517,7 @@ function HomeContent() {
           </form>
 
           {isAnalyzing && !isPreflightInProgress && (
-            <div className={cn("flex flex-col items-center w-full")}>
+            <div className="flex flex-col items-center w-full">
               <ScanningExperience
                 tokens={tokens}
                 currentStep={displayStep}
@@ -488,8 +525,51 @@ function HomeContent() {
               />
             </div>
           )}
-        </>
+        </div>
       </div>
+
+      {/* Logo carousel — drops away when analysis starts */}
+      <div
+        className={cn(
+          "w-full overflow-hidden pb-16 transition-all duration-500",
+          isAnalyzing
+            ? "opacity-0 max-h-0 pointer-events-none"
+            : "opacity-100 max-h-96"
+        )}
+      >
+        <p className="text-center text-base text-muted-foreground uppercase tracking-widest mb-3 font-semibold">
+          Trusted by hundreds of business owners
+        </p>
+        <div className="relative flex overflow-hidden">
+          {/* Fade edges */}
+          <div className="absolute left-0 top-0 bottom-0 w-24 z-10 bg-gradient-to-r from-[#f5f0eb] to-transparent pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-24 z-10 bg-gradient-to-l from-[#f5f0eb] to-transparent pointer-events-none" />
+          <div
+            className="flex gap-10 items-center whitespace-nowrap"
+            style={{
+              animation: "marquee 42s linear infinite",
+              willChange: "transform",
+            }}
+          >
+            {[...logos, ...logos].map(({ name, Icon }, i) => (
+              <span
+                key={i}
+                className="flex items-center gap-3 text-2xl font-semibold text-[#2d5a3d]/40 tracking-tight select-none shrink-0"
+              >
+                <Icon size={36} aria-hidden />
+                {name}
+              </span>
+            ))}
+          </div>
+        </div>
+        <style>{`
+          @keyframes marquee {
+            from { transform: translateX(0); }
+            to { transform: translateX(-50%); }
+          }
+        `}</style>
+      </div>
+
     </main>
   );
 }
