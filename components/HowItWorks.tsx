@@ -87,24 +87,22 @@ function CardWrap({ cwIndex, beforeUrl, afterUrl }: CardWrapProps) {
 }
 
 export function HowItWorks() {
-  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [showcaseEnabled, setShowcaseEnabled] = useState(false);
   const [items, setItems] = useState<ShowcaseApiItem[]>([]);
 
   useEffect(() => {
     fetch("/api/showcase")
       .then((r) => r.json())
       .then((data) => {
-        setEnabled(data.enabled === true);
+        setShowcaseEnabled(data.enabled === true);
         if (Array.isArray(data.items) && data.items.length >= 2) {
           setItems(data.items);
         }
       })
       .catch(() => {
-        setEnabled(false);
+        setShowcaseEnabled(false);
       });
   }, []);
-
-  if (enabled === null || enabled === false) return null;
 
   const cards = Array.from({ length: TOTAL_CARDS }, (_, i) => ({
     cwIndex: i + 1,
@@ -419,6 +417,7 @@ export function HowItWorks() {
           </div>
         </div>
 
+        {showcaseEnabled && (
         <div className="hiw-marquee-section">
           <p className="hiw-marquee-label">Refreshed Pages</p>
           <div className="hiw-marquee-viewport">
@@ -434,6 +433,7 @@ export function HowItWorks() {
             </div>
           </div>
         </div>
+        )}
       </section>
     </>
   );
