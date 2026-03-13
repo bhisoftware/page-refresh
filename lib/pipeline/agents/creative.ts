@@ -136,22 +136,40 @@ export async function runCreativeAgent(
 
   const STYLE_REMINDERS: Record<CreativeSlug, string> = {
     "creative-modern": `=== GENERATE A MODERN LAYOUT ===
-Style: Minimalist, bold typography, full-bleed hero, asymmetric grids, generous whitespace.
-Inspiration: Linear, Vercel, Stripe.
-Structure: Full-bleed hero → compact value-prop strip → alternating left-right sections → 2-3 col card grid. Target 4-5 clean sections.
-Key: Less is more. Typography does the heavy lifting. Dark mode friendly.`,
+- Hero: full-bleed, min-h-screen, centered content. Primary CTA must be a pill: rounded-full (not rounded-lg).
+- Nav: transparent sticky, minimal — logo left, 3-4 links right. Do NOT put phone numbers in the nav bar.
+- Sections: asymmetric grid. Alternate [40% text | 60% image] and [60% image | 40% text] using grid-cols-5 or equivalent split. Do NOT use centered single-column editorial blocks.
+- Cards: 3-column card grid only. Use rounded-xl, NO borders, subtle shadow-sm. Accent with emoji or dot bullets — no heavy borders.
+- Typography: ONE sans-serif font only. No serif anywhere. Headlines: font-bold + tracking-tight.
+- Color: grayscale everywhere EXCEPT CTAs and one accent per section. Restraint is mandatory.
+- Dividers: whitespace only — no horizontal lines, no background color changes between sections.
+- Footer: minimal single row, subtle border-t. No multi-column footer.
+- Target 4-5 clean sections. Less is more.`,
 
     "creative-classy": `=== GENERATE A CLASSY LAYOUT ===
-Style: Refined, symmetrical, serif+sans-serif pairing, muted palette with gold/navy/charcoal accents.
-Inspiration: McKinsey, Rolex, top law firms.
-Structure: Centered hero → early social proof/testimonials → 3-col service grid → credentials/trust section → inviting contact. Target 5-6 well-spaced sections.
-Key: Hierarchy through typography scale. Trust-first layout. Conservative use of color — elegance through restraint.`,
+- Hero: split layout — text left (~55%), image right (~45%). NOT full-viewport; max height ~80vh (e.g. min-h-[80vh] or similar).
+- Headlines: SERIF font required (Playfair Display, Cormorant, or Lora). Use font-medium for headlines, NOT font-bold. Non-negotiable.
+- CTA: bordered button — border-2 rounded-lg. Do NOT use rounded-full pills.
+- Nav: solid background (white or cream #faf8f5), NOT transparent. Include phone number on the right. Subtle border-b.
+- Sections: centered editorial column — max-w-3xl or max-w-4xl mx-auto. Alternate white and cream (e.g. bg-white then bg-[#faf8f5]) between sections.
+- Services: 2-COLUMN grid only (not 3). Generous depth per item. Separate items with thin horizontal rules (border-b).
+- Testimonials: 2-column grid, boxed cards, italic serif for quotes, small-caps for attribution.
+- Trust strip: horizontal band with grayscale logos.
+- About: give real estate — tell the brand story.
+- Footer: multi-column (address, phone, hours), warm dark bg (bg-gray-800), generous py-16.
+- Body: larger body text (text-lg), small-caps for labels. Serif headlines + sans-serif body.
+- Target 5-6 well-spaced sections.`,
 
     "creative-unique": `=== GENERATE A UNIQUE LAYOUT ===
-Style: Break conventions. Unexpected color combos, creative CSS effects, personality-driven.
-Inspiration: Mailchimp, Notion, Figma.
-Structure: Angled/bento hero → surprising first section → non-standard services (accordion/tabs/timeline/masonry) → varied section widths. Target 5-7 sections with AT LEAST 2 unconventional layouts.
-Key: Stand out from competitors. Custom visual language. Playful but purposeful. Memorable first impression. Do NOT use a standard grid layout.`,
+- Hero: choose ONE unconventional option per generation: (A) Giant typography (text-8xl or larger), no image, brand color text, subtle texture bg — OR (B) Collage: overlapping images with slight rotation, text on blurred panel, asymmetric — OR (C) Full-screen bold color block: saturated brand color bg, huge white text, no image — OR (D) Minimal title card: just headline + rule + CTA, compact.
+- Nav: NOT standard — use accent-color background, OR ultra-minimal (logo + one link), OR bold styling. Do not copy Modern or Classy nav.
+- Pattern-breakers (include AT LEAST 2): full-bleed bold color section; OR dark section mid-page (bg-gray-900); OR overlapping elements (-mt-12 with z-index); OR dramatic height variance between sections.
+- Services: NOT a uniform card grid. Use numbered full-width blocks (01, 02, 03 in text-8xl opacity-10), OR bento grid, OR timeline. No standard 3-col card grid.
+- Typography: display font with personality (Space Grotesk, Syne, Unbounded). font-black headlines + font-light body. Include oversized decorative text somewhere.
+- Color: use the FULL brand palette. At least one saturated bg section and one dark section.
+- Footer: match personality — NOT a safe gray multi-column footer like Classy.
+- Self-check: "Is this immediately distinguishable from a standard card-grid layout?" If not, change the services or hero.
+- Target 5-7 sections with at least 2 unconventional layouts.`,
   };
 
   const userContent = `${STYLE_REMINDERS[slug]}\n\nHere is the site data:\n\n${JSON.stringify(input, null, 2)}`;
