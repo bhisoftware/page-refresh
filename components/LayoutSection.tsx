@@ -31,6 +31,7 @@ export function LayoutSection({ refreshId, viewToken, layouts, stripePaymentStat
           layouts={layouts}
           stripePaymentStatus={stripePaymentStatus}
           stripeSessionId={stripeSessionId}
+          enableLock
         />
       </div>
     </section>

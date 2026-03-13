@@ -1,10 +1,14 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { wrapInDocument } from "@/lib/layout-preview";
 import type { LayoutItem } from "@/components/LayoutSection";
+import { Maximize2, X } from "lucide-react";
+
+const LOCKED_TAB_BAR_HEIGHT_PX = 48;
+const LOCK_TRANSITION_MS = 250;
 
 interface LayoutTabbedViewerProps {
   refreshId: string;
@@ -12,12 +16,19 @@ interface LayoutTabbedViewerProps {
   layouts: LayoutItem[];
   stripePaymentStatus?: string;
   stripeSessionId?: string;
+  /** When true, show "View Full Screen" and allow locking the viewer into the viewport (results page only). */
+  enableLock?: boolean;
 }
 
-export function LayoutTabbedViewer({ refreshId, viewToken, layouts, stripePaymentStatus, stripeSessionId }: LayoutTabbedViewerProps) {
+export function LayoutTabbedViewer({ refreshId, viewToken, layouts, stripePaymentStatus, stripeSessionId, enableLock = false }: LayoutTabbedViewerProps) {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("1");
+  const [isLocked, setIsLocked] = useState(false);
+  const [sectionHeight, setSectionHeight] = useState(0);
+  const [showLockCta, setShowLockCta] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const lockedScrollRef = useRef<HTMLDivElement | null>(null);
 
   const layoutByTab = useMemo(() => {
     const map: Record<string, LayoutItem> = {};
@@ -49,6 +60,59 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts, stripePaymen
     if (!scrollContainerRef.current) return;
     scrollContainerRef.current.scrollTop = 0;
   }, [srcdoc]);
+
+  // In locked mode, reset iframe container scroll when switching tabs
+  useEffect(() => {
+    if (isLocked && lockedScrollRef.current) lockedScrollRef.current.scrollTop = 0;
+  }, [isLocked, activeTab]);
+
+  // Intersection Observer: when layout section is ~80% visible, show "View Full Screen" CTA
+  useEffect(() => {
+    if (!enableLock || isLocked || !containerRef.current) return;
+    const el = containerRef.current;
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowLockCta(entry != null && entry.intersectionRatio >= 0.8),
+      { threshold: 0.8, rootMargin: "0px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [enableLock, isLocked]);
+
+  // Lock: capture height for spacer, then enter locked state
+  const enterLock = useCallback(() => {
+    if (!containerRef.current) return;
+    setSectionHeight(containerRef.current.getBoundingClientRect().height);
+    setShowLockCta(false);
+    setIsLocked(true);
+  }, []);
+
+  // Unlock: restore normal flow
+  const exitLock = useCallback(() => {
+    setIsLocked(false);
+  }, []);
+
+  // Body overflow when locked (freeze parent scroll)
+  useEffect(() => {
+    if (!isLocked) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isLocked]);
+
+  // Escape to exit locked mode
+  useEffect(() => {
+    if (!enableLock || !isLocked) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        exitLock();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [enableLock, isLocked, exitLock]);
 
   const isPaid = stripePaymentStatus === "paid";
 
@@ -92,6 +156,9 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts, stripePaymen
       setCheckoutLoading(false);
     }
   };
+
+  const tabBarChromeHeight = "2.5rem";
+  const lockedIframeHeight = `calc(100vh - ${LOCKED_TAB_BAR_HEIGHT_PX}px - ${tabBarChromeHeight})`;
 
   return (
     <>
@@ -155,61 +222,140 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts, stripePaymen
         }
       `}</style>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        {layouts.length > 1 && (
-          <div className="sticky top-0 z-30 bg-slate-50/95 backdrop-blur-sm border-b border-border/50 py-2 mb-2 -mx-4 sm:-mx-8 lg:-mx-12 px-4 sm:px-8 lg:px-12">
-            <TabsList className="mx-auto flex w-fit">
-              {layouts.map((layout, i) => (
-                <TabsTrigger key={i + 1} value={String(i + 1)} className="px-8 py-2.5 text-base font-semibold">
-                  {layout.templateName || `Layout ${i + 1}`}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+      {/* Locked mode: spacer preserves scroll position; fixed overlay fills viewport */}
+      {isLocked && (
+        <>
+          <div aria-hidden style={{ height: sectionHeight }} />
+          <div
+            className="fixed inset-0 z-50 flex flex-col bg-[#f5f0eb]"
+            style={{ transition: `opacity ${LOCK_TRANSITION_MS}ms ease` }}
+          >
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 min-h-0 flex flex-col">
+              {/* Tab bar + close: ~48px total, touch-friendly */}
+              <div
+                className="flex items-center justify-between gap-2 bg-slate-50/95 backdrop-blur-sm border-b border-border/50 px-3 py-2 flex-shrink-0"
+                style={{ minHeight: LOCKED_TAB_BAR_HEIGHT_PX }}
+              >
+                <button
+                  type="button"
+                  onClick={exitLock}
+                  className="flex items-center gap-1.5 rounded-full bg-white/90 border border-border px-3 py-2 text-sm font-medium text-foreground shadow-sm hover:bg-muted/50 transition-colors touch-manipulation"
+                  aria-label="Back to scores"
+                >
+                  <X className="h-4 w-4" aria-hidden />
+                  <span className="hidden sm:inline">Back to scores</span>
+                </button>
+                {layouts.length > 1 && (
+                  <TabsList className="flex w-fit">
+                    {layouts.map((layout, i) => (
+                      <TabsTrigger key={i + 1} value={String(i + 1)} className="px-4 py-2 text-sm font-semibold touch-manipulation">
+                        {layout.templateName || `Layout ${i + 1}`}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                )}
+              </div>
+              <div className="flex-1 min-h-0 flex flex-col px-2 pb-2 relative">
+                <div className="rounded-lg border border-border bg-muted/20 shadow-lg overflow-hidden flex-1 min-h-0 flex flex-col">
+                  <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-2 flex-shrink-0" style={{ height: tabBarChromeHeight }}>
+                    <div className="flex gap-1.5">
+                      <span className="h-3 w-3 rounded-full bg-red-500/80" aria-hidden />
+                      <span className="h-3 w-3 rounded-full bg-amber-500/80" aria-hidden />
+                      <span className="h-3 w-3 rounded-full bg-green-500/80" aria-hidden />
+                    </div>
+                  </div>
+                  <div
+                    className="w-full overflow-x-hidden overflow-y-auto bg-muted/30 flex-1 min-h-0"
+                    ref={lockedScrollRef}
+                    style={{ height: lockedIframeHeight }}
+                  >
+                    <iframe
+                      title={`Layout option ${activeTab} preview (fullscreen)`}
+                      srcDoc={srcdoc}
+                      className="h-full w-full border-0 align-top"
+                      sandbox="allow-scripts"
+                      style={{ minHeight: "100%" }}
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleInstallClick}
+                  disabled={checkoutLoading}
+                  className="icy-install-btn absolute bottom-6 right-4 z-20 px-7 py-3.5 rounded-xl font-bold text-base cursor-pointer transition-all touch-manipulation"
+                >
+                  {checkoutLoading ? "Loading…" : isPaid ? "View Your Layout" : "Select This Refreshed Page"}
+                </button>
+              </div>
+            </Tabs>
           </div>
-        )}
-        <div className="mt-0">
-          {/* Browser-style frame with sticky install CTA */}
-          <div className="relative">
-            <div
-              className="rounded-lg border border-border bg-muted/20 shadow-lg overflow-hidden"
-              style={{ height: "85vh" }}
-            >
-              <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-2">
-                <div className="flex gap-1.5">
-                  <span className="h-3 w-3 rounded-full bg-red-500/80" aria-hidden />
-                  <span className="h-3 w-3 rounded-full bg-amber-500/80" aria-hidden />
-                  <span className="h-3 w-3 rounded-full bg-green-500/80" aria-hidden />
+        </>
+      )}
+
+      {/* Normal (in-flow) viewer: observed for 80% visibility to show CTA */}
+      {!isLocked && (
+        <div ref={containerRef}>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            {layouts.length > 1 && (
+              <div className="sticky top-0 z-30 bg-slate-50/95 backdrop-blur-sm border-b border-border/50 py-2 mb-2 -mx-4 sm:-mx-8 lg:-mx-12 px-4 sm:px-8 lg:px-12">
+                <TabsList className="mx-auto flex w-fit">
+                  {layouts.map((layout, i) => (
+                    <TabsTrigger key={i + 1} value={String(i + 1)} className="px-8 py-2.5 text-base font-semibold">
+                      {layout.templateName || `Layout ${i + 1}`}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </div>
+            )}
+            <div className="mt-0 relative">
+              {enableLock && showLockCta && (
+                <button
+                  type="button"
+                  onClick={enterLock}
+                  className="absolute top-3 right-3 z-30 flex items-center gap-2 rounded-full bg-white border border-border px-4 py-2.5 text-sm font-medium text-foreground shadow-md hover:bg-muted/50 transition-colors"
+                  aria-label="View full screen"
+                >
+                  <Maximize2 className="h-4 w-4" aria-hidden />
+                  View Full Screen
+                </button>
+              )}
+              <div
+                className="rounded-lg border border-border bg-muted/20 shadow-lg overflow-hidden"
+                style={{ height: "85vh" }}
+              >
+                <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-2">
+                  <div className="flex gap-1.5">
+                    <span className="h-3 w-3 rounded-full bg-red-500/80" aria-hidden />
+                    <span className="h-3 w-3 rounded-full bg-amber-500/80" aria-hidden />
+                    <span className="h-3 w-3 rounded-full bg-green-500/80" aria-hidden />
+                  </div>
+                </div>
+                <div
+                  className="w-full overflow-x-hidden overflow-y-auto bg-muted/30"
+                  style={{ height: "calc(85vh - 2.5rem)" }}
+                  ref={scrollContainerRef}
+                >
+                  <iframe
+                    title={`Layout option ${activeTab} preview`}
+                    srcDoc={srcdoc}
+                    className="h-full w-full border-0 align-top"
+                    sandbox="allow-scripts"
+                    style={{ minHeight: "100%" }}
+                  />
                 </div>
               </div>
-              <div
-                className="w-full overflow-x-hidden overflow-y-auto bg-muted/30"
-                style={{ height: "calc(85vh - 2.5rem)" }}
-                ref={scrollContainerRef}
+              <button
+                type="button"
+                onClick={handleInstallClick}
+                disabled={checkoutLoading}
+                className="icy-install-btn absolute bottom-6 right-0 z-20 px-7 py-3.5 rounded-xl font-bold text-base cursor-pointer transition-all"
               >
-                <iframe
-                  title={`Layout option ${activeTab} preview`}
-                  srcDoc={srcdoc}
-                  className="h-full w-full border-0 align-top"
-                  sandbox="allow-scripts"
-                  style={{ minHeight: "100%" }}
-                />
-              </div>
+                {checkoutLoading ? "Loading…" : isPaid ? "View Your Layout" : "Select This Refreshed Page"}
+              </button>
             </div>
-
-            {/* Always-visible install CTA pinned to bottom-right of frame */}
-            <button
-              type="button"
-              onClick={handleInstallClick}
-              disabled={checkoutLoading}
-              className="icy-install-btn absolute bottom-6 right-0 z-20 px-7 py-3.5 rounded-xl
-                         font-bold text-base cursor-pointer transition-all"
-            >
-              {checkoutLoading ? "Loading…" : isPaid ? "View Your Layout" : "Select This Refreshed Page"}
-            </button>
-          </div>
+          </Tabs>
         </div>
-      </Tabs>
-
+      )}
     </>
   );
 }
