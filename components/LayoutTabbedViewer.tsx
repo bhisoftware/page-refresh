@@ -71,7 +71,7 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts, stripePaymen
     if (!enableLock || isLocked || !containerRef.current) return;
     const el = containerRef.current;
     const observer = new IntersectionObserver(
-      ([entry]) => setShowLockCta(entry != null && entry.intersectionRatio >= 0.8),
+      ([entry]) => { if (entry?.intersectionRatio >= 0.8) setShowLockCta(true); },
       { threshold: 0.8, rootMargin: "0px" }
     );
     observer.observe(el);
@@ -99,6 +99,16 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts, stripePaymen
     return () => {
       document.body.style.overflow = prev;
     };
+  }, [isLocked]);
+
+  // Update spacer height on resize while locked
+  useEffect(() => {
+    if (!isLocked) return;
+    const onResize = () => {
+      if (containerRef.current) setSectionHeight(containerRef.current.getBoundingClientRect().height);
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, [isLocked]);
 
   // Escape to exit locked mode
@@ -223,13 +233,10 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts, stripePaymen
       `}</style>
 
       {/* Locked mode: spacer preserves scroll position; fixed overlay fills viewport */}
-      {isLocked && (
-        <>
-          <div aria-hidden style={{ height: sectionHeight }} />
-          <div
-            className="fixed inset-0 z-50 flex flex-col bg-[#f5f0eb]"
-            style={{ transition: `opacity ${LOCK_TRANSITION_MS}ms ease` }}
-          >
+      {isLocked && <div aria-hidden style={{ height: sectionHeight }} />}
+      <div
+        className={`fixed inset-0 z-50 flex flex-col bg-[#f5f0eb] transition-opacity duration-[250ms] ease-in-out ${isLocked ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+      >
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 min-h-0 flex flex-col">
               {/* Tab bar + close: ~48px total, touch-friendly */}
               <div
@@ -288,13 +295,10 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts, stripePaymen
                 </button>
               </div>
             </Tabs>
-          </div>
-        </>
-      )}
+      </div>
 
       {/* Normal (in-flow) viewer: observed for 80% visibility to show CTA */}
-      {!isLocked && (
-        <div ref={containerRef}>
+      <div ref={containerRef}>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             {layouts.length > 1 && (
               <div className="sticky top-0 z-30 bg-slate-50/95 backdrop-blur-sm border-b border-border/50 py-2 mb-2 -mx-4 sm:-mx-8 lg:-mx-12 px-4 sm:px-8 lg:px-12">
@@ -355,7 +359,6 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts, stripePaymen
             </div>
           </Tabs>
         </div>
-      )}
     </>
   );
 }
