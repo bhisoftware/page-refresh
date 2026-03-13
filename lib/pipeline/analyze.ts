@@ -741,7 +741,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   // Run creative agents in parallel with a 3s stagger to avoid overwhelming the API.
   // Much faster than fully sequential (3-6s stagger vs 15-25s per agent) while avoiding 429/529 spikes.
   const allCreativeSlugs: CreativeSlug[] = ["creative-modern", "creative-classy", "creative-unique"];
-  const allTemplateNames = ["Modern", "Classy", "Unique"];
+  const allTemplateNames = ["Classic Refresh", "Modern Upgrade", "Bold Transformation"];
   // Only run creative agents that are active (have a matching skill in the DB)
   const activeCreativeIndices = allCreativeSlugs
     .map((slug, i) => skills.some((s) => s.agentSlug === slug) ? i : -1)

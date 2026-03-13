@@ -171,10 +171,11 @@ export default async function ResultsPage({
   const scoringDetails = Array.isArray(rawScoringDetails)
     ? (rawScoringDetails as unknown as DimensionDetail[])
     : [];
+  const creativeTabNames = ["Classic Refresh", "Modern Upgrade", "Bold Transformation"] as const;
   const layoutRows = [
     {
       layoutIndex: 1 as const,
-      templateName: refresh.layout1Template ?? "Layout 1",
+      templateName: creativeTabNames[0],
       layoutHtml: refresh.layout1Html,
       layoutCss: refresh.layout1Css ?? "",
       layoutCopyRefreshed: refresh.layout1CopyRefreshed ?? refresh.layout1Html,
@@ -182,7 +183,7 @@ export default async function ResultsPage({
     },
     {
       layoutIndex: 2 as const,
-      templateName: refresh.layout2Template ?? "Layout 2",
+      templateName: creativeTabNames[1],
       layoutHtml: refresh.layout2Html,
       layoutCss: refresh.layout2Css ?? "",
       layoutCopyRefreshed: refresh.layout2CopyRefreshed ?? refresh.layout2Html,
@@ -190,7 +191,7 @@ export default async function ResultsPage({
     },
     {
       layoutIndex: 3 as const,
-      templateName: refresh.layout3Template ?? "Layout 3",
+      templateName: creativeTabNames[2],
       layoutHtml: refresh.layout3Html,
       layoutCss: refresh.layout3Css ?? "",
       layoutCopyRefreshed: refresh.layout3CopyRefreshed ?? refresh.layout3Html,

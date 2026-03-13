@@ -49,10 +49,11 @@ export default async function AdminAnalysisPage({
   const contactPhone = refresh.contactPhone || profile?.contactPhone;
   const hostingPlatform = refresh.hostingPlatform || profile?.hostingPlatform;
 
+  const creativeTabNames = ["Classic Refresh", "Modern Upgrade", "Bold Transformation"] as const;
   const layoutRows: LayoutItem[] = [
     {
       layoutIndex: 1 as const,
-      templateName: (refresh.layout1Template as string) ?? "Layout 1",
+      templateName: creativeTabNames[0],
       layoutHtml: refresh.layout1Html as string,
       layoutCss: (refresh.layout1Css as string) ?? "",
       layoutCopyRefreshed: (refresh.layout1CopyRefreshed as string) ?? (refresh.layout1Html as string),
@@ -60,7 +61,7 @@ export default async function AdminAnalysisPage({
     },
     {
       layoutIndex: 2 as const,
-      templateName: (refresh.layout2Template as string) ?? "Layout 2",
+      templateName: creativeTabNames[1],
       layoutHtml: refresh.layout2Html as string,
       layoutCss: (refresh.layout2Css as string) ?? "",
       layoutCopyRefreshed: (refresh.layout2CopyRefreshed as string) ?? (refresh.layout2Html as string),
@@ -68,7 +69,7 @@ export default async function AdminAnalysisPage({
     },
     {
       layoutIndex: 3 as const,
-      templateName: (refresh.layout3Template as string) ?? "Layout 3",
+      templateName: creativeTabNames[2],
       layoutHtml: refresh.layout3Html as string,
       layoutCss: (refresh.layout3Css as string) ?? "",
       layoutCopyRefreshed: (refresh.layout3CopyRefreshed as string) ?? (refresh.layout3Html as string),
