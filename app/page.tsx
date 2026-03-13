@@ -62,7 +62,7 @@ function HomeContent() {
   const [isPreflightInProgress, setIsPreflightInProgress] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const TITLE_TEXT = "Your homepage sucks.";
+  const TITLE_TEXT = "Let's be honest, your homepage sucks.";
   const [displayedTitle, setDisplayedTitle] = useState("");
   const titleTypedRef = useRef(false);
 
