@@ -162,7 +162,7 @@ export async function runCreativeAgent(
 
     "creative-unique": `=== GENERATE A UNIQUE LAYOUT ===
 - Hero: choose ONE unconventional option per generation: (A) Giant typography (text-8xl or larger), no image, brand color text, subtle texture bg — OR (B) Collage: overlapping images with slight rotation, text on blurred panel, asymmetric — OR (C) Full-screen bold color block: saturated brand color bg, huge white text, no image — OR (D) Minimal title card: just headline + rule + CTA, compact.
-- Nav: NOT standard — use accent-color background, OR ultra-minimal (logo + one link), OR bold styling. Do not copy Modern or Classy nav.
+- Nav: NOT standard — use accent-color background, OR hamburger/drawer/side nav with all links accessible. All nav links must be present; zero navigation links is not acceptable. Do not copy Modern or Classy nav.
 - Pattern-breakers (include AT LEAST 2): full-bleed bold color section; OR dark section mid-page (bg-gray-900); OR overlapping elements (-mt-12 with z-index); OR dramatic height variance between sections.
 - Services: NOT a uniform card grid. Use numbered full-width blocks (01, 02, 03 in text-8xl opacity-10), OR bento grid, OR timeline. No standard 3-col card grid.
 - Typography: display font with personality (Space Grotesk, Syne, Unbounded). font-black headlines + font-light body. Include oversized decorative text somewhere.
