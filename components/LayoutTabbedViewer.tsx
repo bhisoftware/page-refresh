@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { wrapInDocument } from "@/lib/layout-preview";
@@ -17,6 +17,7 @@ interface LayoutTabbedViewerProps {
 export function LayoutTabbedViewer({ refreshId, viewToken, layouts, stripePaymentStatus, stripeSessionId }: LayoutTabbedViewerProps) {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("1");
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
   const layoutByTab = useMemo(() => {
     const map: Record<string, LayoutItem> = {};
@@ -42,6 +43,12 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts, stripePaymen
       baseUrl: origin,
     });
   }, [currentLayout.layoutHtml, currentLayout.layoutCss, origin]);
+
+  // Ensure each layout preview starts scrolled to the top when content changes
+  useEffect(() => {
+    if (!scrollContainerRef.current) return;
+    scrollContainerRef.current.scrollTop = 0;
+  }, [srcdoc]);
 
   const isPaid = stripePaymentStatus === "paid";
 
@@ -177,6 +184,7 @@ export function LayoutTabbedViewer({ refreshId, viewToken, layouts, stripePaymen
               <div
                 className="w-full overflow-x-hidden overflow-y-auto bg-muted/30"
                 style={{ height: "calc(85vh - 2.5rem)" }}
+                ref={scrollContainerRef}
               >
                 <iframe
                   title={`Layout option ${activeTab} preview`}
