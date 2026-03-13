@@ -62,7 +62,7 @@ function HomeContent() {
   const [isPreflightInProgress, setIsPreflightInProgress] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const TITLE_TEXT = "Let's be honest, your homepage sucks.";
+  const TITLE_TEXT = "Your homepage deserves a refresh.";
   const [displayedTitle, setDisplayedTitle] = useState("");
   const titleTypedRef = useRef(false);
 
@@ -443,7 +443,7 @@ function HomeContent() {
                   )} />
                 </h1>
                 <p className="text-lg md:text-xl text-muted-foreground">
-                  Refresh it in under 5 minutes
+                  Get one in under five minutes
                 </p>
               </div>
             </div>
