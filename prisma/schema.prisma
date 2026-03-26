@@ -362,6 +362,7 @@ model Benchmark {
   siteName         String?
   industry         String
   screenshotUrl    String?
+  screenshots      Json      @default("[]")
   overallScore     Int       @default(0)
   clarityScore     Int       @default(0)
   visualScore      Int       @default(0)
