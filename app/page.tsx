@@ -40,6 +40,81 @@ function parseProgressStep(step: string): PipelineStep {
   return PIPELINE_STEP_MAP[step] ?? "started";
 }
 
+function LogoMark({ city, trade, Icon, variant }: {
+  city: string;
+  trade: string;
+  Icon: typeof Car;
+  variant: string;
+}) {
+  const full = `${city} ${trade}`;
+  switch (variant) {
+    case "serif-caps":
+      return (
+        <span className="flex items-center gap-3 select-none">
+          <Icon size={28} strokeWidth={1.5} aria-hidden />
+          <span style={{ fontFamily: "Fraunces, serif" }} className="text-[22px] font-semibold uppercase tracking-[0.14em]">
+            {full}
+          </span>
+        </span>
+      );
+    case "split-weight":
+      return (
+        <span className="flex items-center gap-3 select-none">
+          <Icon size={28} strokeWidth={1.5} aria-hidden />
+          <span className="flex items-baseline gap-1.5">
+            <span style={{ fontFamily: "Geist, sans-serif" }} className="text-[19px] font-light">{city}</span>
+            <span style={{ fontFamily: "Fraunces, serif" }} className="text-[22px] font-semibold">{trade}</span>
+          </span>
+        </span>
+      );
+    case "outlined":
+      return (
+        <span className="flex items-center gap-2.5 select-none border border-[#2d5a3d]/20 rounded-sm px-4 py-1.5">
+          <Icon size={22} strokeWidth={1.5} aria-hidden />
+          <span style={{ fontFamily: "Geist, sans-serif" }} className="text-[17px] font-medium uppercase tracking-[0.08em]">
+            {full}
+          </span>
+        </span>
+      );
+    case "bar-serif":
+      return (
+        <span className="flex items-center gap-3 select-none">
+          <Icon size={28} strokeWidth={1.5} aria-hidden />
+          <span className="w-px h-7 bg-[#2d5a3d]/20" />
+          <span style={{ fontFamily: "Fraunces, serif" }} className="text-[21px] font-light italic">
+            {full}
+          </span>
+        </span>
+      );
+    case "stacked":
+      return (
+        <span className="flex items-center gap-2.5 select-none">
+          <Icon size={30} strokeWidth={1.5} aria-hidden />
+          <span className="flex flex-col leading-none">
+            <span style={{ fontFamily: "Geist, sans-serif" }} className="text-[11px] font-medium uppercase tracking-[0.18em]">
+              {city}
+            </span>
+            <span style={{ fontFamily: "Fraunces, serif" }} className="text-[20px] font-semibold mt-0.5">
+              {trade}
+            </span>
+          </span>
+        </span>
+      );
+    case "dots-caps":
+    default:
+      return (
+        <span className="flex items-center gap-3 select-none">
+          <Icon size={26} strokeWidth={1.5} aria-hidden />
+          <span style={{ fontFamily: "Geist, sans-serif" }} className="text-[18px] font-medium uppercase tracking-[0.2em] flex items-center gap-2">
+            <span className="w-1 h-1 rounded-full bg-current opacity-50" />
+            {full}
+            <span className="w-1 h-1 rounded-full bg-current opacity-50" />
+          </span>
+        </span>
+      );
+  }
+}
+
 export default function Home() {
   return (
     <Suspense>
@@ -74,7 +149,7 @@ function HomeContent() {
       i++;
       setDisplayedTitle(TITLE_TEXT.slice(0, i));
       if (i >= TITLE_TEXT.length) clearInterval(interval);
-    }, 71);
+    }, 80);
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -400,18 +475,18 @@ function HomeContent() {
   };
 
   const logos = [
-    { name: "Nashville Auto Repair", Icon: Car },
-    { name: "Denver Dental Studio", Icon: Smile },
-    { name: "Chicago Roofing Co", Icon: HomeIcon },
-    { name: "Austin HVAC Pros", Icon: Thermometer },
-    { name: "Miami Property Group", Icon: Building2 },
-    { name: "Portland Bakehouse", Icon: UtensilsCrossed },
-    { name: "Seattle Pet Clinic", Icon: PawPrint },
-    { name: "Phoenix Law Group", Icon: Scale },
-    { name: "Boston Fitness Studio", Icon: Dumbbell },
-    { name: "Atlanta Landscaping", Icon: Leaf },
-    { name: "Houston Plumbing", Icon: Wrench },
-    { name: "New York Med Spa", Icon: Sparkles },
+    { city: "Nashville", trade: "Auto Repair", Icon: Car, variant: "bar-serif" },
+    { city: "Denver", trade: "Dental Studio", Icon: Smile, variant: "split-weight" },
+    { city: "Chicago", trade: "Roofing Co", Icon: HomeIcon, variant: "outlined" },
+    { city: "Austin", trade: "HVAC Pros", Icon: Thermometer, variant: "serif-caps" },
+    { city: "Miami", trade: "Property Group", Icon: Building2, variant: "stacked" },
+    { city: "Portland", trade: "Bakehouse", Icon: UtensilsCrossed, variant: "dots-caps" },
+    { city: "Seattle", trade: "Pet Clinic", Icon: PawPrint, variant: "bar-serif" },
+    { city: "Phoenix", trade: "Law Group", Icon: Scale, variant: "serif-caps" },
+    { city: "Boston", trade: "Fitness Studio", Icon: Dumbbell, variant: "outlined" },
+    { city: "Atlanta", trade: "Landscaping", Icon: Leaf, variant: "stacked" },
+    { city: "Houston", trade: "Plumbing", Icon: Wrench, variant: "split-weight" },
+    { city: "New York", trade: "Med Spa", Icon: Sparkles, variant: "dots-caps" },
   ];
 
   return (
@@ -435,12 +510,15 @@ function HomeContent() {
           {!isAnalyzing && (
             <div className="flex flex-col items-center space-y-4">
               <div className="space-y-2">
-                <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-[#1a1a1a] leading-tight whitespace-nowrap">
-                  {displayedTitle}
-                  <span className={cn(
-                    "inline-block w-0.5 h-[0.85em] bg-[#1a1a1a] align-middle ml-0.5 animate-pulse",
-                    displayedTitle.length >= TITLE_TEXT.length && "invisible"
-                  )} />
+                <h1 className="relative text-3xl md:text-4xl lg:text-5xl font-bold tracking-wide text-[#1a1a1a] leading-tight whitespace-nowrap">
+                  <span className="invisible" aria-hidden="true">{TITLE_TEXT}</span>
+                  <span className="absolute inset-0">
+                    {displayedTitle}
+                    <span className={cn(
+                      "inline-block w-0.5 h-[0.85em] bg-[#1a1a1a] align-middle ml-0.5 animate-pulse",
+                      displayedTitle.length >= TITLE_TEXT.length && "invisible"
+                    )} />
+                  </span>
                 </h1>
                 <p className="text-lg md:text-xl text-muted-foreground">
                   Get one in under five minutes
@@ -554,13 +632,9 @@ function HomeContent() {
               willChange: "transform",
             }}
           >
-            {[...logos, ...logos].map(({ name, Icon }, i) => (
-              <span
-                key={i}
-                className="flex items-center gap-3 text-2xl font-semibold text-[#2d5a3d]/40 tracking-tight select-none shrink-0"
-              >
-                <Icon size={36} aria-hidden />
-                {name}
+            {[...logos, ...logos].map((logo, i) => (
+              <span key={i} className="text-[#2d5a3d]/35 shrink-0">
+                <LogoMark {...logo} />
               </span>
             ))}
           </div>
