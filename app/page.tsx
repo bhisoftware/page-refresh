@@ -13,6 +13,7 @@ type PipelineStep =
   | "retry"
   | "error";
 import { ScanningExperience } from "@/components/ScanningExperience";
+import { ShaderBackground } from "@/components/ShaderBackground";
 import { Loader2, Car, Smile, Home as HomeIcon, Thermometer, Building2, UtensilsCrossed, PawPrint, Scale, Dumbbell, Leaf, Wrench, Sparkles } from "lucide-react";
 import { LogoIcon } from "@/components/Logo";
 import { HowItWorks } from "@/components/HowItWorks";
@@ -501,7 +502,8 @@ function HomeContent() {
 
   return (
     <main className="bg-[#f5f0eb]">
-      <div className="min-h-screen flex flex-col">
+      <ShaderBackground />
+      <div className="relative min-h-screen flex flex-col" style={{ zIndex: 1 }}>
       {/* Top-left nav */}
       <nav className="flex items-center gap-2 px-6 py-4 md:px-8">
         <LogoIcon size={28} className="shrink-0" />
