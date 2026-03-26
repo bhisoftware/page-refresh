@@ -20,7 +20,7 @@ import { runScoreAgent } from "@/lib/pipeline/agents/score";
 import { runCreativeAgent, type CreativeSlug } from "@/lib/pipeline/agents/creative";
 import { runScanningCopyAgent } from "@/lib/pipeline/agents/scanning-copy";
 import { runLogoIdentificationAgent, type LogoIdentificationOutput } from "@/lib/pipeline/agents/logo-identification";
-import type { CreativeAgentInput, OriginalSiteStyle, ScreenshotAnalysisOutput, ScanningCopyOutput } from "@/lib/pipeline/agents/types";
+import type { CreativeAgentInput, OriginalSiteStyle, ScreenshotAnalysisOutput, ScanningCopyOutput, SiteImage } from "@/lib/pipeline/agents/types";
 import type { AgentSkill } from "@prisma/client";
 import { getAnalysisCooldownDays } from "@/lib/config/app-settings";
 
@@ -766,17 +766,12 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     ?? "#1a1a2e";
   const CREATIVE_STAGGER_MS = 5000;
   const sharedRateLimitFlag = { until: 0 };
-  let completedCount = 0;
+  const completedAgentIndices: number[] = [];
 
   const creativeResults = await Promise.allSettled(
     creativeSlugs.map(async (slug, i) => {
       // Stagger launches to avoid overwhelming the API with simultaneous requests
       if (i > 0) await new Promise((r) => setTimeout(r, i * CREATIVE_STAGGER_MS));
-      // If another agent triggered a rate limit, wait for it to clear
-      if (sharedRateLimitFlag.until > Date.now()) {
-        const waitMs = sharedRateLimitFlag.until - Date.now();
-        if (waitMs > 0) await new Promise((r) => setTimeout(r, waitMs));
-      }
       console.log("[pipeline] creative agent", i + 1, "of 3 — starting");
       const result = await runCreativeAgent({
         skills,
@@ -785,6 +780,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
         refreshId,
         onRetry,
         rateLimitFlag: sharedRateLimitFlag,
+        agentIndex: i,
       });
       // Persist this layout immediately on completion
       const templateName = result.html?.trim() ? creativeTemplateNames[i] : "pending";
@@ -798,16 +794,19 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
           [`layout${layoutNum}Rationale`]: result.rationale ?? "",
         },
       });
-      completedCount++;
+      completedAgentIndices.push(i);
       console.log("[pipeline] creative agent", i + 1, "of 3 — done");
+      const completedNames = completedAgentIndices
+        .sort((a, b) => a - b)
+        .map((idx) => creativeTemplateNames[idx]);
       onProgress?.({
         step: "token",
         key: "layouts",
         data: {
-          options: creativeTemplateNames.slice(0, completedCount).map((label) => ({ label, accentColor })),
+          options: completedNames.map((label) => ({ label, accentColor })),
         },
       });
-      onProgress?.({ step: "generating", message: `Generated ${completedCount} of ${creativeSlugs.length} design options...` });
+      onProgress?.({ step: "generating", message: `Generated ${completedAgentIndices.length} of ${creativeSlugs.length} design options...` });
       return result;
     })
   );
@@ -872,7 +871,9 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     where: { id: refreshId },
     data: {
       status: finalStatus,
-      ...(finalStatus === "complete" ? { errorStep: null, errorMessage: null } : {}),
+      // Only clear error info when ALL creative agents succeeded.
+      // Partial failures preserve their error details for diagnostics.
+      ...(finalStatus === "complete" && successCount === creativeSlugs.length ? { errorStep: null, errorMessage: null } : {}),
       screenshotUrl,
       skillVersions: skillVersions as object,
       processingTime: Math.round((Date.now() - startTime) / 1000),

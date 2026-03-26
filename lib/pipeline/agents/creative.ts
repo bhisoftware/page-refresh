@@ -136,6 +136,7 @@ export interface RunCreativeAgentOptions {
   refreshId: string;
   onRetry?: (delayMs: number) => void;
   rateLimitFlag?: { until: number };
+  agentIndex?: number;
 }
 
 export async function runCreativeAgent(
@@ -149,7 +150,9 @@ export async function runCreativeAgent(
   const client = new Anthropic({ apiKey });
   const model = skill.modelOverride ?? "claude-sonnet-4-20250514";
   const maxTokens = skill.maxTokens ?? 32768;
-  const temperature = skill.temperature ?? 0.7;
+  // Extended thinking requires omitting temperature (defaults to 1.0).
+  // DB temperature values (0.4/0.5/0.7) retained for potential future use.
+  const _temperature = skill.temperature ?? 0.7;
 
   const STYLE_REMINDERS: Record<CreativeSlug, string> = {
     "creative-modern": `=== GENERATE A MODERN LAYOUT ===
@@ -199,7 +202,7 @@ export async function runCreativeAgent(
       const stream = client.messages.stream({
         model,
         max_tokens: maxTokens,
-        temperature,
+        thinking: { type: "enabled", budget_tokens: 12000 },
         system: [
           {
             type: "text" as const,
@@ -211,7 +214,7 @@ export async function runCreativeAgent(
       });
       return stream.finalMessage();
     },
-    { onRetry, rateLimitFlag }
+    { onRetry, rateLimitFlag, agentIndex: options.agentIndex }
   );
 
   if (response.stop_reason === "max_tokens") {

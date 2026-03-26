@@ -1,10 +1,13 @@
 /**
  * Retry logic for API rate limits (429) and transient errors.
- * Uses exponential backoff: 10s, 30s.
+ * Uses exponential backoff: 10s, 30s, 30s.
  */
 
-const RETRY_DELAYS_MS = [10_000, 30_000];
-const MAX_RETRIES = 2;
+const RETRY_DELAYS_MS = [10_000, 30_000, 30_000];
+const MAX_RETRIES = 3;
+
+/** When multiple agents share a rate limit flag, spread their recovery by this interval per agent index. */
+const AGENT_SPREAD_MS = 8_000;
 
 /** Quota/billing errors look like 429s but will never resolve with retrying. */
 function isQuotaError(err: unknown): boolean {
@@ -49,13 +52,16 @@ export function isRetryableError(err: unknown): boolean {
 
 export async function withRetry<T>(
   fn: () => Promise<T>,
-  options?: { onRetry?: (delayMs: number) => void; rateLimitFlag?: { until: number } }
+  options?: { onRetry?: (delayMs: number) => void; rateLimitFlag?: { until: number }; agentIndex?: number }
 ): Promise<T> {
   let lastErr: unknown;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    // If another agent signaled a rate limit, wait for it to clear
+    // If another agent signaled a rate limit, wait for it to clear.
+    // Add per-agent offset to prevent thundering herd when multiple agents share a flag.
     if (options?.rateLimitFlag && options.rateLimitFlag.until > Date.now()) {
-      const waitMs = options.rateLimitFlag.until - Date.now();
+      const baseWait = options.rateLimitFlag.until - Date.now();
+      const agentOffset = (options?.agentIndex ?? 0) * AGENT_SPREAD_MS;
+      const waitMs = baseWait + agentOffset;
       if (waitMs > 0) await sleep(waitMs);
     }
     try {
