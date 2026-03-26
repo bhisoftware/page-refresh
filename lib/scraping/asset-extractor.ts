@@ -625,8 +625,13 @@ export function classifyImages(
     const alt = img.alt ?? "";
     const urlPath = img.src.replace(/https?:\/\/[^/]+/, "");
     // Find the img in DOM and get parent text for extra context
-    const imgEl = $(`img[src="${img.src}"], img[src="${urlPath}"]`).first();
-    const parentText = imgEl.parent()?.text()?.trim()?.slice(0, 200) ?? "";
+    let parentText = "";
+    try {
+      const imgEl = $(`img[src="${img.src}"], img[src="${urlPath}"]`).first();
+      parentText = imgEl.parent()?.text()?.trim()?.slice(0, 200) ?? "";
+    } catch {
+      // URLs with CSS-special chars (\, [, ]) break attribute selectors — skip DOM lookup
+    }
     const signal = [alt, urlPath, parentText].join(" ");
 
     if (TEAM_PATTERNS.test(signal)) {
@@ -884,7 +889,7 @@ export function extractAssets(html: string, css: string, baseUrl: string): Extra
   // From CSS source
   for (const match of css.matchAll(bgImagePattern)) {
     const raw = match[1];
-    if (!raw || raw.startsWith("data:")) continue;
+    if (!raw || raw.startsWith("data:") || /\\/.test(raw)) continue;
     const resolved = resolveUrl(baseUrl, raw);
     if (JUNK_URL_PATTERN.test(resolved) || bgImageSeen.has(resolved)) continue;
     bgImageSeen.add(resolved);
@@ -896,7 +901,7 @@ export function extractAssets(html: string, css: string, baseUrl: string): Extra
     const style = $(el).attr("style") ?? "";
     for (const match of style.matchAll(bgImagePattern)) {
       const raw = match[1];
-      if (!raw || raw.startsWith("data:")) continue;
+      if (!raw || raw.startsWith("data:") || /\\/.test(raw)) continue;
       const resolved = resolveUrl(baseUrl, raw);
       if (JUNK_URL_PATTERN.test(resolved) || bgImageSeen.has(resolved)) continue;
       bgImageSeen.add(resolved);
