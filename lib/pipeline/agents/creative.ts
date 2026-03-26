@@ -112,14 +112,35 @@ function isSystemFont(fontName: string): boolean {
 }
 
 /**
+ * Split a CSS font stack into individual font names and return the first
+ * non-system font suitable for Google Fonts loading and Tailwind config.
+ * e.g. "Helvetica Neue, Segoe UI, Arial, sans-serif" → "Helvetica Neue" (but it's system, so null)
+ *      "Playfair Display, Georgia, serif" → "Playfair Display"
+ */
+function extractPrimaryFont(fontStack: string): string | null {
+  const names = fontStack.split(",").map((f) => f.trim().replace(/['"]/g, ""));
+  for (const name of names) {
+    if (name && !isSystemFont(name)) return name;
+  }
+  return null;
+}
+
+/**
  * Build a <head> snippet with Google Fonts and Tailwind brand config.
  * Injected into user content so agents use semantic classes instead of arbitrary values.
  */
 function buildBrandHeadBlock(input: CreativeAgentInput): string {
   const { colors, fonts } = input.brandAssets;
 
-  // Google Fonts link (only non-system fonts, max 3)
-  const googleFontFamilies = fonts.filter((f) => !isSystemFont(f)).slice(0, 3);
+  // Extract individual font names from potentially comma-separated font stacks
+  const resolvedFonts = fonts
+    .flatMap((f) => f.split(",").map((n) => n.trim().replace(/['"]/g, "")))
+    .filter((f) => f && !isSystemFont(f));
+  // Deduplicate while preserving order
+  const uniqueFonts = [...new Set(resolvedFonts)];
+
+  // Google Fonts link (max 3 non-system fonts)
+  const googleFontFamilies = uniqueFonts.slice(0, 3);
   const fontsLink =
     googleFontFamilies.length > 0
       ? `<link href="https://fonts.googleapis.com/css2?${googleFontFamilies.map((f) => `family=${f.replace(/ /g, "+")}:wght@300;400;500;600;700`).join("&")}&display=swap" rel="stylesheet">`
@@ -130,8 +151,9 @@ function buildBrandHeadBlock(input: CreativeAgentInput): string {
   const secondary = colors[1] ?? colors[0] ?? "#16213e";
   const accent = colors[2] ?? colors[0] ?? "#0f3460";
 
-  const headingFont = fonts[0] ?? "Inter";
-  const bodyFont = fonts[1] ?? fonts[0] ?? "Inter";
+  // Use first non-system font from each font stack, or fallback
+  const headingFont = extractPrimaryFont(fonts[0] ?? "") ?? uniqueFonts[0] ?? "Inter";
+  const bodyFont = extractPrimaryFont(fonts[1] ?? "") ?? uniqueFonts[0] ?? "Inter";
 
   return `<!-- BRAND CONFIG: Include this exact block in your <head>, AFTER <meta charset="utf-8"> -->
 ${fontsLink}
