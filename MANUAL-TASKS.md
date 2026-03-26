@@ -6,6 +6,14 @@
 
 ## Phase 1 — Before or During Build
 
+### Stripe Webhook
+
+- [ ] **Verify webhook endpoint exists** in Stripe Dashboard → Developers → Webhooks at `https://pagerefresh.ai/api/webhooks/stripe`
+- [ ] If not configured: create it, listening for `checkout.session.completed` + `checkout.session.expired`
+- [ ] **Verify signing secret matches**: copy the endpoint's signing secret (`whsec_...`) and confirm it matches `STRIPE_WEBHOOK_SECRET` on Vercel. If the endpoint was recreated, the secret changes.
+- [ ] **Test a payment end-to-end**: trigger a test payment and confirm Stripe Dashboard shows successful webhook delivery (200), DB record updates to `stripePaymentStatus: "paid"`, and `/refreshed-layout` page loads correctly
+- [ ] **Enable receipt emails**: Stripe Dashboard → Settings → Emails → Successful payments (sends Stripe-branded receipt using the email collected at checkout)
+
 ### Environment Variables
 
 - [ ] **Generate encryption key** and add to `.env.local`:
