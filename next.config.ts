@@ -5,6 +5,14 @@ const nextConfig: NextConfig = {
   experimental: {
     authInterrupts: true,
   },
+  async rewrites() {
+    return [
+      {
+        source: "/",
+        destination: "/landing.html",
+      },
+    ];
+  },
 };
 
 export default nextConfig;
