@@ -520,7 +520,7 @@ function HomeContent() {
           {!isAnalyzing && (
             <div className="flex flex-col items-center space-y-4">
               <div className="space-y-2">
-                <h1 className="relative text-3xl md:text-4xl lg:text-5xl font-bold tracking-wide text-[#1a1a1a] leading-tight whitespace-nowrap">
+                <h1 className="relative text-3xl md:text-4xl lg:text-5xl font-bold tracking-wide text-[#1a1a1a] leading-tight md:whitespace-nowrap">
                   <span className="invisible" aria-hidden="true">{TITLE_TEXT}</span>
                   <span className="absolute inset-0">
                     {displayedTitle}
