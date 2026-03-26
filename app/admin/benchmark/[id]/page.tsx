@@ -1,20 +1,26 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { ScoreRingHero } from "@/components/ScoreRingHero";
+import type { DimensionDetail } from "@/components/ScoreBreakdown";
 import { BenchmarkNotesSection } from "./BenchmarkNotesSection";
 import { BenchmarkScoreButton } from "./BenchmarkScoreButton";
 import { BenchmarkDeleteButton } from "./BenchmarkDeleteButton";
+import { BenchmarkScreenshots } from "./BenchmarkScreenshots";
 import { AdminBackLink } from "@/components/admin/AdminBackLink";
-import { cn } from "@/lib/utils";
 
-function scoreColorClass(score: number): string {
-  if (score <= 40) return "text-destructive";
-  if (score <= 60) return "text-amber-600 dark:text-amber-400";
-  if (score <= 80) return "text-green-600 dark:text-green-400";
-  return "text-blue-600 dark:text-blue-400";
+function scoreHeadline(score: number): string {
+  if (score <= 40) return "Needs work";
+  if (score <= 60) return "Room to grow";
+  if (score <= 80) return "Looking strong";
+  return "Excellent";
 }
 
-const DIMENSION_KEYS = ["clarity", "visual", "hierarchy", "trust", "conversion", "content", "mobile", "performance"] as const;
+interface ScreenshotEntry {
+  type: string;
+  url: string;
+  label: string;
+}
 
 export default async function AdminBenchmarkDetailPage({
   params,
@@ -29,6 +35,17 @@ export default async function AdminBenchmarkDetailPage({
   });
 
   if (!benchmark) notFound();
+
+  const url = benchmark.url.startsWith("http") ? benchmark.url : `https://${benchmark.url}`;
+  const scoringDetails = (benchmark.scoringDetails ?? []) as unknown as DimensionDetail[];
+
+  // Build screenshots list: prefer new JSON array, fall back to legacy single screenshotUrl
+  const rawScreenshots = benchmark.screenshots as unknown;
+  const screenshotList: ScreenshotEntry[] = Array.isArray(rawScreenshots) && rawScreenshots.length > 0
+    ? (rawScreenshots as ScreenshotEntry[])
+    : benchmark.screenshotUrl
+      ? [{ type: "desktop", url: benchmark.screenshotUrl, label: "Desktop" }]
+      : [];
 
   const noteList = benchmark.notes.map((n) => ({
     id: n.id,
@@ -54,34 +71,22 @@ export default async function AdminBenchmarkDetailPage({
           </div>
         </div>
 
+        {screenshotList.length > 0 && (
+          <BenchmarkScreenshots screenshots={screenshotList} siteUrl={url} />
+        )}
+
         {benchmark.scored && (
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle className="text-base">Scores</CardTitle>
-              {benchmark.scoredAt && (
-                <p className="text-sm text-muted-foreground">
-                  Last scored: {new Date(benchmark.scoredAt).toLocaleString()}
-                </p>
-              )}
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className={cn("text-3xl font-bold", scoreColorClass(benchmark.overallScore))}>
-                Overall: {benchmark.overallScore}/100
-              </p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
-                {DIMENSION_KEYS.map((dim) => {
-                  const key = `${dim}Score` as keyof typeof benchmark;
-                  const score = benchmark[key] as number;
-                  return (
-                    <div key={dim} className="flex justify-between">
-                      <span className="text-muted-foreground capitalize">{dim}</span>
-                      <span>{score}/100</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+          <ScoreRingHero
+            score={benchmark.overallScore}
+            headline={scoreHeadline(benchmark.overallScore)}
+            summary={`${benchmark.industry} benchmark`}
+            analysisUrl={benchmark.url}
+            subtitle={benchmark.scoredAt
+              ? `Scored ${new Date(benchmark.scoredAt).toLocaleString(undefined, { timeZone: "America/New_York" })}`
+              : undefined
+            }
+            details={scoringDetails}
+          />
         )}
 
         {!benchmark.scored && (

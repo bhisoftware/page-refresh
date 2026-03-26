@@ -80,6 +80,7 @@ export interface ScoreAgentInput {
   industrySeo: IndustrySeoOutput;
   benchmarks: BenchmarkRow[];
   benchmarkCount: number;
+  exaBenchmarkContext?: string;
 }
 
 export interface CreativeBriefPriority {

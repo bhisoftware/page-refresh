@@ -23,6 +23,8 @@ import { runLogoIdentificationAgent, type LogoIdentificationOutput } from "@/lib
 import type { CreativeAgentInput, OriginalSiteStyle, ScreenshotAnalysisOutput, ScanningCopyOutput, SiteImage } from "@/lib/pipeline/agents/types";
 import type { AgentSkill } from "@prisma/client";
 import { getAnalysisCooldownDays } from "@/lib/config/app-settings";
+import { fetchIndustryBenchmarks } from "@/lib/exa/fetch-benchmarks";
+import { buildBenchmarkPromptBlock } from "@/lib/exa/build-benchmark-prompt";
 
 export type PipelineProgress =
   | { step: "started"; message?: string }
@@ -456,6 +458,12 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     return {} as ScanningCopyOutput;
   });
 
+  // Fetch EXA industry benchmarks in parallel (non-blocking, runs alongside scanning-copy)
+  const exaBenchmarkPromise = fetchIndustryBenchmarks(industry).catch((err) => {
+    console.warn("[pipeline] EXA benchmark fetch failed:", err instanceof Error ? err.message : String(err));
+    return null;
+  });
+
   // --- Step 2: Score Agent + Logo Agent (parallel) ---
   onProgress?.({ step: "scoring", message: "Scoring against industry benchmarks..." });
 
@@ -489,6 +497,9 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     candidateBuffers.push({ index: i, buffer, mimeType });
   }
 
+  const exaBenchmark = await exaBenchmarkPromise;
+  const exaBenchmarkContext = buildBenchmarkPromptBlock(exaBenchmark);
+
   const [scoreResult, logoResult] = await Promise.all([
     runScoreAgent({
       skills,
@@ -497,6 +508,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
         industrySeo,
         benchmarks,
         benchmarkCount: benchmarks.length,
+        ...(exaBenchmarkContext ? { exaBenchmarkContext } : {}),
       },
       refreshId,
       onRetry,

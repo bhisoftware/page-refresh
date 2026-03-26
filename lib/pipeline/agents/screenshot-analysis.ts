@@ -20,7 +20,7 @@ export interface RunScreenshotAnalysisOptions {
   skills: AgentSkill[];
   html: string;
   screenshotBuffer: Buffer | null;
-  refreshId: string;
+  refreshId?: string;
   onRetry?: (delayMs: number) => void;
 }
 
@@ -85,16 +85,18 @@ export async function runScreenshotAnalysisAgent(
       ? skill.systemPrompt + "\n---\n" + userContent
       : skill.systemPrompt + "\n---\n[vision+text]";
 
-  await createPromptLog({
-    refreshId,
-    step: "screenshot_analysis",
-    provider: "claude",
-    model: response.model,
-    promptText: promptForLog.slice(0, 10000),
-    responseText: text.slice(0, 2000),
-    tokensUsed: response.usage?.input_tokens && response.usage?.output_tokens ? response.usage.input_tokens + response.usage.output_tokens : undefined,
-    responseTimeMs: Date.now() - startMs,
-  });
+  if (refreshId) {
+    await createPromptLog({
+      refreshId,
+      step: "screenshot_analysis",
+      provider: "claude",
+      model: response.model,
+      promptText: promptForLog.slice(0, 10000),
+      responseText: text.slice(0, 2000),
+      tokensUsed: response.usage?.input_tokens && response.usage?.output_tokens ? response.usage.input_tokens + response.usage.output_tokens : undefined,
+      responseTimeMs: Date.now() - startMs,
+    });
+  }
 
   const parsed = safeParseJSON(text);
   if (!parsed.success || !parsed.data) {

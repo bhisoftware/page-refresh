@@ -58,12 +58,15 @@ export async function runScoreAgent(
         ? "Limited industry benchmark data (1–2 sites). Use general best practices."
         : "No benchmark data. Use absolute scoring with general industry knowledge.";
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     screenshotAnalysis: input.screenshotAnalysis,
     industrySeo: input.industrySeo,
     benchmarkNote,
     benchmarkCount: input.benchmarkCount,
   };
+  if (input.exaBenchmarkContext) {
+    payload.exaIndustryContext = input.exaBenchmarkContext;
+  }
   const userContent = JSON.stringify(payload, null, 2);
 
   const startMs = Date.now();
