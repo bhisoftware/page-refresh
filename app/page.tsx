@@ -4,7 +4,14 @@ import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { type PipelineStep } from "@/components/AnalysisProgress";
+type PipelineStep =
+  | "started"
+  | "analyzing"
+  | "scoring"
+  | "generating"
+  | "done"
+  | "retry"
+  | "error";
 import { ScanningExperience } from "@/components/ScanningExperience";
 import { Loader2, Car, Smile, Home as HomeIcon, Thermometer, Building2, UtensilsCrossed, PawPrint, Scale, Dumbbell, Leaf, Wrench, Sparkles } from "lucide-react";
 import { LogoIcon } from "@/components/Logo";
@@ -136,6 +143,7 @@ function HomeContent() {
   const [urlFieldHint, setUrlFieldHint] = useState(false);
   const [isPreflightInProgress, setIsPreflightInProgress] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
 
   const TITLE_TEXT = "Your homepage deserves a refresh.";
   const [displayedTitle, setDisplayedTitle] = useState("");
@@ -264,9 +272,10 @@ function HomeContent() {
         viewToken?: string;
       };
       if (!preflightData.ok) {
-        const main = preflightData.error ?? "We couldn't reach this website. Check the URL and try again.";
-        const detail = preflightData.errorDetail ? ` [${preflightData.errorDetail}]` : "";
-        setError(main + detail);
+        if (preflightData.errorDetail) {
+          console.warn("[preflight]", preflightData.errorDetail);
+        }
+        setError(preflightData.error ?? "We couldn't reach this website. Check the URL and try again.");
         return;
       }
       // Redirect immediately if a complete analysis with layouts already exists
@@ -403,6 +412,7 @@ function HomeContent() {
       const pending = pendingRefreshRef.current;
       if (pending) {
         isPolling = true;
+        setIsReconnecting(true);
         setProgressMessage("Reconnecting...");
         const POLL_INTERVAL_MS = 3_000;
         const POLL_TIMEOUT_MS = 90_000;
@@ -603,6 +613,17 @@ function HomeContent() {
                 tokens={tokens}
                 currentStep={displayStep}
                 countdownSeconds={countdown ?? undefined}
+                reconnecting={isReconnecting}
+                onRetry={() => {
+                  setIsAnalyzing(false);
+                  setIsReconnecting(false);
+                  setBackendStep("started");
+                  setTokens({});
+                  setPipelineDone(false);
+                  pipelineDonePathRef.current = null;
+                  pendingRefreshRef.current = null;
+                  setTimeout(() => formRef.current?.requestSubmit(), 100);
+                }}
               />
             </div>
           )}
