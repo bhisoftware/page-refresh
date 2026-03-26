@@ -660,8 +660,8 @@ function HomeContent() {
         </p>
         <div className="relative flex overflow-hidden">
           {/* Fade edges */}
-          <div className="absolute left-0 top-0 bottom-0 w-24 z-10 bg-gradient-to-r from-[#f5f0eb] to-transparent pointer-events-none" />
-          <div className="absolute right-0 top-0 bottom-0 w-24 z-10 bg-gradient-to-l from-[#f5f0eb] to-transparent pointer-events-none" />
+          <div className="absolute left-0 top-0 bottom-0 w-24 z-10 bg-gradient-to-r from-[#f5f0eb]/80 to-transparent pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-24 z-10 bg-gradient-to-l from-[#f5f0eb]/80 to-transparent pointer-events-none" />
           <div
             className="flex gap-10 items-center whitespace-nowrap"
             style={{

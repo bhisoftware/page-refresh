@@ -41,7 +41,8 @@ const FRAGMENT_SHADER = `
     float total = r + g + b + 0.001;
     vec3 waveColor = waveColor1 * (r / total) + waveColor2 * (g / total) + waveColor3 * (b / total);
 
-    vec3 color = mix(baseColor, waveColor, intensity);
+    // Cap at 0.65 so wave never gets too dark for overlaid text
+    vec3 color = mix(baseColor, waveColor, intensity * 0.65);
     gl_FragColor = vec4(color, 1.0);
   }
 `;
