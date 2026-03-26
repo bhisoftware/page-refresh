@@ -9,6 +9,7 @@ import { uploadBlob, profileAssetKey } from "@/lib/storage/blobs";
 import { extractAssets, type ExtractedAssets } from "@/lib/scraping/asset-extractor";
 import { detectTechStack, type TechStack } from "@/lib/scraping/tech-detector";
 import * as cheerio from "cheerio";
+import sharp from "sharp";
 
 const DOWNLOAD_TIMEOUT_MS = 10_000;
 const MAX_DOWNLOADS = 5;
@@ -40,6 +41,8 @@ export interface AssetExtractionResult {
   siteImageUrlMap: Map<string, string>;
   /** Raw image buffers keyed by source URL. Retained for vision agents (e.g., Logo Agent). */
   downloadedBuffers: Map<string, Buffer>;
+  /** Image dimensions extracted via sharp, keyed by source URL. */
+  siteImageDimensions: Map<string, { width: number; height: number }>;
 }
 
 function resolveAbsolute(baseUrl: string, href: string): string {
@@ -358,10 +361,11 @@ const MAX_SITE_IMAGES = 8;
 async function downloadSiteImages(
   images: Array<{ src: string; alt?: string }>,
   profileId: string,
-): Promise<{ urlMap: Map<string, string>; stored: StoredAsset[]; buffers: Map<string, Buffer> }> {
+): Promise<{ urlMap: Map<string, string>; stored: StoredAsset[]; buffers: Map<string, Buffer>; dimensions: Map<string, { width: number; height: number }> }> {
   const urlMap = new Map<string, string>();
   const stored: StoredAsset[] = [];
   const buffers = new Map<string, Buffer>();
+  const dimensions = new Map<string, { width: number; height: number }>();
 
   // Deduplicate by URL
   const seen = new Set<string>();
@@ -382,6 +386,14 @@ async function downloadSiteImages(
         const { buffer, contentType } = result;
         const ext = contentTypeToExt(contentType);
         if (ext === "bin") return null;
+        // Extract dimensions via sharp (non-fatal on corrupt/unsupported formats)
+        let imgWidth: number | undefined;
+        let imgHeight: number | undefined;
+        try {
+          const meta = await sharp(buffer).metadata();
+          imgWidth = meta.width;
+          imgHeight = meta.height;
+        } catch { /* skip dimensions for this image */ }
         const assetType = `site-image-${globalIdx}`;
         const storageKey = profileAssetKey(profileId, assetType, ext);
         const storageUrl = await uploadBlob(storageKey, buffer, contentType);
@@ -389,6 +401,8 @@ async function downloadSiteImages(
           originalUrl: img.src,
           buffer,
           storageUrl,
+          imgWidth,
+          imgHeight,
           storedAsset: {
             assetType,
             fileName: `${assetType}.${ext}`,
@@ -407,11 +421,14 @@ async function downloadSiteImages(
         urlMap.set(r.value.originalUrl, r.value.storageUrl);
         stored.push(r.value.storedAsset);
         buffers.set(r.value.originalUrl, r.value.buffer);
+        if (r.value.imgWidth && r.value.imgHeight) {
+          dimensions.set(r.value.originalUrl, { width: r.value.imgWidth, height: r.value.imgHeight });
+        }
       }
     }
   }
 
-  return { urlMap, stored, buffers };
+  return { urlMap, stored, buffers, dimensions };
 }
 
 export async function extractAndPersistAssets(
@@ -426,6 +443,7 @@ export async function extractAndPersistAssets(
   const storedAssets: StoredAsset[] = [];
   let siteImageUrlMap = new Map<string, string>();
   const downloadedBuffers = new Map<string, Buffer>();
+  let siteImageDimensions = new Map<string, { width: number; height: number }>();
 
   try {
     const $ = cheerio.load(html);
@@ -463,6 +481,7 @@ export async function extractAndPersistAssets(
     const siteImageResult = await downloadSiteImages(allSiteImages, urlProfile.id);
     storedAssets.push(...siteImageResult.stored);
     siteImageUrlMap = siteImageResult.urlMap;
+    siteImageDimensions = siteImageResult.dimensions;
     for (const [url, buf] of siteImageResult.buffers) {
       downloadedBuffers.set(url, buf);
     }
@@ -533,5 +552,5 @@ export async function extractAndPersistAssets(
     console.error("[asset-extraction] Failed to persist assets:", err instanceof Error ? err.message : String(err));
   }
 
-  return { assets, storedAssets, techStack, siteImageUrlMap, downloadedBuffers };
+  return { assets, storedAssets, techStack, siteImageUrlMap, downloadedBuffers, siteImageDimensions };
 }

@@ -164,6 +164,15 @@ export interface OriginalSiteStyle {
   imageryStyle?: string;
 }
 
+// --- Site Image with dimension metadata ---
+export interface SiteImage {
+  url: string;
+  alt?: string;
+  width?: number;
+  height?: number;
+  category: "photo" | "badge" | "icon" | "unknown";
+}
+
 // --- Creative Agent ---
 export interface CreativeAgentInput {
   designDirection: DesignDirection;
@@ -176,6 +185,7 @@ export interface CreativeAgentInput {
     heroImageUrl: string | null;
     additionalImageUrls: Array<{ url: string; type: string }>;
     siteImageUrls: string[];
+    siteImages?: SiteImage[];
     teamPhotos?: Array<{ src: string; alt?: string }>;
     trustBadges?: Array<{ src: string; alt?: string }>;
     eventPhotos?: Array<{ src: string; alt?: string }>;

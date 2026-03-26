@@ -127,6 +127,18 @@ function buildSeoChecks(
   return checks;
 }
 
+/** Classify an image by its pixel dimensions. */
+function classifyImageCategory(
+  w: number | undefined,
+  h: number | undefined
+): SiteImage["category"] {
+  if (w == null || h == null) return "unknown";
+  if (w < 80 && h < 80) return "icon";
+  if (w < 200 || h < 200) return "badge";
+  if (w >= 600 && h >= 400) return "photo";
+  return "unknown";
+}
+
 /**
  * Resolve a business name from multiple sources. Always returns a non-empty string.
  * Priority: og:site_name / cleaned title → industry-seo titleTag → AI headline → domain name
@@ -742,6 +754,39 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   if (filteredIconCount > 0 && creativeInput.brandAssets.siteImageUrls.length === 0) {
     extractionNotes.push(`${filteredIconCount} icon/illustration images filtered — no photographs available. Use brand-colored gradients and strong typography instead of images.`);
   }
+  // Build dimension-enriched siteImages for creative agents
+  const siteImages: SiteImage[] = assetResult.assets.images
+    .filter((img) => img.imageType !== "icon" && img.imageType !== "decorative" && img.imageType !== "illustration")
+    .filter((img) => isHttpUrl(img.src))
+    .slice(0, 8)
+    .map((img) => {
+      const blobUrl = remapUrl(img.src);
+      const dims = assetResult.siteImageDimensions.get(img.src);
+      return {
+        url: blobUrl,
+        alt: img.alt,
+        width: dims?.width,
+        height: dims?.height,
+        category: classifyImageCategory(dims?.width, dims?.height),
+      };
+    });
+  creativeInput.brandAssets.siteImages = siteImages;
+
+  // Badge-aware extraction notes
+  if (siteImages.length > 0) {
+    const photoCount = siteImages.filter((img) => img.category === "photo").length;
+    const badgeCount = siteImages.filter((img) => img.category === "badge").length;
+    if (badgeCount > 0 && photoCount === 0) {
+      extractionNotes.push(
+        `Site images are primarily badges/seals (${badgeCount} badges, 0 photos) — display them small (h-12 to h-16) in a horizontal trust strip. Use gradients or solid color backgrounds for hero and feature sections.`
+      );
+    } else if (badgeCount > 0 && photoCount <= 2) {
+      extractionNotes.push(
+        `Limited photos available (${photoCount} photos, ${badgeCount} badges) — reserve photos for the hero and one feature section. Use badges in a trust strip only.`
+      );
+    }
+  }
+
   if (extractionNotes.length > 0) {
     creativeInput.brandAssets.extractionNotes = extractionNotes;
   }

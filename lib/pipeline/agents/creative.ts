@@ -89,10 +89,63 @@ function buildAllowedImageUrls(input: CreativeAgentInput): Set<string> {
   if (brandAssets.heroImageUrl) urls.add(brandAssets.heroImageUrl);
   for (const img of brandAssets.additionalImageUrls) urls.add(img.url);
   for (const src of brandAssets.siteImageUrls) urls.add(src);
+  for (const img of brandAssets.siteImages ?? []) urls.add(img.url);
   for (const p of brandAssets.teamPhotos ?? []) urls.add(p.src);
   for (const b of brandAssets.trustBadges ?? []) urls.add(b.src);
   for (const e of brandAssets.eventPhotos ?? []) urls.add(e.src);
   return urls;
+}
+
+/** System/generic fonts that should not be loaded via Google Fonts. */
+const SYSTEM_FONTS = new Set([
+  "arial", "helvetica", "helvetica neue", "verdana", "georgia", "times new roman",
+  "times", "courier new", "courier", "tahoma", "trebuchet ms", "impact",
+  "comic sans ms", "palatino linotype", "palatino", "lucida sans unicode",
+  "lucida grande", "lucida sans", "lucida console", "book antiqua", "garamond",
+  "century gothic", "segoe ui", "system-ui", "-apple-system", "blinkmacsystemfont",
+  "sans-serif", "serif", "monospace", "cursive", "fantasy", "inherit", "initial",
+  "unset", "ui-sans-serif", "ui-serif", "ui-monospace", "ui-rounded",
+]);
+
+function isSystemFont(fontName: string): boolean {
+  return SYSTEM_FONTS.has(fontName.toLowerCase().trim());
+}
+
+/**
+ * Build a <head> snippet with Google Fonts and Tailwind brand config.
+ * Injected into user content so agents use semantic classes instead of arbitrary values.
+ */
+function buildBrandHeadBlock(input: CreativeAgentInput): string {
+  const { colors, fonts } = input.brandAssets;
+
+  // Google Fonts link (only non-system fonts, max 3)
+  const googleFontFamilies = fonts.filter((f) => !isSystemFont(f)).slice(0, 3);
+  const fontsLink =
+    googleFontFamilies.length > 0
+      ? `<link href="https://fonts.googleapis.com/css2?${googleFontFamilies.map((f) => `family=${f.replace(/ /g, "+")}:wght@300;400;500;600;700`).join("&")}&display=swap" rel="stylesheet">`
+      : "";
+
+  // Tailwind config with brand color and font tokens
+  const primary = colors[0] ?? "#1a1a2e";
+  const secondary = colors[1] ?? colors[0] ?? "#16213e";
+  const accent = colors[2] ?? colors[0] ?? "#0f3460";
+
+  const headingFont = fonts[0] ?? "Inter";
+  const bodyFont = fonts[1] ?? fonts[0] ?? "Inter";
+
+  return `<!-- BRAND CONFIG: Include this exact block in your <head>, AFTER <meta charset="utf-8"> -->
+${fontsLink}
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: { brand: { primary: '${primary}', secondary: '${secondary}', accent: '${accent}' } },
+      fontFamily: { heading: ['${headingFont}', 'sans-serif'], body: ['${bodyFont}', 'sans-serif'] }
+    }
+  }
+}
+</script>`;
 }
 
 /** Check for critically unbalanced HTML from truncation (unclosed major tags). */
@@ -192,7 +245,21 @@ export async function runCreativeAgent(
 - Target 5-7 sections with at least 2 unconventional layouts.`,
   };
 
-  const userContent = `${STYLE_REMINDERS[slug]}\n\nHere is the site data:\n\n${JSON.stringify(input, null, 2)}`;
+  const brandHeadBlock = buildBrandHeadBlock(input);
+  const userContent = `${STYLE_REMINDERS[slug]}
+
+=== BRAND CONFIG BLOCK ===
+Include this exact block in your <head>. Use the semantic Tailwind classes it defines:
+- Colors: bg-brand-primary, bg-brand-secondary, bg-brand-accent, text-brand-primary, etc.
+- Fonts: font-heading for headlines, font-body for body text
+- You may still use arbitrary Tailwind values for one-off colors, but prefer the brand-* classes for the site's primary/secondary/accent colors.
+
+${brandHeadBlock}
+=== END BRAND CONFIG BLOCK ===
+
+Here is the site data:
+
+${JSON.stringify(input, null, 2)}`;
 
   const startMs = Date.now();
   // Use streaming to avoid "Streaming is required for operations that may take
