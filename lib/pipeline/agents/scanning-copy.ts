@@ -65,8 +65,8 @@ export async function runScanningCopyAgent(
       step: "scanning_copy",
       provider: "claude",
       model: response.model,
-      promptText: skill.systemPrompt + "\n\n" + userContent,
-      responseText: raw,
+      promptText: (skill.systemPrompt + "\n\n" + userContent).slice(0, 10000),
+      responseText: raw.slice(0, 2000),
       tokensUsed: response.usage.input_tokens + response.usage.output_tokens,
       responseTimeMs: Date.now() - startMs,
     });

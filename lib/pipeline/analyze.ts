@@ -247,7 +247,11 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     const minutesSince = (Date.now() - urlProfile.lastAnalyzedAt.getTime()) / 60000;
     if (minutesSince < cooldownDays * 24 * 60) {
       const existing = await prisma.refresh.findFirst({
-        where: { urlProfileId: urlProfile.id },
+        where: {
+          urlProfileId: urlProfile.id,
+          status: "complete",
+          layout1Html: { not: "" },
+        },
         orderBy: { createdAt: "desc" },
         select: { id: true, viewToken: true },
       });
@@ -431,7 +435,12 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     refreshId,
     onRetry,
   }).catch((err) => {
-    console.warn("[pipeline] scanning-copy agent failed:", err);
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn("[pipeline] scanning-copy agent failed:", msg);
+    prisma.refresh.update({
+      where: { id: refreshId },
+      data: { errorMessage: `scanning-copy agent failed: ${msg}`.slice(0, 2000) },
+    }).catch(() => {});
     return {} as ScanningCopyOutput;
   });
 
@@ -543,12 +552,11 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     },
   });
 
-  // Update URL profile now (before layout generation) so it survives pipeline timeouts
+  // Update URL profile scores immediately (but defer lastAnalyzedAt until after creative agents,
+  // so cooldown won't block retries if all creative agents fail)
   await prisma.urlProfile.update({
     where: { id: urlProfile.id },
     data: {
-      analysisCount: { increment: 1 },
-      lastAnalyzedAt: new Date(),
       latestScore: scoreResult.scores.overall,
       bestScore: Math.max(urlProfile.bestScore ?? 0, scoreResult.scores.overall),
       lastFetchRetries: fetchRetryCount,
@@ -756,13 +764,19 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     ?? screenshotAnalysis.colors?.primary
     ?? screenshotAnalysis.colors?.accent
     ?? "#1a1a2e";
-  const CREATIVE_STAGGER_MS = 3000;
+  const CREATIVE_STAGGER_MS = 5000;
+  const sharedRateLimitFlag = { until: 0 };
   let completedCount = 0;
 
   const creativeResults = await Promise.allSettled(
     creativeSlugs.map(async (slug, i) => {
       // Stagger launches to avoid overwhelming the API with simultaneous requests
       if (i > 0) await new Promise((r) => setTimeout(r, i * CREATIVE_STAGGER_MS));
+      // If another agent triggered a rate limit, wait for it to clear
+      if (sharedRateLimitFlag.until > Date.now()) {
+        const waitMs = sharedRateLimitFlag.until - Date.now();
+        if (waitMs > 0) await new Promise((r) => setTimeout(r, waitMs));
+      }
       console.log("[pipeline] creative agent", i + 1, "of 3 — starting");
       const result = await runCreativeAgent({
         skills,
@@ -770,6 +784,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
         input: creativeInput,
         refreshId,
         onRetry,
+        rateLimitFlag: sharedRateLimitFlag,
       });
       // Persist this layout immediately on completion
       const templateName = result.html?.trim() ? creativeTemplateNames[i] : "pending";
@@ -778,7 +793,6 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
         where: { id: refreshId },
         data: {
           [`layout${layoutNum}Html`]: result.html ?? "",
-          [`layout${layoutNum}Css`]: "",
           [`layout${layoutNum}Template`]: templateName,
           [`layout${layoutNum}CopyRefreshed`]: result.html ?? "",
           [`layout${layoutNum}Rationale`]: result.rationale ?? "",
@@ -828,20 +842,37 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
     }).catch(() => {});
   }
 
+  // Only mark profile as fully analyzed if at least one layout was generated.
+  // This prevents cooldown from blocking retries after total creative failure.
+  if (successCount > 0) {
+    await prisma.urlProfile.update({
+      where: { id: urlProfile.id },
+      data: {
+        analysisCount: { increment: 1 },
+        lastAnalyzedAt: new Date(),
+      },
+    });
+  }
+
   // --- Step 4: Finalize ---
   let screenshotUrl: string | null = null;
   if (screenshotBuffer) {
-    const { buffer: optimized, contentType } = await compressScreenshotToWebP(screenshotBuffer);
-    const blobKey = screenshotKey(refreshId, rawUrl);
-    screenshotUrl = await uploadBlob(blobKey, optimized, contentType);
+    try {
+      const { buffer: optimized, contentType } = await compressScreenshotToWebP(screenshotBuffer);
+      const blobKey = screenshotKey(refreshId, rawUrl);
+      screenshotUrl = await uploadBlob(blobKey, optimized, contentType);
+    } catch (ssErr) {
+      console.warn("[pipeline] Screenshot upload failed (non-fatal):", ssErr instanceof Error ? ssErr.message : String(ssErr));
+    }
   }
 
+  // If all creative agents failed, mark as failed rather than complete
+  const finalStatus = successCount === 0 && creativeSlugs.length > 0 ? "failed" : "complete";
   await prisma.refresh.update({
     where: { id: refreshId },
     data: {
-      status: "complete",
-      errorStep: null,
-      errorMessage: null,
+      status: finalStatus,
+      ...(finalStatus === "complete" ? { errorStep: null, errorMessage: null } : {}),
       screenshotUrl,
       skillVersions: skillVersions as object,
       processingTime: Math.round((Date.now() - startTime) / 1000),

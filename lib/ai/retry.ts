@@ -49,16 +49,28 @@ export function isRetryableError(err: unknown): boolean {
 
 export async function withRetry<T>(
   fn: () => Promise<T>,
-  options?: { onRetry?: (delayMs: number) => void }
+  options?: { onRetry?: (delayMs: number) => void; rateLimitFlag?: { until: number } }
 ): Promise<T> {
   let lastErr: unknown;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    // If another agent signaled a rate limit, wait for it to clear
+    if (options?.rateLimitFlag && options.rateLimitFlag.until > Date.now()) {
+      const waitMs = options.rateLimitFlag.until - Date.now();
+      if (waitMs > 0) await sleep(waitMs);
+    }
     try {
       return await fn();
     } catch (err) {
       lastErr = err;
       if (attempt < MAX_RETRIES && isRetryableError(err)) {
-        const delayMs = RETRY_DELAYS_MS[attempt] ?? 30_000;
+        const baseDelay = RETRY_DELAYS_MS[attempt] ?? 30_000;
+        // Add jitter (0-30% of base delay) to prevent synchronized retries
+        const jitter = Math.floor(Math.random() * baseDelay * 0.3);
+        const delayMs = baseDelay + jitter;
+        // Signal rate limit to other agents sharing the flag
+        if (options?.rateLimitFlag) {
+          options.rateLimitFlag.until = Math.max(options.rateLimitFlag.until, Date.now() + delayMs);
+        }
         options?.onRetry?.(delayMs);
         await sleep(delayMs);
       } else {

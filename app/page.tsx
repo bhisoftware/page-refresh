@@ -615,10 +615,24 @@ function HomeContent() {
                 countdownSeconds={countdown ?? undefined}
                 reconnecting={isReconnecting}
                 onRetry={() => {
+                  if (pollIntervalRef.current) {
+                    clearInterval(pollIntervalRef.current);
+                    pollIntervalRef.current = null;
+                  }
+                  if (countdownIntervalRef.current) {
+                    clearInterval(countdownIntervalRef.current);
+                    countdownIntervalRef.current = null;
+                  }
                   setIsAnalyzing(false);
                   setIsReconnecting(false);
                   setBackendStep("started");
                   setTokens({});
+                  setCountdown(null);
+                  setAnalysisTimerDone(false);
+                  analysisTimerDoneRef.current = false;
+                  setInDesignPhase(false);
+                  setDesignTimerDone(false);
+                  designTimerDoneRef.current = false;
                   setPipelineDone(false);
                   pipelineDonePathRef.current = null;
                   pendingRefreshRef.current = null;

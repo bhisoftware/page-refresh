@@ -95,8 +95,24 @@ function buildAllowedImageUrls(input: CreativeAgentInput): Set<string> {
   return urls;
 }
 
+/** Check for critically unbalanced HTML from truncation (unclosed major tags). */
+function hasUnbalancedHtml(html: string): boolean {
+  const openDivs = (html.match(/<div[\s>]/gi) || []).length;
+  const closeDivs = (html.match(/<\/div>/gi) || []).length;
+  const openSections = (html.match(/<section[\s>]/gi) || []).length;
+  const closeSections = (html.match(/<\/section>/gi) || []).length;
+  // Allow small imbalance (nested partials), flag gross truncation
+  return (openDivs - closeDivs) > 5 || (openSections - closeSections) > 3;
+}
+
 /** Run structural validation and attach results (does not block persistence). */
 function attachValidation(result: CreativeAgentOutput, slug: string): CreativeAgentOutput {
+  // Check for truncated/unbalanced HTML before standard validation
+  if (hasUnbalancedHtml(result.html)) {
+    console.error(`[creative] ${slug} has critically unbalanced HTML (likely truncated). Clearing output.`);
+    return { html: "", rationale: result.rationale ?? "Layout generation was truncated and could not be used.", validation: { passed: false, issues: [{ code: "TRUNCATED_HTML", message: "Output was truncated mid-tag" }], warnings: [] } };
+  }
+
   const validation = validateLayoutQuality(result.html);
   if (validation.issues.length > 0) {
     console.warn(
@@ -119,12 +135,13 @@ export interface RunCreativeAgentOptions {
   input: CreativeAgentInput;
   refreshId: string;
   onRetry?: (delayMs: number) => void;
+  rateLimitFlag?: { until: number };
 }
 
 export async function runCreativeAgent(
   options: RunCreativeAgentOptions
 ): Promise<CreativeAgentOutput> {
-  const { skills, slug, input, refreshId, onRetry } = options;
+  const { skills, slug, input, refreshId, onRetry, rateLimitFlag } = options;
   const skill = skills.find((s) => s.agentSlug === slug);
   if (!skill) throw new Error(`No active skill found for agent: ${slug}`);
 
@@ -194,7 +211,7 @@ export async function runCreativeAgent(
       });
       return stream.finalMessage();
     },
-    { onRetry }
+    { onRetry, rateLimitFlag }
   );
 
   if (response.stop_reason === "max_tokens") {
@@ -204,7 +221,13 @@ export async function runCreativeAgent(
     );
   }
 
-  const text = extractText(response);
+  let text = extractText(response);
+
+  // If truncated, attempt to close the layout_html tag so parsing succeeds
+  if (response.stop_reason === "max_tokens" && text.includes("<layout_html>") && !text.includes("</layout_html>")) {
+    text += "\n</layout_html>";
+    console.warn(`[creative] ${slug} auto-closed truncated <layout_html> tag`);
+  }
   const stepName = slug.replace(/-/g, "_") as "creative_modern" | "creative_classy" | "creative_unique";
   await createPromptLog({
     refreshId,

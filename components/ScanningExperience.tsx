@@ -56,14 +56,78 @@ const ANALYSIS_FINDINGS = [
   { key: "scoring", phase: "scoring" as VisualPhase, label: "Finding Conversion Blockers" },
 ];
 
-/** Design-phase progress items — staggered 30s apart. */
-const DESIGN_FINDINGS = [
-  { key: "design:0", delay: 0, label: "Enhancing Design System" },
-  { key: "design:1", delay: 30000, label: "Boosting Trust Signals For Your Industry" },
-  { key: "design:2", delay: 60000, label: "Rebuilding Page Layouts" },
-  { key: "design:3", delay: 90000, label: "Tuning for Google and Local SEO" },
-  { key: "design:4", delay: 120000, label: "Making page AI-discoverable" },
-];
+/** Design-phase progress items — selected based on overall score. */
+interface DesignFinding {
+  key: string;
+  delay: number;
+  label: string;
+  severity: Severity;
+}
+
+const DESIGN_FINDINGS_POOL = {
+  // Positive findings (shown for higher-scoring sites)
+  positive: [
+    "Preserving Strong Visual Identity",
+    "Maintaining Effective Navigation",
+    "Building On Clean Layout Foundation",
+    "Keeping Effective Call-To-Action Placement",
+    "Retaining Mobile-Friendly Structure",
+  ],
+  // Neutral findings (shown for mid-range sites)
+  neutral: [
+    "Enhancing Design System",
+    "Boosting Trust Signals For Your Industry",
+    "Rebuilding Page Layouts",
+    "Tuning for Google and Local SEO",
+    "Making Page AI-Discoverable",
+  ],
+  // Improvement findings (shown for lower-scoring sites)
+  improvement: [
+    "Fixing Critical Layout Issues",
+    "Rebuilding Trust Signals From Scratch",
+    "Restructuring Content Hierarchy",
+    "Addressing SEO Gaps",
+    "Improving Visual Consistency",
+  ],
+};
+
+function selectDesignFindings(overallScore: number): DesignFinding[] {
+  let pool: string[];
+  let severity: Severity;
+
+  if (overallScore >= 65) {
+    // High-scoring: mostly positive with one neutral
+    pool = [...DESIGN_FINDINGS_POOL.positive.slice(0, 4), DESIGN_FINDINGS_POOL.neutral[0]];
+    severity = "ok";
+  } else if (overallScore >= 40) {
+    // Mid-range: mix of neutral and improvement
+    pool = [
+      DESIGN_FINDINGS_POOL.neutral[0],
+      DESIGN_FINDINGS_POOL.improvement[0],
+      DESIGN_FINDINGS_POOL.neutral[1],
+      DESIGN_FINDINGS_POOL.neutral[2],
+      DESIGN_FINDINGS_POOL.improvement[3],
+    ];
+    severity = "warn";
+  } else {
+    // Low-scoring: mostly improvement with one neutral bright spot
+    pool = [
+      DESIGN_FINDINGS_POOL.improvement[0],
+      DESIGN_FINDINGS_POOL.improvement[1],
+      DESIGN_FINDINGS_POOL.improvement[2],
+      DESIGN_FINDINGS_POOL.neutral[4],
+      DESIGN_FINDINGS_POOL.improvement[3],
+    ];
+    severity = "bad";
+  }
+
+  return pool.map((label, i) => ({
+    key: `design:${i}`,
+    delay: i * 30000,
+    label,
+    severity: i === 0 && overallScore >= 40 ? "ok" : severity,
+  }));
+}
 
 const SEVERITY_ICON: Record<Severity, string> = {
   ok: "\u2713",
@@ -99,6 +163,12 @@ export interface ScanningExperienceProps {
     | "error";
   countdownSeconds?: number;
   className?: string;
+  /** Whether the SSE connection dropped and we're polling for status */
+  reconnecting?: boolean;
+  /** URL being analyzed — used for in-place retry on error */
+  analyzeUrl?: string;
+  /** Callback to retry analysis in-place */
+  onRetry?: () => void;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -241,6 +311,8 @@ export function ScanningExperience({
   currentStep,
   countdownSeconds,
   className,
+  reconnecting,
+  onRetry,
 }: ScanningExperienceProps) {
   /* ─── Visual phase ──────────────────────────────────────── */
   const [visualPhase, setVisualPhase] = useState<VisualPhase>("scanning");
@@ -359,6 +431,10 @@ export function ScanningExperience({
     }
   }, [visualPhase]);
 
+  /* ─── Score-aware design findings ────────────────────────── */
+  const overallScore = (tokens.scores as { overall?: number } | undefined)?.overall ?? 50;
+  const designFindingItems = useMemo(() => selectDesignFindings(overallScore), [overallScore]);
+
   /* ─── Design phase findings — stagger every 30s ─────────── */
   useEffect(() => {
     if (visualPhase !== "designing" && visualPhase !== "done") {
@@ -368,7 +444,7 @@ export function ScanningExperience({
     if (visualPhase === "done") return;
 
     const timers: ReturnType<typeof setTimeout>[] = [];
-    for (const item of DESIGN_FINDINGS) {
+    for (const item of designFindingItems) {
       timers.push(
         setTimeout(() => {
           setVisibleDesignFindings((prev) => new Set([...prev, item.key]));
@@ -377,7 +453,7 @@ export function ScanningExperience({
     }
 
     return () => timers.forEach(clearTimeout);
-  }, [visualPhase]);
+  }, [visualPhase, designFindingItems]);
 
   /* ─── Derived values ────────────────────────────────────── */
   const currentPhaseIdx = getPhaseIndex(visualPhase);
@@ -409,8 +485,8 @@ export function ScanningExperience({
 
   // Design findings to render
   const designFindings = useMemo(() => {
-    return DESIGN_FINDINGS.filter((f) => visibleDesignFindings.has(f.key));
-  }, [visibleDesignFindings]);
+    return designFindingItems.filter((f) => visibleDesignFindings.has(f.key));
+  }, [visibleDesignFindings, designFindingItems]);
 
   /* ─── Error state ───────────────────────────────────────── */
   if (isError) {
@@ -435,15 +511,25 @@ export function ScanningExperience({
           Analysis failed
         </p>
         <p className="text-sm mb-6" style={{ color: "#78716c" }}>
-          Please go back and try again.
+          {onRetry ? "Something went wrong. You can try again." : "Please go back and try again."}
         </p>
-        <Link
-          href="/"
-          className="text-sm underline underline-offset-2"
-          style={{ color: "#14532d" }}
-        >
-          &larr; Back to home
-        </Link>
+        {onRetry ? (
+          <button
+            onClick={onRetry}
+            className="text-sm font-medium px-4 py-2 rounded-lg"
+            style={{ background: "#14532d", color: "#ffffff" }}
+          >
+            Try again
+          </button>
+        ) : (
+          <Link
+            href="/"
+            className="text-sm underline underline-offset-2"
+            style={{ color: "#14532d" }}
+          >
+            &larr; Back to home
+          </Link>
+        )}
       </div>
     );
   }
@@ -466,7 +552,7 @@ export function ScanningExperience({
             {thinkingLabel}
           </div>
           <div className="text-xs" style={{ color: "#78716c" }}>
-            {thinkingSub}
+            {reconnecting ? "Reconnecting\u2026 your analysis is still running" : thinkingSub}
           </div>
         </div>
 
@@ -604,11 +690,11 @@ export function ScanningExperience({
                   <div
                     className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 mt-px"
                     style={{
-                      background: SEVERITY_BG["ok"],
-                      color: SEVERITY_COLOR["ok"],
+                      background: SEVERITY_BG[item.severity],
+                      color: SEVERITY_COLOR[item.severity],
                     }}
                   >
-                    {SEVERITY_ICON["ok"]}
+                    {SEVERITY_ICON[item.severity]}
                   </div>
                   <div
                     className="text-[13px] leading-normal"

@@ -91,8 +91,8 @@ export async function runScoreAgent(
     step: "score",
     provider: "claude",
     model: response.model,
-    promptText: skill.systemPrompt + "\n---\n" + userContent.slice(0, 15000),
-    responseText: text,
+    promptText: (skill.systemPrompt + "\n---\n" + userContent).slice(0, 10000),
+    responseText: text.slice(0, 2000),
     tokensUsed: response.usage?.input_tokens && response.usage?.output_tokens ? response.usage.input_tokens + response.usage.output_tokens : undefined,
     responseTimeMs: Date.now() - startMs,
   });

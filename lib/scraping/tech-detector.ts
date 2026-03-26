@@ -17,21 +17,23 @@ export interface TechStack {
 export function isSpaShell(html: string): boolean {
   const lower = html.toLowerCase();
 
-  // --- Content emptiness: ALL must be true ---
+  // --- Text content check: require at least one of h1 or substantial paragraph ---
   const hasH1 = (() => {
     const match = lower.match(/<h1[^>]*>([\s\S]*?)<\/h1>/);
     return match ? match[1].replace(/<[^>]*>/g, "").trim().length > 0 : false;
   })();
-  if (hasH1) return false;
 
   const hasSubstantialP = /<p[^>]*>([\s\S]*?)<\/p>/gi.test(html) &&
     Array.from(html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)).some(
       (m) => m[1].replace(/<[^>]*>/g, "").trim().length > 20
     );
-  if (hasSubstantialP) return false;
 
-  const hasRealImg = /<img[^>]+src\s*=\s*["'](?!data:)[^"']+["']/i.test(html);
-  if (hasRealImg) return false;
+  // If there's meaningful text content (h1 or substantial paragraph), it's not a shell
+  if (hasH1 || hasSubstantialP) return false;
+
+  // Note: images alone don't prove real content — SPAs often have placeholder/skeleton
+  // images while the JS-rendered content is missing. Only text content (h1/p) is
+  // a reliable indicator of a fully rendered page.
 
   // --- Framework markers: AT LEAST ONE must be true ---
   const hasFrameworkMarker =

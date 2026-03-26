@@ -296,6 +296,8 @@ export type ExtractedColors = ExtractedColor[];
 export interface ExtractedFont {
   family: string;
   source?: string;
+  /** Semantic role detected from CSS context: "heading", "body", or undefined if unknown */
+  role?: "heading" | "body";
 }
 
 export type ExtractedFonts = ExtractedFont[];
@@ -511,29 +513,40 @@ function extractFontsFromCss(css: string): ExtractedFonts {
 
   // Extract fonts from Squarespace-style custom properties (--heading-font-font-family, --body-font-font-family)
   for (const match of css.matchAll(SQUARESPACE_FONT_VAR_PATTERN)) {
+    const varName = match[1].toLowerCase();
     const value = match[2].trim();
     const resolved = resolveVarReferences(value, customProps);
     const families = resolved.split(",").map((f) => f.trim().replace(/^["']|["']$/g, ""));
+    // Detect role from variable name (e.g., --heading-font-font-family, --body-font-font-family)
+    const role: ExtractedFont["role"] = varName.includes("heading") ? "heading" : varName.includes("body") ? "body" : undefined;
     for (const f of families) {
       const key = f.toLowerCase();
       if (!seen.has(key) && !GENERIC_FONTS.has(key) && f.length > 1) {
         seen.add(key);
-        fonts.push({ family: f, source: "custom-property" });
+        fonts.push({ family: f, source: "custom-property", role });
       }
     }
   }
 
-  // Standard font-family declarations
+  // Standard font-family declarations — detect role from CSS selector context
+  const HEADING_SELECTOR = /(?:^|[},\s])\s*(h[1-6](?:\s|,|{|$))/i;
+  const BODY_SELECTOR = /(?:^|[},\s])\s*(?:body|\.?(?:text|paragraph|content|prose)(?:\s|,|{|$)|p(?:\s|,|{|$))/i;
   for (const match of css.matchAll(FONT_FAMILY_PATTERN)) {
     const raw = match[1].trim();
     // Resolve var() references in font-family values
     const resolved = resolveVarReferences(raw, customProps);
     const families = resolved.split(",").map((f) => f.trim().replace(/^["']|["']$/g, ""));
+    // Look backward from match position to find the CSS selector
+    const precedingCss = css.slice(Math.max(0, (match.index ?? 0) - 200), match.index ?? 0);
+    const lastBraceIdx = precedingCss.lastIndexOf("{");
+    const selectorBlock = lastBraceIdx >= 0 ? precedingCss.slice(0, lastBraceIdx) : "";
+    const selectorTail = selectorBlock.slice(selectorBlock.lastIndexOf("}") + 1).trim();
+    const role: ExtractedFont["role"] = HEADING_SELECTOR.test(selectorTail) ? "heading" : BODY_SELECTOR.test(selectorTail) ? "body" : undefined;
     for (const f of families) {
       const key = f.toLowerCase();
       if (!seen.has(key) && !GENERIC_FONTS.has(key) && f.length > 1) {
         seen.add(key);
-        fonts.push({ family: f });
+        fonts.push({ family: f, role });
       }
     }
   }

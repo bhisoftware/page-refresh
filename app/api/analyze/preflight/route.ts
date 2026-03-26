@@ -83,8 +83,8 @@ export async function POST(request: NextRequest) {
       await res.text();
 
       // Check for existing complete analysis with layouts
-      // Use normalizeUrl (same as UrlProfile storage) for consistent matching
-      const profileUrl = normalizeUrl(url);
+      // Use normalizeUrl on the original input (not normalizeWebsiteUrl output) for consistent matching
+      const profileUrl = normalizeUrl(raw.startsWith("http") ? raw : `https://${raw}`);
       const existingRefresh = await prisma.refresh.findFirst({
         where: {
           urlProfile: { url: profileUrl },

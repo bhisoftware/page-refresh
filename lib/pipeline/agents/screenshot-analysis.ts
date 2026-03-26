@@ -90,8 +90,8 @@ export async function runScreenshotAnalysisAgent(
     step: "screenshot_analysis",
     provider: "claude",
     model: response.model,
-    promptText: promptForLog,
-    responseText: text,
+    promptText: promptForLog.slice(0, 10000),
+    responseText: text.slice(0, 2000),
     tokensUsed: response.usage?.input_tokens && response.usage?.output_tokens ? response.usage.input_tokens + response.usage.output_tokens : undefined,
     responseTimeMs: Date.now() - startMs,
   });
