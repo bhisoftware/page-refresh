@@ -148,12 +148,17 @@ export function HowItWorks() {
           opacity: 0.5;
         }
         .hiw-headline {
-          font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
-          font-size: clamp(42px, 5.5vw, 68px);
-          font-weight: 400;
-          line-height: 1.05;
-          color: #2d5a3d;
-          letter-spacing: -0.025em;
+          font-size: 1.875rem;
+          font-weight: 700;
+          line-height: 1.1;
+          color: #1a1a1a;
+          letter-spacing: 0.025em;
+        }
+        @media (min-width: 768px) {
+          .hiw-headline { font-size: 2.25rem; }
+        }
+        @media (min-width: 1024px) {
+          .hiw-headline { font-size: 3rem; }
         }
         .hiw-steps {
           display: grid;
