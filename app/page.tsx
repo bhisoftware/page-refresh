@@ -547,9 +547,6 @@ function HomeContent() {
                   </p>
                 )}
               </form>
-              <p className="text-sm font-semibold tracking-widest uppercase text-[#9e4323]/70 whitespace-nowrap text-center italic">
-                Paste your URL. Then pick from 3 upgraded designs. It&apos;s that easy.
-              </p>
             </div>
             <div className="relative">
               <div className="sunset-gradient absolute inset-0 blur-[100px] opacity-20 -z-10 rounded-full" />
@@ -558,6 +555,9 @@ function HomeContent() {
               </div>
             </div>
           </div>
+          <p className="text-sm font-semibold tracking-widest uppercase text-[#9e4323]/70 text-center italic mt-14">
+            Paste your URL. Then pick from 3 upgraded designs. It&apos;s that easy.
+          </p>
         </section>
 
         {/* Steps Section */}
@@ -621,13 +621,13 @@ function HomeContent() {
         <section className="bg-white py-24 md:py-32 rounded-xl mx-4 md:mx-12 mb-24 md:mb-40 relative overflow-hidden">
           <div className="absolute inset-0 sunset-gradient opacity-5" />
           <div className="absolute top-0 right-0 w-1/3 h-full sunset-gradient opacity-10 blur-[120px]" />
-          <div className="max-w-[1440px] mx-auto px-6 md:px-12 grid md:grid-cols-2 gap-12 md:gap-24 items-center relative z-10">
+          <div className="max-w-6xl mx-auto px-6 md:px-12 grid md:grid-cols-2 gap-12 md:gap-24 items-start relative z-10">
             <div>
               <h2 className="text-4xl md:text-6xl font-extrabold tracking-tighter mb-8">The Score</h2>
               <p className="text-lg md:text-xl text-[#615e5c] leading-relaxed mb-12">
                 We analyze your homepage for design quality, conversion metrics, mobile experience, load speed, trust signals, SEO, AI, and LLM discoverability. Then we tell you exactly what&apos;s wrong.
               </p>
-              <div className="grid grid-cols-2 gap-4 md:gap-8">
+              <div className="grid grid-cols-2 gap-4 md:gap-8 md:w-[120%]">
                 <div className="p-4 md:p-8 bg-[#f8f2f0]/50 backdrop-blur-sm rounded-lg border border-white/50">
                   <div className="text-3xl md:text-4xl font-black text-[#7d7a78] mb-4">35/100</div>
                   <h4 className="font-bold mb-4 text-sm uppercase tracking-widest opacity-60">Before</h4>
