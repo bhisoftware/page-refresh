@@ -2,8 +2,6 @@
 
 import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 type PipelineStep =
   | "started"
   | "analyzing"
@@ -13,9 +11,6 @@ type PipelineStep =
   | "retry"
   | "error";
 import { ScanningExperience } from "@/components/ScanningExperience";
-import { Loader2, Car, Smile, Home as HomeIcon, Thermometer, Building2, UtensilsCrossed, PawPrint, Scale, Dumbbell, Leaf, Wrench, Sparkles } from "lucide-react";
-import { LogoIcon } from "@/components/Logo";
-import { HowItWorks } from "@/components/HowItWorks";
 import { cn, normalizeWebsiteUrl } from "@/lib/utils";
 
 
@@ -47,81 +42,6 @@ function parseProgressStep(step: string): PipelineStep {
   return PIPELINE_STEP_MAP[step] ?? "started";
 }
 
-function LogoMark({ city, trade, Icon, variant }: {
-  city: string;
-  trade: string;
-  Icon: typeof Car;
-  variant: string;
-}) {
-  const full = `${city} ${trade}`;
-  switch (variant) {
-    case "serif-caps":
-      return (
-        <span className="flex items-center gap-3 select-none">
-          <Icon size={28} strokeWidth={1.5} aria-hidden />
-          <span style={{ fontFamily: "Fraunces, serif" }} className="text-[22px] font-semibold uppercase tracking-[0.14em]">
-            {full}
-          </span>
-        </span>
-      );
-    case "split-weight":
-      return (
-        <span className="flex items-center gap-3 select-none">
-          <Icon size={28} strokeWidth={1.5} aria-hidden />
-          <span className="flex items-baseline gap-1.5">
-            <span style={{ fontFamily: "Geist, sans-serif" }} className="text-[19px] font-light">{city}</span>
-            <span style={{ fontFamily: "Fraunces, serif" }} className="text-[22px] font-semibold">{trade}</span>
-          </span>
-        </span>
-      );
-    case "outlined":
-      return (
-        <span className="flex items-center gap-2.5 select-none border border-[#2d5a3d]/20 rounded-sm px-4 py-1.5">
-          <Icon size={22} strokeWidth={1.5} aria-hidden />
-          <span style={{ fontFamily: "Geist, sans-serif" }} className="text-[17px] font-medium uppercase tracking-[0.08em]">
-            {full}
-          </span>
-        </span>
-      );
-    case "bar-serif":
-      return (
-        <span className="flex items-center gap-3 select-none">
-          <Icon size={28} strokeWidth={1.5} aria-hidden />
-          <span className="w-px h-7 bg-[#2d5a3d]/20" />
-          <span style={{ fontFamily: "Fraunces, serif" }} className="text-[21px] font-light italic">
-            {full}
-          </span>
-        </span>
-      );
-    case "stacked":
-      return (
-        <span className="flex items-center gap-2.5 select-none">
-          <Icon size={30} strokeWidth={1.5} aria-hidden />
-          <span className="flex flex-col leading-none">
-            <span style={{ fontFamily: "Geist, sans-serif" }} className="text-[11px] font-medium uppercase tracking-[0.18em]">
-              {city}
-            </span>
-            <span style={{ fontFamily: "Fraunces, serif" }} className="text-[20px] font-semibold mt-0.5">
-              {trade}
-            </span>
-          </span>
-        </span>
-      );
-    case "dots-caps":
-    default:
-      return (
-        <span className="flex items-center gap-3 select-none">
-          <Icon size={26} strokeWidth={1.5} aria-hidden />
-          <span style={{ fontFamily: "Geist, sans-serif" }} className="text-[18px] font-medium uppercase tracking-[0.2em] flex items-center gap-2">
-            <span className="w-1 h-1 rounded-full bg-current opacity-50" />
-            {full}
-            <span className="w-1 h-1 rounded-full bg-current opacity-50" />
-          </span>
-        </span>
-      );
-  }
-}
-
 export default function Home() {
   return (
     <Suspense>
@@ -144,23 +64,6 @@ function HomeContent() {
   const [isPreflightInProgress, setIsPreflightInProgress] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
-
-  const TITLE_TEXT = "Your homepage deserves a refresh.";
-  const [displayedTitle, setDisplayedTitle] = useState("");
-  const titleTypedRef = useRef(false);
-
-  useEffect(() => {
-    if (titleTypedRef.current) return;
-    titleTypedRef.current = true;
-    let i = 0;
-    const interval = setInterval(() => {
-      i++;
-      setDisplayedTitle(TITLE_TEXT.slice(0, i));
-      if (i >= TITLE_TEXT.length) clearInterval(interval);
-    }, 80);
-    return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     if (urlFieldHint && urlInputRef.current) {
@@ -484,208 +387,379 @@ function HomeContent() {
     }
   };
 
-  const logos = [
-    { city: "Nashville", trade: "Auto Repair", Icon: Car, variant: "bar-serif" },
-    { city: "Denver", trade: "Dental Studio", Icon: Smile, variant: "split-weight" },
-    { city: "Chicago", trade: "Roofing Co", Icon: HomeIcon, variant: "outlined" },
-    { city: "Austin", trade: "HVAC Pros", Icon: Thermometer, variant: "serif-caps" },
-    { city: "Miami", trade: "Property Group", Icon: Building2, variant: "stacked" },
-    { city: "Portland", trade: "Bakehouse", Icon: UtensilsCrossed, variant: "dots-caps" },
-    { city: "Seattle", trade: "Pet Clinic", Icon: PawPrint, variant: "bar-serif" },
-    { city: "Phoenix", trade: "Law Group", Icon: Scale, variant: "serif-caps" },
-    { city: "Boston", trade: "Fitness Studio", Icon: Dumbbell, variant: "outlined" },
-    { city: "Atlanta", trade: "Landscaping", Icon: Leaf, variant: "stacked" },
-    { city: "Houston", trade: "Plumbing", Icon: Wrench, variant: "split-weight" },
-    { city: "New York", trade: "Med Spa", Icon: Sparkles, variant: "dots-caps" },
-  ];
+  const onRetry = () => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    setIsAnalyzing(false);
+    setIsReconnecting(false);
+    setBackendStep("started");
+    setTokens({});
+    setCountdown(null);
+    setAnalysisTimerDone(false);
+    analysisTimerDoneRef.current = false;
+    setInDesignPhase(false);
+    setDesignTimerDone(false);
+    designTimerDoneRef.current = false;
+    setPipelineDone(false);
+    pipelineDonePathRef.current = null;
+    pendingRefreshRef.current = null;
+    setTimeout(() => formRef.current?.requestSubmit(), 100);
+  };
+
+  const urlInput = (
+    <input
+      ref={urlInputRef}
+      type="text"
+      inputMode="url"
+      placeholder="yourwebsite.com"
+      value={url}
+      onChange={(e) => {
+        setUrl(e.target.value);
+        if (urlFieldHint) setUrlFieldHint(false);
+      }}
+      onBlur={() => {
+        const trimmed = url.trim();
+        if (trimmed) {
+          const normalized = normalizeWebsiteUrl(trimmed);
+          if (normalized !== trimmed) setUrl(normalized);
+        }
+      }}
+      className={cn(
+        "w-full bg-[#f8f2f0] border-none rounded-full px-8 py-5 text-lg focus:ring-2 focus:ring-[#9e4323]/20 focus:outline-none transition-all",
+        urlFieldHint && "ring-2 ring-amber-500 ring-offset-2 animate-pulse"
+      )}
+      disabled={isPreflightInProgress || isAnalyzing}
+      aria-label="Website URL"
+      aria-invalid={urlFieldHint}
+    />
+  );
+
+  const submitButton = (
+    <button
+      type="submit"
+      className="bg-[#9e4323] text-[#fff7f5] px-10 py-5 rounded-full font-bold text-lg hover:shadow-2xl hover:shadow-[#9e4323]/30 transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap"
+      disabled={isPreflightInProgress || isAnalyzing}
+    >
+      {isPreflightInProgress ? "Checking\u2026" : "Refresh My Page"}
+    </button>
+  );
+
+  // When analyzing, show full-screen ScanningExperience
+  if (isAnalyzing) {
+    return (
+      <main
+        className="min-h-screen bg-[#fdf8f6] text-[#343230] selection:bg-[#ffad93] selection:text-[#702104]"
+        style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+      >
+        <div className="min-h-screen flex flex-col items-center justify-center px-6">
+          <ScanningExperience
+            tokens={tokens}
+            currentStep={displayStep}
+            countdownSeconds={countdown ?? undefined}
+            reconnecting={isReconnecting}
+            onRetry={onRetry}
+          />
+        </div>
+        {/* Hidden form for retry auto-submit */}
+        <form ref={formRef} onSubmit={handleSubmit} className="hidden">
+          {urlInput}
+        </form>
+      </main>
+    );
+  }
 
   return (
-    <main className="bg-[#f5f0eb]">
-      <div className="min-h-screen flex flex-col">
-      {/* Top-left nav */}
-      <nav className="flex items-center gap-2 px-6 py-4 md:px-8">
-        <LogoIcon size={28} className="shrink-0" />
-        <span className="font-bold text-[#2d5a3d] text-base tracking-tight">Page Refresh</span>
-      </nav>
+    <main
+      className="bg-[#fdf8f6] text-[#343230] selection:bg-[#ffad93] selection:text-[#702104]"
+      style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+    >
+      <style>{`
+        .sunset-gradient {
+          background: linear-gradient(135deg, #ffad93 0%, #ffd9e2 50%, #e5b0fe 100%);
+        }
+        .sunset-text {
+          background: linear-gradient(135deg, #9e4323 0%, #9f3c60 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+        .material-symbols-outlined {
+          font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+      `}</style>
 
-      {/* Center content */}
-      <div className={cn(
-        "flex-1 flex flex-col items-center justify-center px-6 pb-6 md:px-8",
-        isAnalyzing ? "pt-4" : "pt-0"
-      )}>
-        <div className={cn(
-          "w-full max-w-5xl mx-auto text-center",
-          isAnalyzing ? "space-y-4" : "space-y-8"
-        )}>
-          {!isAnalyzing && (
-            <div className="flex flex-col items-center space-y-4">
-              <div className="space-y-2">
-                <h1 className="relative text-3xl md:text-4xl lg:text-5xl font-bold tracking-wide text-[#1a1a1a] leading-tight md:whitespace-nowrap">
-                  <span className="invisible" aria-hidden="true">{TITLE_TEXT}</span>
-                  <span className="absolute inset-0">
-                    {displayedTitle}
-                    <span className={cn(
-                      "inline-block w-0.5 h-[0.85em] bg-[#1a1a1a] align-middle ml-0.5 animate-pulse",
-                      displayedTitle.length >= TITLE_TEXT.length && "invisible"
-                    )} />
-                  </span>
-                </h1>
-                <p className="text-lg md:text-xl text-muted-foreground">
-                  Get one in under five minutes
-                </p>
-              </div>
-            </div>
-          )}
-
-          <form ref={formRef} onSubmit={handleSubmit} className={cn("space-y-4 max-w-xl mx-auto", isAnalyzing && "space-y-2")}>
-            <div className="flex flex-col sm:flex-row gap-2 relative">
-              <div className="relative flex-1">
-                <Input
-                  ref={urlInputRef}
-                  type="text"
-                  inputMode="url"
-                  placeholder="https://www.website.com/"
-                  value={url}
-                  onChange={(e) => {
-                    setUrl(e.target.value);
-                    if (urlFieldHint) setUrlFieldHint(false);
-                  }}
-                  onBlur={() => {
-                    const trimmed = url.trim();
-                    if (trimmed) {
-                      const normalized = normalizeWebsiteUrl(trimmed);
-                      if (normalized !== trimmed) setUrl(normalized);
-                    }
-                  }}
-                  className={cn(
-                    "flex-1 w-full h-11 text-base",
-                    urlFieldHint && "ring-2 ring-amber-500 ring-offset-2 animate-pulse"
-                  )}
-                  disabled={isPreflightInProgress || isAnalyzing}
-                  aria-label="Website URL"
-                  aria-invalid={urlFieldHint}
-                />
-                {urlFieldHint && (
-                  <div
-                    role="alert"
-                    className="absolute left-0 right-0 top-full mt-2 z-10 animate-in fade-in slide-in-from-top-2 duration-300"
-                  >
-                    <div className="relative flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 shadow-lg dark:border-amber-800 dark:bg-amber-950/90">
-                      <span
-                        className="absolute -top-2 left-4 h-0 w-0 border-l-[6px] border-r-[6px] border-b-[8px] border-l-transparent border-r-transparent border-b-amber-50 dark:border-b-amber-950/90"
-                        aria-hidden
-                      />
-                      <span className="text-sm text-amber-900 dark:text-amber-100">
-                        We couldn&apos;t reach this website. Check for typos in your URL and try again.
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <Button
-                type="submit"
-                size="lg"
-                className="h-11 px-6 shrink-0 bg-[#2d5a3d] text-white hover:bg-[#1e4a2e] hover:text-white"
-                disabled={isPreflightInProgress || isAnalyzing}
-              >
-                {isPreflightInProgress ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                    Checking…
-                  </>
-                ) : isAnalyzing ? (
-                  "Pay Only If You Love It"
-                ) : (
-                  "Refresh My Page"
-                )}
-              </Button>
-            </div>
-            {error && (
-              <p className="text-sm text-destructive text-center" role="alert">
-                {error}
-              </p>
-            )}
-          </form>
-
-          {isAnalyzing && !isPreflightInProgress && (
-            <div className="flex flex-col items-center w-full">
-              <ScanningExperience
-                tokens={tokens}
-                currentStep={displayStep}
-                countdownSeconds={countdown ?? undefined}
-                reconnecting={isReconnecting}
-                onRetry={() => {
-                  if (pollIntervalRef.current) {
-                    clearInterval(pollIntervalRef.current);
-                    pollIntervalRef.current = null;
-                  }
-                  if (countdownIntervalRef.current) {
-                    clearInterval(countdownIntervalRef.current);
-                    countdownIntervalRef.current = null;
-                  }
-                  setIsAnalyzing(false);
-                  setIsReconnecting(false);
-                  setBackendStep("started");
-                  setTokens({});
-                  setCountdown(null);
-                  setAnalysisTimerDone(false);
-                  analysisTimerDoneRef.current = false;
-                  setInDesignPhase(false);
-                  setDesignTimerDone(false);
-                  designTimerDoneRef.current = false;
-                  setPipelineDone(false);
-                  pipelineDonePathRef.current = null;
-                  pendingRefreshRef.current = null;
-                  setTimeout(() => formRef.current?.requestSubmit(), 100);
-                }}
-              />
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Logo carousel — drops away when analysis starts */}
-      <div
-        className={cn(
-          "w-full overflow-hidden pb-16 transition-all duration-500",
-          isAnalyzing
-            ? "opacity-0 max-h-0 pointer-events-none"
-            : "opacity-100 max-h-96"
-        )}
-      >
-        <p className="text-center text-base uppercase tracking-widest mb-8 font-semibold text-[#2d5a3d]/40">
-          Trusted by hundreds of business owners
-        </p>
-        <div className="relative flex overflow-hidden">
-          {/* Fade edges */}
-          <div className="absolute left-0 top-0 bottom-0 w-24 z-10 bg-gradient-to-r from-[#f5f0eb] to-transparent pointer-events-none" />
-          <div className="absolute right-0 top-0 bottom-0 w-24 z-10 bg-gradient-to-l from-[#f5f0eb] to-transparent pointer-events-none" />
-          <div
-            className="flex gap-10 items-center whitespace-nowrap"
-            style={{
-              animation: "marquee 42s linear infinite",
-              willChange: "transform",
-            }}
-          >
-            {[...logos, ...logos].map((logo, i) => (
-              <span key={i} className="text-[#2d5a3d]/35 shrink-0">
-                <LogoMark {...logo} />
-              </span>
-            ))}
+      {/* Nav */}
+      <nav className="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-xl shadow-[0_24px_48px_-12px_rgba(158,67,35,0.08)]" style={{ border: "none" }}>
+        <div className="flex justify-center items-center px-6 md:px-12 py-6 max-w-[1440px] mx-auto">
+          <div className="text-2xl font-bold tracking-tighter text-orange-900">
+            Page Refresh
           </div>
         </div>
-        <style>{`
-          @keyframes marquee {
-            from { transform: translateX(0); }
-            to { transform: translateX(-50%); }
-          }
-        `}</style>
+      </nav>
+
+      <div className="pt-32">
+        {/* Hero Section */}
+        <section className="px-6 md:px-12 max-w-[1440px] mx-auto mb-24 md:mb-40 text-left">
+          <div className="grid md:grid-cols-2 gap-10 md:gap-16 items-center">
+            <div className="space-y-8">
+              <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold tracking-tighter leading-[0.9] text-[#343230]">
+                Your homepage dese<span style={{ letterSpacing: "0.01em" }}>r</span>ves a{" "}
+                <span className="text-[#9e4323] italic">refresh</span>
+              </h1>
+              <p className="text-xl md:text-2xl text-[#615e5c] font-medium leading-relaxed max-w-xl">
+                Get one in under 5 minutes.
+              </p>
+              <form ref={formRef} onSubmit={handleSubmit} className="space-y-4 pt-4">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="relative flex-grow max-w-md">
+                    {urlInput}
+                    {urlFieldHint && (
+                      <div
+                        role="alert"
+                        className="absolute left-0 right-0 top-full mt-2 z-10 animate-in fade-in slide-in-from-top-2 duration-300"
+                      >
+                        <div className="relative flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 shadow-lg">
+                          <span
+                            className="absolute -top-2 left-4 h-0 w-0 border-l-[6px] border-r-[6px] border-b-[8px] border-l-transparent border-r-transparent border-b-amber-50"
+                            aria-hidden
+                          />
+                          <span className="text-sm text-amber-900">
+                            We couldn&apos;t reach this website. Check for typos in your URL and try again.
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {submitButton}
+                </div>
+                {error && (
+                  <p className="text-sm text-[#ac3434] text-center sm:text-left" role="alert">
+                    {error}
+                  </p>
+                )}
+              </form>
+              <p className="text-sm font-semibold tracking-widest uppercase text-[#9e4323]/70 whitespace-nowrap text-center sm:text-left italic">
+                Paste your URL. Then pick from 3 upgraded designs. It&apos;s that easy.
+              </p>
+            </div>
+            <div className="relative">
+              <div className="sunset-gradient absolute inset-0 blur-[100px] opacity-20 -z-10 rounded-full" />
+              <div className="bg-white rounded-xl p-4 shadow-2xl border border-white/50">
+                <img alt="Bold pop-art website redesign example" className="rounded-lg w-full" src="/hero-example.png" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Steps Section */}
+        <section className="relative px-6 md:px-12 py-24 max-w-[1500px] mx-auto mb-24 md:mb-40 overflow-hidden">
+          <div className="absolute inset-0 sunset-gradient opacity-10 blur-[120px] -z-10 rounded-3xl" />
+          <div className="max-w-[1440px] mx-auto">
+            <h2 className="text-4xl md:text-5xl font-extrabold tracking-tighter mb-16 text-center">Three Easy Steps</h2>
+            <div className="grid md:grid-cols-3 gap-8">
+              {/* Step 1 */}
+              <div className="bg-[#f8f2f0] p-8 md:p-12 rounded-lg flex flex-col justify-between hover:bg-[#f2edea] transition-colors duration-500 min-h-[320px] md:min-h-[400px] border-b-4 border-[#9e4323]/20">
+                <div>
+                  <div className="w-12 h-12 bg-[#9e4323]/10 rounded-full flex items-center justify-center mb-8">
+                    <span className="material-symbols-outlined text-[#9e4323]">link</span>
+                  </div>
+                  <h3 className="text-2xl md:text-3xl font-bold mb-4 tracking-tight">Step 1: Paste your URL</h3>
+                  <p className="text-[#615e5c] leading-relaxed text-base md:text-lg">
+                    We scan your homepage and generate a detailed score with specific reasons your site is underperforming
+                  </p>
+                </div>
+              </div>
+              {/* Step 2 */}
+              <div className="bg-[#f8f2f0] p-8 md:p-12 rounded-lg flex flex-col justify-between hover:bg-[#f2edea] transition-colors duration-500 min-h-[320px] md:min-h-[400px] border-b-4 border-[#ffd9e2]">
+                <div>
+                  <div className="w-12 h-12 bg-[#9e4323]/10 rounded-full flex items-center justify-center mb-8">
+                    <span className="material-symbols-outlined text-[#9e4323]" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+                  </div>
+                  <h3 className="text-2xl md:text-3xl font-bold mb-4 tracking-tight">Step 2: Pick a design</h3>
+                  <p className="text-[#615e5c] leading-relaxed text-base md:text-lg">
+                    We generate 3 completely redesigned versions of your homepage. All three are massive upgrades. Just pick the one you like.
+                  </p>
+                </div>
+              </div>
+              {/* Step 3 */}
+              <div className="bg-[#f8f2f0] p-8 md:p-12 rounded-lg flex flex-col justify-between hover:bg-[#f2edea] transition-colors duration-500 min-h-[320px] md:min-h-[400px] border-b-4 border-[#e5b0fe]">
+                <div>
+                  <div className="w-12 h-12 bg-[#9e4323]/10 rounded-full flex items-center justify-center mb-8">
+                    <span className="material-symbols-outlined text-[#9e4323]">rocket_launch</span>
+                  </div>
+                  <h3 className="text-2xl md:text-3xl font-bold mb-4 tracking-tight">Step 3: We Install It</h3>
+                  <p className="text-[#615e5c] leading-relaxed text-base md:text-lg">
+                    Pay $249 and we handle the rest. Your new homepage goes live. No coding. No handoffs. No Project Managers.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="text-center mt-16">
+            <p className="text-lg md:text-2xl font-semibold tracking-widest uppercase text-[#9e4323]/70">
+              We install it for you. No designers. No developers. No back-and-forth.
+            </p>
+          </div>
+        </section>
+
+        {/* Score Section */}
+        <section className="bg-white py-24 md:py-32 rounded-xl mx-4 md:mx-12 mb-24 md:mb-40 relative overflow-hidden">
+          <div className="absolute inset-0 sunset-gradient opacity-5" />
+          <div className="absolute top-0 right-0 w-1/3 h-full sunset-gradient opacity-10 blur-[120px]" />
+          <div className="max-w-[1440px] mx-auto px-6 md:px-12 grid md:grid-cols-2 gap-12 md:gap-24 items-center relative z-10">
+            <div>
+              <h2 className="text-4xl md:text-6xl font-extrabold tracking-tighter mb-8">The Score</h2>
+              <p className="text-lg md:text-xl text-[#615e5c] leading-relaxed mb-12">
+                We analyze your homepage for design quality, conversion metrics, mobile experience, load speed, trust signals, SEO, AI, and LLM discoverability. Then we tell you exactly what&apos;s wrong.
+              </p>
+              <div className="grid grid-cols-2 gap-4 md:gap-8">
+                <div className="p-4 md:p-8 bg-[#f8f2f0]/50 backdrop-blur-sm rounded-lg border border-white/50">
+                  <div className="text-3xl md:text-4xl font-black text-[#7d7a78] mb-4">35/100</div>
+                  <h4 className="font-bold mb-4 text-sm uppercase tracking-widest opacity-60">Before</h4>
+                  <ul className="space-y-3 text-sm font-medium text-[#615e5c]">
+                    <li className="flex items-center gap-2"><span className="material-symbols-outlined text-xs text-[#ac3434]">close</span> Outdated layout</li>
+                    <li className="flex items-center gap-2"><span className="material-symbols-outlined text-xs text-[#ac3434]">close</span> No clear CTA</li>
+                    <li className="flex items-center gap-2"><span className="material-symbols-outlined text-xs text-[#ac3434]">close</span> Slow load speed</li>
+                    <li className="flex items-center gap-2"><span className="material-symbols-outlined text-xs text-[#ac3434]">close</span> Weak trust signals</li>
+                  </ul>
+                </div>
+                <div className="p-4 md:p-8 bg-white/60 backdrop-blur-sm border border-[#9e4323]/20 rounded-lg shadow-sm">
+                  <div className="text-3xl md:text-4xl font-black text-[#9e4323] mb-4">95/100</div>
+                  <h4 className="font-bold mb-4 text-sm uppercase tracking-widest text-[#9e4323]/60">After Page Refresh</h4>
+                  <ul className="space-y-3 text-sm font-medium text-[#343230]">
+                    <li className="flex items-center gap-2"><span className="material-symbols-outlined text-xs text-[#9e4323]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span> Modern conversion</li>
+                    <li className="flex items-center gap-2"><span className="material-symbols-outlined text-xs text-[#9e4323]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span> Clear value prop</li>
+                    <li className="flex items-center gap-2"><span className="material-symbols-outlined text-xs text-[#9e4323]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span> Optimized speed</li>
+                    <li className="flex items-center gap-2"><span className="material-symbols-outlined text-xs text-[#9e4323]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span> Professional trust</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            {/* Score Ring */}
+            <div className="relative flex justify-center">
+              <div className="relative group">
+                <div className="absolute inset-0 sunset-gradient blur-3xl opacity-30 rounded-full group-hover:opacity-40 transition-opacity" />
+                <div className="w-64 h-64 md:w-96 md:h-96 rounded-full sunset-gradient p-1 shadow-2xl relative">
+                  <div className="w-full h-full bg-white rounded-full flex flex-col items-center justify-center relative overflow-hidden">
+                    <svg className="absolute inset-0 w-full h-full -rotate-90 scale-[0.85]" viewBox="0 0 384 384">
+                      <circle className="text-[#f2edea]" cx="192" cy="192" fill="none" r="170" stroke="currentColor" strokeWidth="20" />
+                      <circle cx="192" cy="192" fill="none" r="170" stroke="url(#sunset-gradient-id)" strokeDasharray="1068" strokeDashoffset="53" strokeLinecap="round" strokeWidth="20" />
+                      <defs>
+                        <linearGradient id="sunset-gradient-id" x1="0%" x2="100%" y1="0%" y2="0%">
+                          <stop offset="0%" style={{ stopColor: "#ffad93", stopOpacity: 1 }} />
+                          <stop offset="50%" style={{ stopColor: "#ffd9e2", stopOpacity: 1 }} />
+                          <stop offset="100%" style={{ stopColor: "#e5b0fe", stopOpacity: 1 }} />
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                    <div className="text-center relative z-10">
+                      <span className="text-6xl md:text-8xl font-black tracking-tighter sunset-text">95</span>
+                      <div className="text-[#9e4323] font-bold tracking-widest uppercase text-xs -mt-1">Great Performance</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Hate Section */}
+        <section className="px-4 md:px-12 max-w-[1440px] mx-auto mb-24 md:mb-40">
+          <div className="bg-[#343230] text-[#fdf8f6] p-10 md:p-24 rounded-xl flex flex-wrap items-start gap-x-24 gap-y-8 relative overflow-hidden">
+            <div className="absolute -bottom-24 -left-24 w-64 h-64 sunset-gradient opacity-10 blur-3xl rounded-full" />
+            <div className="flex-1 min-w-[280px] relative z-10">
+              <h2 className="text-3xl md:text-5xl font-extrabold tracking-tighter mb-8 leading-tight">Everything you hate about website projects, removed.</h2>
+            </div>
+            <div className="flex-1 min-w-[280px] grid grid-cols-1 gap-6 relative z-10 md:pl-[15%]">
+              <div className="flex items-center gap-4 text-xl md:text-2xl font-medium">
+                <span className="material-symbols-outlined text-[#ffad93]">cancel</span> No learning curve
+              </div>
+              <div className="flex items-center gap-4 text-xl md:text-2xl font-medium">
+                <span className="material-symbols-outlined text-[#ffad93]">cancel</span> No design tools
+              </div>
+              <div className="flex items-center gap-4 text-xl md:text-2xl font-medium">
+                <span className="material-symbols-outlined text-[#ffad93]">cancel</span> No revision cycles
+              </div>
+              <div className="flex items-center gap-4 text-xl md:text-2xl font-medium">
+                <span className="material-symbols-outlined text-[#ffad93]">cancel</span> No monthly subscriptions
+              </div>
+            </div>
+            <p className="text-[#e7e1df] text-lg md:text-xl leading-relaxed text-center mt-8 md:mt-12 w-full relative z-10">
+              Pick a design.
+            </p>
+          </div>
+        </section>
+
+        {/* Final CTA */}
+        <section className="px-4 md:px-12 max-w-[1440px] mx-auto mb-20 text-center">
+          <div className="sunset-gradient p-12 md:p-32 rounded-xl relative overflow-hidden">
+            <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px]" />
+            <div className="relative z-10">
+              <h2 className="text-3xl md:text-6xl font-extrabold tracking-tighter mb-8 text-[#4e1300]">
+                Your homepage is the first thing customers see. <br className="hidden md:block" />Make it count.
+              </h2>
+              <div className="flex flex-col items-center gap-6 pt-8 max-w-2xl mx-auto">
+                <div className="flex flex-col sm:flex-row gap-4 w-full">
+                  <div className="relative flex-grow">
+                    <input
+                      type="text"
+                      inputMode="url"
+                      placeholder="yourwebsite.com"
+                      value={url}
+                      onChange={(e) => {
+                        setUrl(e.target.value);
+                        if (urlFieldHint) setUrlFieldHint(false);
+                      }}
+                      onBlur={() => {
+                        const trimmed = url.trim();
+                        if (trimmed) {
+                          const normalized = normalizeWebsiteUrl(trimmed);
+                          if (normalized !== trimmed) setUrl(normalized);
+                        }
+                      }}
+                      className="w-full bg-white/90 border-none rounded-full px-8 py-5 text-lg focus:ring-2 focus:ring-[#9e4323]/20 focus:outline-none transition-all text-[#343230]"
+                      disabled={isPreflightInProgress || isAnalyzing}
+                      aria-label="Website URL"
+                    />
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      formRef.current?.requestSubmit();
+                    }}
+                    className="bg-[#9e4323] text-[#fff7f5] px-10 py-5 rounded-full font-bold text-lg hover:shadow-2xl hover:shadow-[#9e4323]/30 transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap"
+                    disabled={isPreflightInProgress || isAnalyzing}
+                  >
+                    {isPreflightInProgress ? "Checking\u2026" : "Refresh My Page"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
 
-      </div>{/* /min-h-screen */}
-
-      {!isAnalyzing && <HowItWorks />}
-
+      {/* Footer */}
+      <footer className="w-full rounded-t-[2rem] mt-24" style={{ border: "none" }}>
+        <div className="flex flex-col md:flex-row justify-between items-center px-6 md:px-12 py-16 w-full max-w-[1440px] mx-auto">
+          <div className="text-lg font-black text-zinc-900 mb-8 md:mb-0">
+            Page Refresh
+          </div>
+          <div className="flex flex-wrap justify-center gap-8 mb-8 md:mb-0">
+            <a className="text-zinc-500 hover:text-orange-500 text-xs uppercase tracking-widest font-semibold hover:translate-x-1 transition-transform duration-200" href="#">Privacy Policy</a>
+            <a className="text-zinc-500 hover:text-orange-500 text-xs uppercase tracking-widest font-semibold hover:translate-x-1 transition-transform duration-200" href="#">Terms of Service</a>
+            <a className="text-zinc-500 hover:text-orange-500 text-xs uppercase tracking-widest font-semibold hover:translate-x-1 transition-transform duration-200" href="#">Contact Us</a>
+          </div>
+          <div className="text-zinc-400 text-[10px] uppercase tracking-widest font-bold">
+            &copy; 2025 Page Refresh
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
