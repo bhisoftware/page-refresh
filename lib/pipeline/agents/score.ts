@@ -67,6 +67,9 @@ export async function runScoreAgent(
   if (input.exaBenchmarkContext) {
     payload.exaIndustryContext = input.exaBenchmarkContext;
   }
+  if (input.industryBrief) {
+    payload.industryBrief = input.industryBrief;
+  }
   const userContent = JSON.stringify(payload, null, 2);
 
   const startMs = Date.now();

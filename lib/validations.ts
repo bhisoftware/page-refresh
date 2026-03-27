@@ -57,8 +57,21 @@ export const benchmarkCreateSchema = z.object({
   industry: z.string().min(1).max(100),
 });
 
+export const COMMENT_ANCHORS = [
+  "screenshots", "overall", "clarity", "visual", "hierarchy",
+  "trust", "conversion", "content", "mobile", "performance",
+] as const;
+
+export type CommentAnchor = (typeof COMMENT_ANCHORS)[number];
+
 export const benchmarkNotesSchema = z.object({
   authorName: z.string().min(1).max(100),
   content: z.string().min(1).max(10000),
   category: z.string().max(50).optional(),
+  anchor: z.string().max(50).optional(),
+  parentId: z.string().cuid().optional(),
+});
+
+export const benchmarkNoteResolveSchema = z.object({
+  resolved: z.boolean(),
 });

@@ -3,11 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScoreRingHero } from "@/components/ScoreRingHero";
 import type { DimensionDetail } from "@/components/ScoreBreakdown";
-import { BenchmarkNotesSection } from "./BenchmarkNotesSection";
 import { BenchmarkScoreButton } from "./BenchmarkScoreButton";
 import { BenchmarkDeleteButton } from "./BenchmarkDeleteButton";
 import { BenchmarkScreenshots } from "./BenchmarkScreenshots";
+import { BenchmarkCommentLayout } from "./BenchmarkCommentLayout";
+import { CommentableSection } from "./CommentableSection";
 import { AdminBackLink } from "@/components/admin/AdminBackLink";
+import type { ThreadedNote } from "./types";
 
 function scoreHeadline(score: number): string {
   if (score <= 40) return "Needs work";
@@ -31,7 +33,13 @@ export default async function AdminBenchmarkDetailPage({
 
   const benchmark = await prisma.benchmark.findUnique({
     where: { id },
-    include: { notes: { orderBy: { createdAt: "asc" } } },
+    include: {
+      notes: {
+        where: { parentId: null },
+        orderBy: { createdAt: "asc" },
+        include: { replies: { orderBy: { createdAt: "asc" } } },
+      },
+    },
   });
 
   if (!benchmark) notFound();
@@ -47,17 +55,27 @@ export default async function AdminBenchmarkDetailPage({
       ? [{ type: "desktop", url: benchmark.screenshotUrl, label: "Desktop" }]
       : [];
 
-  const noteList = benchmark.notes.map((n) => ({
+  // Map notes to threaded format
+  const noteThreads: ThreadedNote[] = benchmark.notes.map((n) => ({
     id: n.id,
     authorName: n.authorName,
     content: n.content,
+    anchor: n.anchor,
     category: n.category,
+    parentId: n.parentId,
+    resolvedAt: n.resolvedAt?.toISOString() ?? null,
     createdAt: n.createdAt.toISOString(),
+    replies: n.replies.map((r) => ({
+      id: r.id,
+      authorName: r.authorName,
+      content: r.content,
+      createdAt: r.createdAt.toISOString(),
+    })),
   }));
 
   return (
     <main className="min-h-screen bg-background p-6">
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto max-w-7xl">
         <AdminBackLink href="/admin/benchmarks" label="Benchmarks" />
 
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -71,33 +89,52 @@ export default async function AdminBenchmarkDetailPage({
           </div>
         </div>
 
-        {screenshotList.length > 0 && (
-          <BenchmarkScreenshots screenshots={screenshotList} siteUrl={url} />
-        )}
+        <BenchmarkCommentLayout benchmarkId={id} initialThreads={noteThreads}>
+          {/* Score ring at top */}
+          {benchmark.scored && (
+            <CommentableSection
+              anchor="overall"
+              subAnchors={[
+                { value: "overall", label: "Overall Score" },
+                { value: "clarity", label: "Clarity" },
+                { value: "visual", label: "Visual Quality" },
+                { value: "hierarchy", label: "Hierarchy" },
+                { value: "trust", label: "Trust" },
+                { value: "conversion", label: "Conversion" },
+                { value: "content", label: "Content" },
+                { value: "mobile", label: "Mobile" },
+                { value: "performance", label: "Performance" },
+              ]}
+            >
+              <ScoreRingHero
+                score={benchmark.overallScore}
+                headline={scoreHeadline(benchmark.overallScore)}
+                summary={`${benchmark.industry} benchmark`}
+                analysisUrl={benchmark.url}
+                subtitle={benchmark.scoredAt
+                  ? `Scored ${new Date(benchmark.scoredAt).toLocaleString(undefined, { timeZone: "America/New_York" })}`
+                  : undefined
+                }
+                details={scoringDetails}
+              />
+            </CommentableSection>
+          )}
 
-        {benchmark.scored && (
-          <ScoreRingHero
-            score={benchmark.overallScore}
-            headline={scoreHeadline(benchmark.overallScore)}
-            summary={`${benchmark.industry} benchmark`}
-            analysisUrl={benchmark.url}
-            subtitle={benchmark.scoredAt
-              ? `Scored ${new Date(benchmark.scoredAt).toLocaleString(undefined, { timeZone: "America/New_York" })}`
-              : undefined
-            }
-            details={scoringDetails}
-          />
-        )}
+          {/* Screenshots below score ring */}
+          {screenshotList.length > 0 && (
+            <CommentableSection anchor="screenshots">
+              <BenchmarkScreenshots screenshots={screenshotList} />
+            </CommentableSection>
+          )}
 
-        {!benchmark.scored && (
-          <Card className="mb-8">
-            <CardContent className="pt-6">
-              <p className="text-muted-foreground">Not scored yet. Click &quot;Score&quot; to run the scoring pipeline.</p>
-            </CardContent>
-          </Card>
-        )}
-
-        <BenchmarkNotesSection benchmarkId={id} initialNotes={noteList} />
+          {!benchmark.scored && (
+            <Card className="mb-8">
+              <CardContent className="pt-6">
+                <p className="text-muted-foreground">Not scored yet. Click &quot;Score&quot; to run the scoring pipeline.</p>
+              </CardContent>
+            </Card>
+          )}
+        </BenchmarkCommentLayout>
       </div>
     </main>
   );

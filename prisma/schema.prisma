@@ -393,10 +393,30 @@ model BenchmarkNote {
   authorName  String
   content     String    @db.Text
   category    String?
+
+  // Threading fields
+  anchor      String?
+  parentId    String?
+  parent      BenchmarkNote?  @relation("NoteThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     BenchmarkNote[] @relation("NoteThread")
+  resolvedAt  DateTime?
+
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   @@index([benchmarkId])
+  @@index([benchmarkId, anchor])
+  @@index([parentId])
+}
+
+model IndustryBrief {
+  id        String   @id @default(cuid())
+  industry  String   @unique
+  brief     String   @db.Text
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@index([industry])
 }
 
 model AppSetting {

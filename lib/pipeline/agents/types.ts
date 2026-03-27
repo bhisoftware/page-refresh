@@ -81,6 +81,7 @@ export interface ScoreAgentInput {
   benchmarks: BenchmarkRow[];
   benchmarkCount: number;
   exaBenchmarkContext?: string;
+  industryBrief?: string;
 }
 
 export interface CreativeBriefPriority {

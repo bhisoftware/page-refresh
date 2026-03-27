@@ -29,10 +29,26 @@ export default async function AdminBenchmarksPage({
       skip,
       take: pageSize,
       orderBy: { createdAt: "desc" },
-      include: { _count: { select: { notes: true } } },
+      include: {
+        _count: {
+          select: {
+            notes: { where: { parentId: null } },
+          },
+        },
+        notes: {
+          where: { parentId: null },
+          select: { resolvedAt: true },
+        },
+      },
     }),
     prisma.benchmark.count({ where }),
   ]);
+
+  // Check which industries have active briefs
+  const activeBriefs = await prisma.industryBrief.findMany({
+    select: { industry: true },
+  });
+  const industriesWithBriefs = new Set(activeBriefs.map((b) => b.industry));
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const industryNames = INDUSTRIES.map((i) => i.name);
@@ -56,7 +72,9 @@ export default async function AdminBenchmarksPage({
                     <th className="text-left p-3 font-medium">Industry</th>
                     <th className="text-left p-3 font-medium">Score</th>
                     <th className="text-left p-3 font-medium">Scored</th>
-                    <th className="text-left p-3 font-medium">Notes</th>
+                    <th className="text-left p-3 font-medium">Comments</th>
+                    <th className="text-left p-3 font-medium">Resolved</th>
+                    <th className="text-left p-3 font-medium">Brief</th>
                     <th className="text-left p-3 font-medium">Created</th>
                   </tr>
                 </thead>
@@ -81,10 +99,38 @@ export default async function AdminBenchmarksPage({
                         )}
                       </td>
                       <td className="p-3">
-                        {(b._count?.notes ?? 0) > 0 ? (
-                          <Badge variant="secondary">{b._count.notes}</Badge>
+                        {(() => {
+                          const count = b._count?.notes ?? 0;
+                          if (count === 0) return "—";
+                          const resolved = b.notes.filter((n) => n.resolvedAt !== null).length;
+                          const allResolved = resolved === count;
+                          return (
+                            <Badge variant="secondary" className={allResolved ? "bg-green-100 text-green-700" : ""}>
+                              {count}
+                            </Badge>
+                          );
+                        })()}
+                      </td>
+                      <td className="p-3">
+                        {(() => {
+                          const count = b._count?.notes ?? 0;
+                          if (count === 0) return "—";
+                          const resolved = b.notes.filter((n) => n.resolvedAt !== null).length;
+                          const allResolved = resolved === count;
+                          return (
+                            <span className={allResolved ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
+                              {resolved}/{count}
+                            </span>
+                          );
+                        })()}
+                      </td>
+                      <td className="p-3">
+                        {industriesWithBriefs.has(b.industry) ? (
+                          <Link href="/admin/industry-briefs">
+                            <Badge className="bg-green-600 cursor-pointer">Active</Badge>
+                          </Link>
                         ) : (
-                          "—"
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </td>
                       <td className="p-3 text-muted-foreground">

@@ -500,6 +500,12 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
   const exaBenchmark = await exaBenchmarkPromise;
   const exaBenchmarkContext = buildBenchmarkPromptBlock(exaBenchmark);
 
+  // Fetch admin-curated industry brief (if one exists)
+  const industryBriefRecord = await prisma.industryBrief.findUnique({
+    where: { industry },
+    select: { brief: true },
+  });
+
   const [scoreResult, logoResult] = await Promise.all([
     runScoreAgent({
       skills,
@@ -509,6 +515,7 @@ export async function runAnalysis(options: PipelineOptions): Promise<string> {
         benchmarks,
         benchmarkCount: benchmarks.length,
         ...(exaBenchmarkContext ? { exaBenchmarkContext } : {}),
+        ...(industryBriefRecord?.brief ? { industryBrief: industryBriefRecord.brief } : {}),
       },
       refreshId,
       onRetry,

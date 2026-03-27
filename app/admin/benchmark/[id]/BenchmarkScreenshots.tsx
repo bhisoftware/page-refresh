@@ -12,10 +12,9 @@ interface Screenshot {
 
 interface BenchmarkScreenshotsProps {
   screenshots: Screenshot[];
-  siteUrl: string;
 }
 
-export function BenchmarkScreenshots({ screenshots, siteUrl }: BenchmarkScreenshotsProps) {
+export function BenchmarkScreenshots({ screenshots }: BenchmarkScreenshotsProps) {
   const [activeIndex, setActiveIndex] = useState(0);
 
   if (!screenshots.length) return null;
@@ -47,12 +46,7 @@ export function BenchmarkScreenshots({ screenshots, siteUrl }: BenchmarkScreensh
 
       {/* Screenshot display */}
       <div className="relative group">
-        <a
-          href={siteUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block rounded-lg overflow-hidden border hover:ring-2 hover:ring-primary transition-all"
-        >
+        <div className="rounded-lg overflow-hidden border">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={current.url}
@@ -62,7 +56,7 @@ export function BenchmarkScreenshots({ screenshots, siteUrl }: BenchmarkScreensh
               current.type === "mobile" ? "w-auto max-h-[600px] mx-auto" : "w-full",
             )}
           />
-        </a>
+        </div>
 
         {/* Prev / Next arrows */}
         {screenshots.length > 1 && (

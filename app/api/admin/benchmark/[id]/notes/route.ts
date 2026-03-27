@@ -33,12 +33,23 @@ export async function POST(
     );
   }
 
+  if (parsed.data.parentId) {
+    const parent = await prisma.benchmarkNote.findFirst({
+      where: { id: parsed.data.parentId, benchmarkId: id, parentId: null },
+    });
+    if (!parent) {
+      return Response.json({ error: "Parent not found or is itself a reply" }, { status: 400 });
+    }
+  }
+
   const note = await prisma.benchmarkNote.create({
     data: {
       benchmarkId: id,
       authorName: parsed.data.authorName,
       content: parsed.data.content,
       category: parsed.data.category ?? undefined,
+      anchor: parsed.data.anchor ?? undefined,
+      parentId: parsed.data.parentId ?? undefined,
     },
   });
   return Response.json(note);

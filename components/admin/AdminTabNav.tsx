@@ -8,6 +8,7 @@ import { Logo } from "@/components/Logo";
 const TABS = [
   { label: "Analyses", href: "/admin", match: (path: string) => path === "/admin" },
   { label: "Benchmarks", href: "/admin/benchmarks", match: (path: string) => path.startsWith("/admin/benchmark") },
+  { label: "Industry Briefs", href: "/admin/industry-briefs", match: (path: string) => path.startsWith("/admin/industry-briefs") },
   { label: "Settings", href: "/admin/settings", match: (path: string) => path.startsWith("/admin/settings") },
 ] as const;
 
