@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { GlowCard } from "@/components/ui/glow-card";
+import { DesignShowcaseTiles } from "@/components/ui/design-showcase-tiles";
+import { ShaderBackground } from "@/components/ShaderBackground";
 type PipelineStep =
   | "started"
   | "analyzing"
@@ -454,10 +457,11 @@ function HomeContent() {
   if (isAnalyzing) {
     return (
       <main
-        className="min-h-screen bg-[#fdf8f6] text-[#343230] selection:bg-[#ffad93] selection:text-[#702104]"
-        style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+        className="min-h-screen text-[#343230] selection:bg-[#ffad93] selection:text-[#702104]"
+        style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", background: "#f5f0eb" }}
       >
-        <div className="min-h-screen flex flex-col items-center justify-center px-6">
+        <ShaderBackground />
+        <div className="relative z-[2] min-h-screen flex flex-col items-center justify-center px-6">
           <ScanningExperience
             tokens={tokens}
             currentStep={displayStep}
@@ -543,7 +547,7 @@ function HomeContent() {
                   </p>
                 )}
               </form>
-              <p className="text-sm font-semibold tracking-widest uppercase text-[#9e4323]/70 whitespace-nowrap text-center sm:text-left italic">
+              <p className="text-sm font-semibold tracking-widest uppercase text-[#9e4323]/70 whitespace-nowrap text-center italic">
                 Paste your URL. Then pick from 3 upgraded designs. It&apos;s that easy.
               </p>
             </div>
@@ -563,41 +567,47 @@ function HomeContent() {
             <h2 className="text-4xl md:text-5xl font-extrabold tracking-tighter mb-16 text-center">Three Easy Steps</h2>
             <div className="grid md:grid-cols-3 gap-8">
               {/* Step 1 */}
-              <div className="bg-[#f8f2f0] p-8 md:p-12 rounded-lg flex flex-col justify-between hover:bg-[#f2edea] transition-colors duration-500 min-h-[320px] md:min-h-[400px] border-b-4 border-[#9e4323]/20">
-                <div>
-                  <div className="w-12 h-12 bg-[#9e4323]/10 rounded-full flex items-center justify-center mb-8">
-                    <span className="material-symbols-outlined text-[#9e4323]">link</span>
+              <GlowCard glowColor="orange" customSize className="p-8 md:p-12 min-h-[320px] md:min-h-[400px]">
+                <div className="relative z-10 flex flex-col justify-between h-full">
+                  <div>
+                    <div className="w-12 h-12 bg-[#9e4323]/10 rounded-full flex items-center justify-center mb-8">
+                      <span className="material-symbols-outlined text-[#9e4323]">link</span>
+                    </div>
+                    <h3 className="text-2xl md:text-3xl font-bold mb-4 tracking-tight">Step 1: Paste your URL</h3>
+                    <p className="text-[#615e5c] leading-relaxed text-base md:text-lg">
+                      We scan your homepage and generate a detailed score with specific reasons your site is underperforming
+                    </p>
                   </div>
-                  <h3 className="text-2xl md:text-3xl font-bold mb-4 tracking-tight">Step 1: Paste your URL</h3>
-                  <p className="text-[#615e5c] leading-relaxed text-base md:text-lg">
-                    We scan your homepage and generate a detailed score with specific reasons your site is underperforming
-                  </p>
                 </div>
-              </div>
+              </GlowCard>
               {/* Step 2 */}
-              <div className="bg-[#f8f2f0] p-8 md:p-12 rounded-lg flex flex-col justify-between hover:bg-[#f2edea] transition-colors duration-500 min-h-[320px] md:min-h-[400px] border-b-4 border-[#ffd9e2]">
-                <div>
-                  <div className="w-12 h-12 bg-[#9e4323]/10 rounded-full flex items-center justify-center mb-8">
-                    <span className="material-symbols-outlined text-[#9e4323]" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+              <GlowCard glowColor="red" customSize className="p-8 md:p-12 min-h-[320px] md:min-h-[400px]">
+                <div className="relative z-10 flex flex-col justify-between h-full">
+                  <div>
+                    <div className="w-12 h-12 bg-[#9e4323]/10 rounded-full flex items-center justify-center mb-8">
+                      <span className="material-symbols-outlined text-[#9e4323]" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+                    </div>
+                    <h3 className="text-2xl md:text-3xl font-bold mb-4 tracking-tight">Step 2: Pick a design</h3>
+                    <p className="text-[#615e5c] leading-relaxed text-base md:text-lg">
+                      We generate 3 completely redesigned versions of your homepage. All three are massive upgrades. Just pick the one you like.
+                    </p>
                   </div>
-                  <h3 className="text-2xl md:text-3xl font-bold mb-4 tracking-tight">Step 2: Pick a design</h3>
-                  <p className="text-[#615e5c] leading-relaxed text-base md:text-lg">
-                    We generate 3 completely redesigned versions of your homepage. All three are massive upgrades. Just pick the one you like.
-                  </p>
                 </div>
-              </div>
+              </GlowCard>
               {/* Step 3 */}
-              <div className="bg-[#f8f2f0] p-8 md:p-12 rounded-lg flex flex-col justify-between hover:bg-[#f2edea] transition-colors duration-500 min-h-[320px] md:min-h-[400px] border-b-4 border-[#e5b0fe]">
-                <div>
-                  <div className="w-12 h-12 bg-[#9e4323]/10 rounded-full flex items-center justify-center mb-8">
-                    <span className="material-symbols-outlined text-[#9e4323]">rocket_launch</span>
+              <GlowCard glowColor="purple" customSize className="p-8 md:p-12 min-h-[320px] md:min-h-[400px]">
+                <div className="relative z-10 flex flex-col justify-between h-full">
+                  <div>
+                    <div className="w-12 h-12 bg-[#9e4323]/10 rounded-full flex items-center justify-center mb-8">
+                      <span className="material-symbols-outlined text-[#9e4323]">rocket_launch</span>
+                    </div>
+                    <h3 className="text-2xl md:text-3xl font-bold mb-4 tracking-tight">Step 3: We Install It</h3>
+                    <p className="text-[#615e5c] leading-relaxed text-base md:text-lg">
+                      Pay $249 and we handle the rest. Your new homepage goes live. No coding. No handoffs. No Project Managers.
+                    </p>
                   </div>
-                  <h3 className="text-2xl md:text-3xl font-bold mb-4 tracking-tight">Step 3: We Install It</h3>
-                  <p className="text-[#615e5c] leading-relaxed text-base md:text-lg">
-                    Pay $249 and we handle the rest. Your new homepage goes live. No coding. No handoffs. No Project Managers.
-                  </p>
                 </div>
-              </div>
+              </GlowCard>
             </div>
           </div>
           <div className="text-center mt-16">
@@ -689,7 +699,8 @@ function HomeContent() {
                 <span className="material-symbols-outlined text-[#ffad93]">cancel</span> No monthly subscriptions
               </div>
             </div>
-            <p className="text-[#e7e1df] text-lg md:text-xl leading-relaxed text-center mt-8 md:mt-12 w-full relative z-10">
+            <DesignShowcaseTiles />
+            <p className="text-3xl md:text-5xl font-extrabold tracking-tighter text-center mt-8 md:mt-12 w-full relative z-10">
               Pick a design.
             </p>
           </div>
